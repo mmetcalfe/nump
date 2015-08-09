@@ -2,13 +2,26 @@
 #include <cairo/cairo.h>
 #include <cairo/cairo-pdf.h>
 #include <math.h>
-#include "../src/nump.h"
+#include <armadillo>
+#include "nump.h"
+#include "shared/utility/drawing/SearchTreeDrawing.h"
 
-using namespace std;
+using shared::utility::drawing::drawSearchTree;
 
 int main() {
-    cairo_surface_t *surface = cairo_pdf_surface_create("output.pdf", 500, 500);
+
+    arma::vec2 start = {0, 0};
+    arma::vec2 goal  = {1, 1};
+    auto tree = nump::SearchTree::fromRRT(start, goal, 100);
+
+    arma::ivec2 surfaceDimensions = {100, 100};
+    cairo_surface_t *surface = cairo_pdf_surface_create("output.pdf", surfaceDimensions(0), surfaceDimensions(1));
     cairo_t *cr = cairo_create(surface);
+
+    cairo_scale(cr, surfaceDimensions(0), surfaceDimensions(1));
+
+    drawSearchTree(cr, tree);
+
 
 //    cairo_select_font_face(cr, "serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 //    cairo_set_font_size(cr, 32.0);

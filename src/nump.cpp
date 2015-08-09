@@ -4,6 +4,10 @@
 
 #include "nump.h"
 
+namespace nump {
+
 int test() {
     return 0;
+}
+
 }

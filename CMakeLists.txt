@@ -3,20 +3,28 @@ project(nump)
 
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/tools/cmake/")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 
 # Build NUMP:
 
-file(GLOB SOURCE_FILES "src/*.cpp" "src/*.h")
-add_library(nump ${SOURCE_FILES})
+#file(GLOB SOURCE_FILES "src/*.cpp" "src/*.h")
+#add_library(nump ${SOURCE_FILES} src/graph.h src/SearchTree.h)
+add_library(nump src/nump.cpp)
 set_target_properties(nump PROPERTIES LINKER_LANGUAGE CXX)
 
+find_package(Armadillo REQUIRED)
+include_directories(${ARMADILLO_INCLUDE_DIRS} REQUIRED)
+target_include_directories(nump PRIVATE "src")
+
+target_link_libraries(nump
+    ${ARMADILLO_LIBRARIES}
+    )
 
 # Build tests:
 
 set(NUMPTEST_SOURCES test/numptest.cpp)
-add_executable(numptest ${NUMPTEST_SOURCES})
+add_executable(numptest ${NUMPTEST_SOURCES} test/shared/utility/drawing/SearchTreeDrawing.h)
 set_target_properties(numptest PROPERTIES LINKER_LANGUAGE CXX)
 
 
