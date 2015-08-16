@@ -5,37 +5,43 @@ SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/tools/cmake/")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
+find_package(Cairo REQUIRED)
+find_package(Armadillo REQUIRED)
+include_directories(${CAIRO_INCLUDE_DIRS} REQUIRED)
+include_directories(${ARMADILLO_INCLUDE_DIRS} REQUIRED)
 
 # Build NUMP:
 
-#file(GLOB SOURCE_FILES "src/*.cpp" "src/*.h")
-#add_library(nump ${SOURCE_FILES} src/graph.h src/SearchTree.h)
-add_library(nump src/nump.cpp)
-set_target_properties(nump PROPERTIES LINKER_LANGUAGE CXX)
+#add_library(nump src/nump.cpp)
+##add_library(nump ${SOURCE_FILES} src/graph.h src/SearchTree.h)
+#set_target_properties(nump PROPERTIES LINKER_LANGUAGE CXX)
+#
+#find_package(Armadillo REQUIRED)
+#include_directories(${ARMADILLO_INCLUDE_DIRS} REQUIRED)
+#target_include_directories(nump PRIVATE "src")
+#
+#target_link_libraries(nump
+#    ${ARMADILLO_LIBRARIES}
+#    )
 
-find_package(Armadillo REQUIRED)
-include_directories(${ARMADILLO_INCLUDE_DIRS} REQUIRED)
-target_include_directories(nump PRIVATE "src")
+#file(GLOB SOURCE_FILES "src/*.h" "src/*.cpp" "test/*.h")
+file(GLOB_RECURSE CPP_SOURCE_FILES "src/*.cpp" "test/*.cpp")
 
-target_link_libraries(nump
-    ${ARMADILLO_LIBRARIES}
-    )
 
 # Build tests:
 
-set(NUMPTEST_SOURCES test/numptest.cpp)
-add_executable(numptest ${NUMPTEST_SOURCES} test/shared/utility/drawing/SearchTreeDrawing.h)
+#set(NUMPTEST_SOURCES test/numptest.cpp)
+#add_executable(numptest ${NUMPTEST_SOURCES} ${SOURCE_FILES})
+add_executable(numptest ${CPP_SOURCE_FILES})
 set_target_properties(numptest PROPERTIES LINKER_LANGUAGE CXX)
 
-
-find_package(Cairo REQUIRED)
-message("CID: ${CAIRO_INCLUDE_DIRS}")
-include_directories(${CAIRO_INCLUDE_DIRS} REQUIRED)
 #target_include_directories(numptest SYSTEM INTERFACE ${CAIRO_INCLUDE_DIRS} REQUIRED)
-target_include_directories(numptest PRIVATE "src")
+target_include_directories(numptest PRIVATE "src" "test")
+#target_include_directories(numptest PRIVATE "test")
 
 
 target_link_libraries(numptest
-    nump
+#    nump
     ${CAIRO_LIBRARIES}
+    ${ARMADILLO_LIBRARIES}
     )
