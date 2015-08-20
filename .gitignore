@@ -1,4 +1,12 @@
+
+# Temp folders:
+/build/
+
+# IDE files:
 /.idea/workspace.xml
 /.idea/misc.xml
+
+# Images:
 *.pdf
 *.png
+*.gif

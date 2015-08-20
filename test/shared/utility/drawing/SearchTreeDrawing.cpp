@@ -12,6 +12,8 @@
 #include "nump.h"
 #include <cairo/cairo.h>
 
+using nump::math::Transform2D;
+
 namespace shared {
 namespace utility {
 namespace drawing {
@@ -36,11 +38,24 @@ namespace drawing {
         cairo_line_to(cr, pos(0), pos(1));
     }
 
-    void drawString(cairo_t *cr, arma::vec2 pos, double fontSize, const std::string& str) {
+    void cairoSetSourceRGB(cairo_t *cr, arma::vec3 rgb) {
+        cairo_set_source_rgb(cr, rgb(0), rgb(1), rgb(2));
+    }
+
+    void cairoSetSourceRGBAlpha(cairo_t *cr, arma::vec3 rgb, double alpha) {
+        cairo_set_source_rgba(cr, rgb(0), rgb(1), rgb(2), alpha);
+    }
+
+
+    void cairoTransformToLocal(cairo_t *cr, Transform2D trans) {
+        cairo_translate(cr, trans.x(), trans.y());
+        cairo_rotate(cr, trans.angle());
+    }
+
+    void showText(cairo_t *cr, arma::vec2 pos, double fontSize, const std::string &str) {
         cairo_save(cr);
 
         cairo_text_extents_t te;
-        cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
         cairo_select_font_face(cr, "Georgia", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
         cairo_set_font_size(cr, fontSize);
         cairo_text_extents(cr, str.c_str(), &te);
@@ -52,14 +67,40 @@ namespace drawing {
         cairo_restore(cr);
     }
 
-    void drawCircle(cairo_t *cr, arma::vec2 c, float r, arma::vec3 col, double alpha) {
+    void fillCircle(cairo_t *cr, arma::vec2 c, float r, arma::vec3 col, double alpha) {
         cairo_arc(cr, c(0), c(1), r, -M_PI, M_PI);
         cairo_set_source_rgba(cr, col(0), col(1), col(2), alpha);
         cairo_fill(cr);
     }
 
-    void drawCircle(cairo_t *cr, nump::math::Circle circle, arma::vec3 col, double alpha) {
-        drawCircle(cr, circle.centre, circle.radius, col, alpha);
+    void fillCircle(cairo_t *cr, nump::math::Circle circle, arma::vec3 col, double alpha) {
+        fillCircle(cr, circle.centre, circle.radius, col, alpha);
+    }
+
+    void drawRobot(cairo_t *cr, Transform2D trans, double size) {
+        double radius = 1.5 * size*0.15;
+        double length = 1.5 * size*0.4;
+
+        cairo_save(cr);
+
+        cairoTransformToLocal(cr, trans);
+
+        double angle = std::acos(radius/length);
+        double tipX = length;
+        double baseX = radius * std::cos(angle);
+        double baseY = radius * std::sin(angle);
+
+        cairoMoveTo(cr, {baseX, baseY});
+        cairoLineTo(cr, {tipX, 0});
+//        cairoLineTo(cr, {baseX, -baseY});
+        cairo_arc_negative(cr, 0, 0, radius, -angle, angle);
+        cairo_close_path(cr);
+
+        cairo_fill(cr);
+//        cairo_set_line_width(cr, radius * 0.2);
+//        cairo_stroke(cr);
+
+        cairo_restore(cr);
     }
 
     void drawTree(cairo_t *cr, const nump::SearchTree::TreeT& tree, double r) {
@@ -86,8 +127,42 @@ namespace drawing {
             arma::vec2 pos = node->value.state;
 
             double hr = tree.depth(node) / (double)tree.height();
-            drawCircle(cr, pos, r, {hr, hr, 1 - hr});
+            fillCircle(cr, pos, r, {hr, hr, 1 - hr});
         }
+    }
+
+    void drawNodeTrajectory(cairo_t *cr, const nump::SearchTree::TrajT& traj, double lineWidth, int numCurvePoints = 50) {
+        cairo_save(cr);
+        cairo_set_line_width(cr, lineWidth);
+        cairo_set_line_cap(cr,CAIRO_LINE_CAP_ROUND);
+        cairo_set_line_join(cr,CAIRO_LINE_JOIN_ROUND);
+
+        cairoMoveTo(cr, traj(0).xy());
+        for (int i = 1; i < numCurvePoints; i++) {
+            double t = (i / double(numCurvePoints)) * traj.t;
+            nump::SearchTree::StateT posT = traj(t);
+            cairoLineTo(cr, posT.rows(0,1));
+        }
+        cairoLineTo(cr, traj(traj.t).xy());
+
+        cairo_stroke(cr);
+
+        cairo_restore(cr);
+    }
+
+    void drawNodeTrajectoryPoints(cairo_t *cr, const nump::SearchTree::TrajT& traj, double size, int numCurvePoints = 50) {
+        cairo_save(cr);
+
+        drawRobot(cr, traj(0), size);
+
+        cairoMoveTo(cr, traj(0).xy());
+        for (int i = 1; i < numCurvePoints; i++) {
+            double t = (i / double(numCurvePoints)) * traj.t;
+            drawRobot(cr, traj(t), size);
+        }
+        drawRobot(cr, traj(traj.t), size);
+
+        cairo_restore(cr);
     }
 
     void drawSearchTree(cairo_t *cr, const nump::SearchTree& searchTree) {
@@ -95,42 +170,47 @@ namespace drawing {
 
         cairo_save(cr);
 
-        double r = deviceToUserDistance(cr, {2, 0})(0);
-        drawCircle(cr, searchTree.initialState(), r, {1, 0.5, 0.5});
-        drawCircle(cr, searchTree.goalState(), r, {0.5, 1, 0.5});
+        double r = 0.04; //deviceToUserDistance(cr, {2, 0})(0);
+        cairo_set_source_rgb(cr, 1, 0.5, 0.5);
+        drawRobot(cr, searchTree.initialState(), r);
+
+        cairo_set_source_rgb(cr, 0.5, 1, 0.5);
+        drawRobot(cr, searchTree.goalState(), r);
 
         // Draw obstacles:
         for (auto& obs : searchTree.obstacles) {
-            drawCircle(cr, obs, {0,0,0}, 0.3);
+            fillCircle(cr, obs, {0, 0, 0}, 0.3);
         }
 
         // Draw edges:
-        cairo_set_line_width(cr, r * 0.5);
+        cairo_set_line_cap(cr,CAIRO_LINE_CAP_ROUND);
+        cairo_set_line_join(cr,CAIRO_LINE_JOIN_ROUND);
         for (auto& node : tree.nodes) {
             if (node->parent == nullptr) {
                 continue;
             }
 
-            arma::vec2 pos = node->value.state;
-            arma::vec2 parent = tree.parent(node)->value.state;
-
-            cairoMoveTo(cr, pos);
-            cairoLineTo(cr, parent);
-
-//            double hr = tree.depth(node) / (double)tree.height();
             double hr = node->value.cost / searchTree.maxCost();
-            cairo_set_source_rgba(cr, hr, hr, 1 - hr, 1);
-            cairo_stroke(cr);
+            arma::vec3 col = arma::normalise(arma::vec({hr, hr, 1 - hr}));
+            cairoSetSourceRGBAlpha(cr, col * 0.5, 1);
+
+            drawNodeTrajectoryPoints(cr, node->value.traj, r * 0.2);
         }
 
         // Draw vertices:
         for (auto& node : tree.nodes) {
-            arma::vec2 pos = node->value.state;
+            nump::SearchTree::StateT state = node->value.state;
 
 //            double hr = tree.depth(node) / (double)tree.height();
             double hr = node->value.cost / searchTree.maxCost();
-            drawCircle(cr, pos, r, {hr, hr, 1 - hr});
-            drawString(cr, pos, r, node->value.cost);
+            arma::vec3 col = arma::normalise(arma::vec({hr, 0, 1 - hr}));
+            col(1) = col(0);
+            cairoSetSourceRGBAlpha(cr, col, 1);
+            drawRobot(cr, state, r);
+//            drawRobot(cr, {state, 0}, r); // TODO: Fix for arma::vec2.
+
+            cairo_set_source_rgb(cr, 0.7, 0.7, 0.7);
+            showText(cr, state.rows(0, 1), r*0.15, node->value.cost);
         }
 
         cairo_restore(cr);

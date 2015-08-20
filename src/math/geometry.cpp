@@ -8,9 +8,12 @@
 
 #include <armadillo>
 #include "math/geometry.h"
+#include "shared/utility/math/angle.h"
 
 namespace nump {
 namespace math {
+
+    using utility::math::angle::normalizeAngle;
 
     bool Circle::contains(arma::vec2 pt) const {
         return arma::norm(centre - pt) < radius;
@@ -31,7 +34,7 @@ namespace math {
         return {
                 x() + cosAngle * reference.x() - sinAngle * reference.y(),
                 y() + sinAngle * reference.x() + cosAngle * reference.y(),
-                angle() + reference.angle() // do not use normalizeAngle here, causes bad things when turning! TODO: unsure on cause
+                normalizeAngle(angle() + reference.angle()) // TODO: Add normaliseAngle fix to NUbots codebase!
         };
     }
     Transform2D Transform2D::worldToLocal(const Transform2D& reference) const {
@@ -42,7 +45,7 @@ namespace math {
         return {
                 cosAngle * diff.x() + sinAngle * diff.y(),
                 -sinAngle * diff.x() + cosAngle * diff.y(),
-                diff.angle()
+                normalizeAngle(diff.angle())
         };
     }
 

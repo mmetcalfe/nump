@@ -10,18 +10,19 @@
 
 #include <armadillo>
 #include "math/geometry.h"
-#include "tree.h"
+#include "Tree.h"
 #include "shared/utility/drawing/SearchTreeDrawing.h"
 
-using shared::utility::drawing::drawCircle;
+using shared::utility::drawing::fillCircle;
 
 namespace nump {
 
     typedef SearchTree::StateT StateT;
     typedef SearchTree::NodeT NodeT;
+    typedef SearchTree::TrajT TrajT;
 
     SearchTree::SearchTree(StateT init, StateT goal)
-            : tree(SearchNode {init, 0, Steer()}), init(init), goal(goal) {
+            : tree(SearchNode {init, 0, TrajT()}), init(init), goal(goal) {
     }
 
 
@@ -58,30 +59,32 @@ namespace nump {
     }
 
     StateT SearchTree::sample() {
-        arma::vec rvec = arma::randu(2);
-        return {rvec(0), rvec(1)};
+        arma::vec rvec = arma::randu(3);
+        return {rvec(0), rvec(1), (rvec(2) * 2 - 1) * M_PI};
     }
 
-    Steer SearchTree::steer(StateT from, StateT to) {
-        Steer s;
-
-        arma::vec2 diff = to - from;
-        double l = arma::norm(diff);
-
-        s.x = from;
-        s.u = arma::normalise(diff);
-
-        double maxDist = 1000;
-//            s.t = std::min(l, maxDist);
-        if (l < maxDist) {
-            s.t = l;
-            s.reachesTarget = true;
-        } else {
-            s.t = maxDist;
-            s.reachesTarget = false;
-        }
-
-        return s;
+    TrajT SearchTree::steer(StateT from, StateT to) {
+        return TrajT::fromEndpoints(from, to);
+//        TrajT s;
+//
+//        StateT diff = to - from;
+//        double l = arma::norm(diff);
+//
+//        s.xInit = from;
+//        s.xGoal = to;
+//        s.u = arma::normalise(diff);
+//
+//        double maxDist = 1000;
+////            s.t = std::min(l, maxDist);
+//        if (l < maxDist) {
+//            s.t = l;
+//            s.reachesTarget = true;
+//        } else {
+//            s.t = maxDist;
+//            s.reachesTarget = false;
+//        }
+//
+//        return s;
     }
 
     std::vector<NodeT> SearchTree::nearVertices(NodeT queryNode, unsigned long numVertices) const {
@@ -91,12 +94,12 @@ namespace nump {
         double cardV = numVertices;
         double threshold = gammaRRTs * pow(log(cardV) / cardV, 1.0 / 2);
 
-        cairo_arc(cairo, queryNode->value.state(0), queryNode->value.state(1), threshold, -M_PI, M_PI);
-        cairo_set_source_rgba(cairo, 1, 0.7, 1, 1);
-        cairo_set_line_width(cairo, 0.02);
-        cairo_stroke_preserve(cairo);
-        cairo_set_source_rgba(cairo, 1, 0.7, 1, 0.5);
-        cairo_fill(cairo);
+//        cairo_arc(cairo, queryNode->value.state(0), queryNode->value.state(1), threshold, -M_PI, M_PI);
+//        cairo_set_source_rgba(cairo, 1, 0.7, 1, 1);
+//        cairo_set_line_width(cairo, 0.02);
+//        cairo_stroke_preserve(cairo);
+//        cairo_set_source_rgba(cairo, 1, 0.7, 1, 0.5);
+//        cairo_fill(cairo);
 
         for (auto &node : tree.nodes) {
             if (distance(node->value.state, queryNode->value.state) < threshold) {
@@ -107,17 +110,20 @@ namespace nump {
         return near;
     }
 
-    bool SearchTree::obstacleFree(Steer s) const {
+    bool SearchTree::obstacleFree(TrajT s) const {
         int numSteps = 100;
         for (int i = 0; i <= numSteps; i++) {
             double t = i / double(numSteps);
-            arma::vec2 x = s(t*s.t);
+            StateT x = s(t*s.t);
 
-            drawCircle(cairo, x, 0.001, {1, 1, 1}, 1);
+            arma::vec2 pos = {x(0), x(1)};
+////            fillCircle(cairo, {x(0), x(1)}, 0.001, {1, 1, 1}, 1);
+//            cairo_set_source_rgba(cairo, 0, 0, 0, 0.5);
+//            shared::utility::drawing::drawRobot(cairo, x, 0.01);
 
             for (auto &obs : obstacles) {
-                if (obs.contains(x)) {
-                    drawCircle(cairo, x, 0.003, {0, 1, 1}, 1);
+                if (obs.contains(pos)) {
+//                    fillCircle(cairo, pos, 0.003, {0, 1, 1}, 1);
 
                     return false;
                 }
@@ -127,7 +133,7 @@ namespace nump {
         return true;
     }
 
-    double SearchTree::J(Steer s) {
+    double SearchTree::J(TrajT s) {
         return s.t;
     }
 
@@ -140,7 +146,7 @@ namespace nump {
 //            for i in range(K):
 //                    addNodeRRT(T, xInit, K, eta)
 //            return T
-//        template <class arma::vec2>
+//        template <class StateT>
     SearchTree SearchTree::fromRRT(cairo_t *cr, StateT init, StateT goal, int n, std::vector<nump::math::Circle> obstacles) {
         auto tree = SearchTree(init, goal);
 
@@ -149,7 +155,7 @@ namespace nump {
         tree.obstacles = obstacles;
 
         for (int i = 0; i < n; i++) {
-            arma::vec2 zRand = sample();
+            StateT zRand = sample();
             tree.extendRRT(zRand);
         }
 
@@ -157,7 +163,7 @@ namespace nump {
     }
 
 
-    void SearchTree::setParent(NodeT node, NodeT parent, Steer edgeTraj, double nodeCost) {
+    void SearchTree::setParent(NodeT node, NodeT parent, TrajT edgeTraj, double nodeCost) {
         node->value.traj = edgeTraj;
         node->value.cost = nodeCost;
         node->parent = parent;
@@ -221,22 +227,22 @@ namespace nump {
 
         tree.nodes.push_back(zNew);
 
-        drawCircle(cr, zNearest->value.state, 0.035, {1, 0.5, 0}, 1);
+//        fillCircle(cr, zNearest->value.state.rows(0,1), 0.035, {1, 0.5, 0}, 1);
 
         auto zMin = zNearest;
         auto cMin = cost(zNew->value);
-        Steer xMin = xNew;
+        TrajT xMin = xNew;
 
         auto zNearby = nearVertices(zNew, numVertices);
         for (auto &zNear : zNearby) {
             auto xNear = steer(zNear->value.state, zNew->value.state);
 
-            { // debug
-                drawCircle(cr, zNear->value.state, 0.03, {0, 1, 0}, 0.2);
-                arma::vec2 mid = (zNear->value.state + zNew->value.state) * 0.5;
-                mid[1] -= 0.01;
-                shared::utility::drawing::drawString(cr, mid, 0.01, J(xNear), ", ", xNear.reachesTarget, ", ", obstacleFree(xNear));
-            }
+//            { // debug
+//                fillCircle(cr, zNear->value.state.rows(0,1), 0.03, {0, 1, 0}, 0.2);
+//                StateT mid = (zNear->value.state + zNew->value.state) * 0.5;
+//                mid[1] -= 0.01;
+//                shared::utility::drawing::showText(cr, mid.rows(0, 1), 0.01, J(xNear), ", ", xNear.reachesTarget, ", ", obstacleFree(xNear));
+//            }
             if (xNear.reachesTarget && obstacleFree(xNear)) { /*&& xNear(xNear.t) == zNew*/
                 double zNearCost = cost(zNear->value) + J(xNear);
                 if (zNearCost < cMin) {
@@ -249,7 +255,7 @@ namespace nump {
             }
         }
 
-        drawCircle(cr, zMin->value.state, 0.03, {0, 1, 0});
+//        fillCircle(cr, zMin->value.state.rows(0,1), 0.03, {0, 1, 0});
         setParent(zNew, zMin, xMin, cMin);
 
         for (auto &zNear : zNearby) {
