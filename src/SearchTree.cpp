@@ -35,7 +35,9 @@ namespace nump {
     }
 
     inline double SearchTree::distance(StateT a, StateT b) {
-        return arma::norm(a - b);
+//        return arma::norm(a - b);
+//        return J(steer(a, b)); // TODO: Implement a faster, valid, distance metric.
+        return arma::norm(a.xy() - b.xy());
     }
 
     NodeT SearchTree::nearest(StateT state) const {
@@ -102,6 +104,10 @@ namespace nump {
 //        cairo_fill(cairo);
 
         for (auto &node : tree.nodes) {
+//            if (node == queryNode) {
+//                continue;
+//            }
+
             if (distance(node->value.state, queryNode->value.state) < threshold) {
                 near.push_back(node);
             }
@@ -163,7 +169,7 @@ namespace nump {
     }
 
 
-    void SearchTree::setParent(NodeT node, NodeT parent, TrajT edgeTraj, double nodeCost) {
+    void SearchTree::setParent(NodeT node, NodeT parent, TrajT edgeTraj, double nodeCost) const {
         node->value.traj = edgeTraj;
         node->value.cost = nodeCost;
         node->parent = parent;
@@ -211,38 +217,30 @@ namespace nump {
         return tree;
     }
 
-// Note:
-// 'z' denotes a node, which has a parent, and contains
-// a vertex, a control, and a time for which to follow the control.
-    bool SearchTree::extendRRTs(cairo_t *cr, StateT z) {
-        auto numVertices = tree.nodes.size();
 
-        auto zNearest = nearest(z);
-        auto xNew = steer(zNearest->value.state, z);
+    NodeT SearchTree::createValidNodeForState(StateT state) const {
+        auto zNearest = nearest(state);
+        auto xNew = steer(zNearest->value.state, state);
         auto zNew = tree.makeNode(SearchNode {xNew(xNew.t), cost(zNearest->value) + J(xNew), xNew});
+        zNew->parent = zNearest;
 
         if (!obstacleFree(xNew)) {
-            return false;
+            return nullptr;
         }
 
-        tree.nodes.push_back(zNew);
+        return zNew;
+    }
 
-//        fillCircle(cr, zNearest->value.state.rows(0,1), 0.035, {1, 0.5, 0}, 1);
-
-        auto zMin = zNearest;
+    void SearchTree::optimiseParent(NodeT zNew, std::vector<NodeT> zNearby) const {
+        // Find optimal parent:
+        // NodeT findOptimalParent(NodeT zNew, std::vector<NodeT> zNearby) const;
+        auto zMin = zNew->parent; // zNearest
         auto cMin = cost(zNew->value);
-        TrajT xMin = xNew;
+        TrajT xMin = zNew->value.traj;
 
-        auto zNearby = nearVertices(zNew, numVertices);
         for (auto &zNear : zNearby) {
             auto xNear = steer(zNear->value.state, zNew->value.state);
 
-//            { // debug
-//                fillCircle(cr, zNear->value.state.rows(0,1), 0.03, {0, 1, 0}, 0.2);
-//                StateT mid = (zNear->value.state + zNew->value.state) * 0.5;
-//                mid[1] -= 0.01;
-//                shared::utility::drawing::showText(cr, mid.rows(0, 1), 0.01, J(xNear), ", ", xNear.reachesTarget, ", ", obstacleFree(xNear));
-//            }
             if (xNear.reachesTarget && obstacleFree(xNear)) { /*&& xNear(xNear.t) == zNew*/
                 double zNearCost = cost(zNear->value) + J(xNear);
                 if (zNearCost < cMin) {
@@ -250,16 +248,16 @@ namespace nump {
                     zMin = zNear;
                     xMin = xNear;
                 }
-
-
             }
         }
 
-//        fillCircle(cr, zMin->value.state.rows(0,1), 0.03, {0, 1, 0});
+        // Set parent to the optimal parent:
         setParent(zNew, zMin, xMin, cMin);
+    }
 
+    void SearchTree::optimiseNeighbours(NodeT zNew, std::vector<NodeT> zNearby) {
         for (auto &zNear : zNearby) {
-            if (zNear == zMin) {
+            if (zNear == zNew->parent /*zMin*/) { // zMin is the optimal parent of zNew.
                 continue;
             }
 
@@ -270,8 +268,26 @@ namespace nump {
                 cost(zNear->value) > zNearCost) { /*xNear(xNear.t) == zNear &&*/
                 setParent(zNear, zNew, xNear, zNearCost);
             }
-
         }
+    }
+
+// Note:
+// 'z' denotes a node, which has a parent, and contains
+// a vertex, a control, and a time for which to follow the control.
+    bool SearchTree::extendRRTs(cairo_t *cr, StateT z) {
+        auto zNew = createValidNodeForState(z);
+        if (!zNew) {
+            return false;
+        }
+
+        auto zNearby = nearVertices(zNew, tree.nodes.size());
+
+        // Note: Mutates zNew, but nothing else.
+        optimiseParent(zNew, zNearby);
+
+        tree.nodes.push_back(zNew);
+
+        optimiseNeighbours(zNew, zNearby);
 
         return true;
     }

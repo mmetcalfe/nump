@@ -213,6 +213,18 @@ namespace drawing {
             showText(cr, state.rows(0, 1), r*0.15, node->value.cost);
         }
 
+        // Draw optimal path:
+        auto goalNode = searchTree.createValidNodeForState(searchTree.goalState());
+        if (goalNode) {
+            cairoSetSourceRGBAlpha(cr, {0, 0.7, 0}, 0.8);
+            auto zNearby = searchTree.nearVertices(goalNode, tree.nodes.size());
+            searchTree.optimiseParent(goalNode, zNearby);
+            for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
+                drawRobot(cr, pathNode->value.state, r);
+                drawNodeTrajectoryPoints(cr, pathNode->value.traj, r * 0.5);
+            }
+        }
+
         cairo_restore(cr);
     }
 

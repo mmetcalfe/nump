@@ -43,25 +43,31 @@ namespace nump {
         double walk_near_rotation_speed = 5;
         double rotationSpeed = angleSign * walk_near_rotation_speed;
 
-        arma::vec2 dir = arma::normalise(localTarget.xy());
-        arma::vec2 translationVelocity = dir;
+        arma::vec2 translationVec = arma::normalise(localTarget.xy());
+        double translationAngle = utility::math::angle::vectorToBearing(translationVec);
+        double translationSpeed = (1 - std::abs(translationAngle)*(0.25/M_PI)); // TODO: Ensure translationSpeed matches the distance metrics used.
+        arma::vec2 translationVelocity = translationVec * translationSpeed;
         Transform2D velocity = {translationVelocity, rotationSpeed};
         return velocity;
     }
 
     Transform2D walkBetween(const Transform2D& x1, const Transform2D& x2) {
-        double dist = arma::norm(x1.xy() - x2.xy());
+        Transform2D localTarget = x1.worldToLocal(x2);
+        auto targetAngle = utility::math::angle::vectorToBearing(localTarget.xy());
 
-        double farDist = 0.6;
-        double nearDist = 0.2;
-        double blend = std::max(0.0, std::min(1.0, (dist - nearDist) / (farDist - nearDist)));
-        return blend * walkBetweenFar(x1, x2) + (1 - blend) * walkBetweenNear(x1, x2);
+        double dist = arma::norm(localTarget.xy());
+
+//        double farDist = 0.6;
+//        double nearDist = 0.2;
+//        double blend = std::max(0.0, std::min(1.0, (dist - nearDist) / (farDist - nearDist)));
+//        return blend * walkBetweenFar(x1, x2) + (1 - blend) * walkBetweenNear(x1, x2);
 
 //        if (dist > 0.2) {
-//            return walkBetweenFar(x1, x2);
-//        } else {
-//            return walkBetweenNear(x1, x2);
-//        }
+        if (dist > 0.2 && std::abs(targetAngle) < M_PI*0.25) { // TODO: Choose walkBetweenFar as long as it satisfies the topological property.
+            return walkBetweenFar(x1, x2);
+        } else {
+            return walkBetweenNear(x1, x2);
+        }
     }
 
     template <>

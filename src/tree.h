@@ -28,7 +28,7 @@ namespace nump {
 
         typedef std::shared_ptr<Node> NodeT;
 
-        NodeT makeNode(T val) {
+        NodeT makeNode(T val) const {
             return std::make_shared<Node>(val);
         }
 
