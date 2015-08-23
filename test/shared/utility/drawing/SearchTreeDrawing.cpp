@@ -77,6 +77,32 @@ namespace drawing {
         fillCircle(cr, circle.centre, circle.radius, col, alpha);
     }
 
+    void drawRobot(cairo_t *cr, arma::vec2 pos, double size) {
+        double radius = 1.5 * size*0.15;
+        double length = 1.5 * size*0.4;
+
+        cairo_save(cr);
+
+//        cairoTransformToLocal(cr, trans);
+
+        double angle = std::acos(radius/length);
+        double tipX = length;
+        double baseX = radius * std::cos(angle);
+        double baseY = radius * std::sin(angle);
+
+//        cairoMoveTo(cr, {baseX, baseY});
+//        cairoLineTo(cr, {tipX, 0});
+//        cairoLineTo(cr, {baseX, -baseY});
+        cairo_arc(cr, pos(0), pos(1), radius, -M_PI, M_PI);
+//        cairo_close_path(cr);
+
+        cairo_fill(cr);
+//        cairo_set_line_width(cr, radius * 0.2);
+//        cairo_stroke(cr);
+
+        cairo_restore(cr);
+    }
+
     void drawRobot(cairo_t *cr, Transform2D trans, double size) {
         double radius = 1.5 * size*0.15;
         double length = 1.5 * size*0.4;
@@ -137,13 +163,13 @@ namespace drawing {
         cairo_set_line_cap(cr,CAIRO_LINE_CAP_ROUND);
         cairo_set_line_join(cr,CAIRO_LINE_JOIN_ROUND);
 
-        cairoMoveTo(cr, traj(0).xy());
+        cairoMoveTo(cr, traj(0).rows(0,1));
         for (int i = 1; i < numCurvePoints; i++) {
             double t = (i / double(numCurvePoints)) * traj.t;
             nump::SearchTree::StateT posT = traj(t);
             cairoLineTo(cr, posT.rows(0,1));
         }
-        cairoLineTo(cr, traj(traj.t).xy());
+        cairoLineTo(cr, traj(traj.t).rows(0,1));
 
         cairo_stroke(cr);
 
@@ -155,7 +181,7 @@ namespace drawing {
 
         drawRobot(cr, traj(0), size);
 
-        cairoMoveTo(cr, traj(0).xy());
+        cairoMoveTo(cr, traj(0).rows(0,1));
         for (int i = 1; i < numCurvePoints; i++) {
             double t = (i / double(numCurvePoints)) * traj.t;
             drawRobot(cr, traj(t), size);
@@ -195,6 +221,7 @@ namespace drawing {
             cairoSetSourceRGBAlpha(cr, col * 0.5, 1);
 
             drawNodeTrajectoryPoints(cr, node->value.traj, r * 0.2);
+//            drawNodeTrajectory(cr, node->value.traj, r * 0.2);
         }
 
         // Draw vertices:

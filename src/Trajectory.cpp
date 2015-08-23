@@ -8,18 +8,6 @@
 
 namespace nump {
 
-//    template <>
-//    Trajectory<arma::vec2>::Trajectory() {
-//        x.zeros();
-//        u.zeros();
-//    }
-//
-//    template <>
-//    arma::vec2 Trajectory<arma::vec2>::operator() (double t) {
-//        return x + u * t;
-//    }
-
-
     Transform2D walkBetweenFar(const Transform2D& currentState, const Transform2D& targetState) {
         auto diff = arma::vec2(targetState.xy() - currentState.xy());
         auto dir = utility::math::angle::vectorToBearing(diff);
@@ -71,10 +59,23 @@ namespace nump {
     }
 
     template <>
+    Trajectory<arma::vec2>::Trajectory() {
+        xInit.zeros();
+        xGoal.zeros();
+    }
+
+    template <>
     Trajectory<Transform2D>::Trajectory() {
         xInit.zeros();
         xGoal.zeros();
 //        u.zeros();
+    }
+
+    template <>
+    arma::vec2 Trajectory<arma::vec2>::operator() (double t) const {
+        arma::vec2 diff = arma::normalise(xGoal - xInit);
+
+        return xInit + diff * t;
     }
 
     template <>
@@ -87,6 +88,30 @@ namespace nump {
         }
 
         return pos;
+    }
+
+    template <>
+    Trajectory<arma::vec2> Trajectory<arma::vec2>::fromEndpoints(arma::vec2 xInit, arma::vec2 xGoal) {
+        Trajectory<arma::vec2> traj;
+
+        traj.xInit = xInit;
+        traj.xGoal = xGoal;
+        traj.reachesTarget = false;
+        traj.t = 0;
+
+        arma::vec2 diff = xGoal - xInit;
+        double l = arma::norm(diff);
+
+        double maxDist = 200;
+        if (l < maxDist) {
+            traj.t = l;
+            traj.reachesTarget = true;
+        } else {
+            traj.t = maxDist;
+            traj.reachesTarget = false;
+        }
+
+        return traj;
     }
 
     template <>
@@ -127,24 +152,15 @@ namespace nump {
     }
 
 
+    template <>
+    arma::vec2 Trajectory<arma::vec2>::sample() {
+        arma::vec rvec = arma::randu(2);
+        return { rvec(0), rvec(1) };
+    }
+
+    template <>
+    Transform2D Trajectory<Transform2D>::sample() {
+        arma::vec rvec = arma::randu(3);
+        return { rvec(0), rvec(1), (rvec(2) * 2 - 1) * M_PI };
+    }
 }
-
-
-//
-//template <>
-//Trajectory<arma::vec2>::Trajectory() {
-//    x.zeros();
-//    u.zeros();
-//}
-//template <>
-//Trajectory<Transform2D>::Trajectory() {
-//    x.zeros();
-//    u.zeros();
-//}
-//
-//template <>
-//arma::vec2 Trajectory<arma::vec2>::operator() (double t) {
-//    // TODO: Apply the control in local coordinates of x.
-//    // TODO: Apply the control continuously over the timespan, instead of just adding it.
-//    return x + u * t;
-//}

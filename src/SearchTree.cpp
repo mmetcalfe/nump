@@ -37,7 +37,7 @@ namespace nump {
     inline double SearchTree::distance(StateT a, StateT b) {
 //        return arma::norm(a - b);
 //        return J(steer(a, b)); // TODO: Implement a faster, valid, distance metric.
-        return arma::norm(a.xy() - b.xy());
+        return arma::norm(a.rows(0,1) - b.rows(0,1));
     }
 
     NodeT SearchTree::nearest(StateT state) const {
@@ -58,11 +58,6 @@ namespace nump {
         });
 
         return (*min_it)->value.cost;
-    }
-
-    StateT SearchTree::sample() {
-        arma::vec rvec = arma::randu(3);
-        return {rvec(0), rvec(1), (rvec(2) * 2 - 1) * M_PI};
     }
 
     TrajT SearchTree::steer(StateT from, StateT to) {
@@ -161,7 +156,7 @@ namespace nump {
         tree.obstacles = obstacles;
 
         for (int i = 0; i < n; i++) {
-            StateT zRand = sample();
+            StateT zRand = TrajT::sample();
             tree.extendRRT(zRand);
         }
 
@@ -208,7 +203,7 @@ namespace nump {
 
 
         for (int i = 0; i < n; i++) {
-            StateT zRand = sample();
+            StateT zRand = TrajT::sample();
             bool extended = tree.extendRRTs(cr, zRand);
 
             callback(tree, zRand, extended);

@@ -30,6 +30,8 @@ namespace nump {
         double t = 0; // time
         bool reachesTarget = true;
 
+        static StateT sample();
+
         static Trajectory fromEndpoints(StateT xInit, StateT xGoal);
 
         // TODO: Use armadillo's linear interpolation feature for more complex controls?

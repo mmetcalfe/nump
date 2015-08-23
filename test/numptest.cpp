@@ -38,7 +38,7 @@ void trajectoryTests() {
 
     double size = 0.2;
 
-    Transform2D x1 = {0.5, 0.5, 1.5*M_PI}; //nump::SearchTree::sample();
+    Transform2D x1 = {0.5, 0.5, 1.5*M_PI}; //nump::SearchTree::TrajT::sample();
 
     shared::utility::drawing::cairoSetSourceRGB(cr, {0.5, 0.5, 0.5});
     shared::utility::drawing::drawRobot(cr, x1, size);
@@ -48,9 +48,9 @@ void trajectoryTests() {
     for (int i = 0; i < numTrials; i++) {
         arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
 
-//        Transform2D x1 = nump::SearchTree::sample();
-        Transform2D x2 = nump::SearchTree::sample();
-        nump::Trajectory<Transform2D> x = nump::SearchTree::steer(x1, x2);
+//        Transform2D x1 = nump::SearchTree::TrajT::sample();
+        nump::SearchTree::StateT x2 = nump::SearchTree::TrajT::sample();
+        nump::SearchTree::TrajT x = nump::SearchTree::steer(x1, x2);
 
 
 //        shared::utility::drawing::cairoSetSourceRGB(cr, col * 0.5);
@@ -81,14 +81,14 @@ void trajectoryTests() {
             shared::utility::drawing::cairoSetSourceRGBAlpha(cr, pathCol, 0.5);
             shared::utility::drawing::drawRobot(cr, pos, size * 0.2);
             shared::utility::drawing::cairoSetSourceRGBAlpha(cr, pathCol * 0.5, 0.5);
-            shared::utility::drawing::showText(cr, pos.xy(), size * 0.1, t);
+            shared::utility::drawing::showText(cr, pos.rows(0,1), size * 0.1, t);
         }
 
 //        shared::utility::drawing::cairoSetSourceRGB(cr, pathCol);
         shared::utility::drawing::cairoSetSourceRGB(cr, {0,0,0});
         shared::utility::drawing::drawRobot(cr, x(x.t), size * 0.2);
         shared::utility::drawing::cairoSetSourceRGB(cr, {0.8,0.8,0.8});
-        shared::utility::drawing::showText(cr, x(x.t).xy(), size * 0.1, x.t, ", ", x.reachesTarget);
+        shared::utility::drawing::showText(cr, x(x.t).rows(0,1), size * 0.1, x.t, ", ", x.reachesTarget);
     }
 
     cairo_show_page(cr);
@@ -103,7 +103,7 @@ void trajectoryTests() {
 
 int main() {
 
-    trajectoryTests();
+//    trajectoryTests();
 
     arma::ivec2 surfaceDimensions = {500, 500};
     cairo_surface_t *surface = cairo_pdf_surface_create("output.pdf", surfaceDimensions(0), surfaceDimensions(1));
@@ -117,8 +117,10 @@ int main() {
     std::cout << "SEED: " << seed << std::endl;
 
     // Setup problem:
-    Transform2D start = {0, 0, 0};
-    Transform2D goal  = {1, 1, 0};
+//    Transform2D start = {0, 0, 0};
+//    Transform2D goal  = {1, 1, 0};
+    arma::vec2 start = {0, 0};
+    arma::vec2 goal  = {1, 1};
 
     int numPoints = 500;
     std::vector<nump::math::Circle> obstacles;

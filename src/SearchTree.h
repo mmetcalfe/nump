@@ -21,7 +21,7 @@ namespace nump {
         cairo_t *cairo = nullptr;
 
         struct SearchNode;
-        typedef Transform2D StateT;
+        typedef arma::vec2 StateT;
         typedef Trajectory<StateT> TrajT;
         typedef Tree<SearchNode> TreeT;
 
@@ -47,8 +47,8 @@ namespace nump {
 
     public:
 
-        // State space:
-        static StateT sample();
+//        // State space:
+//        static StateT sample();
 
         // Collision detection:
         bool obstacleFree(TrajT s) const;
