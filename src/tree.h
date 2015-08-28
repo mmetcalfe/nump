@@ -2,11 +2,11 @@
 // Created by Mitchell Metcalfe on 8/08/15.
 //
 
+#ifndef NUMP_TREE_H
+#define NUMP_TREE_H
+
 #include <memory>
 #include <armadillo>
-
-#ifndef NUMP_GRAPH_H
-#define NUMP_GRAPH_H
 
 namespace nump {
 

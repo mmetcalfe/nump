@@ -5,10 +5,15 @@
 #include <armadillo>
 #include "nump.h"
 #include "shared/utility/drawing/SearchTreeDrawing.h"
+#include "shared/utility/math/geometry/Ellipse.h"
+#include "shared/utility/math/geometry/intersection/Intersection.h"
 
+using utility::math::geometry::Ellipse;
 using shared::utility::drawing::drawSearchTree;
+using shared::utility::drawing::drawRRBT;
 using shared::utility::drawing::fillCircle;
-using nump::Transform2D;
+using nump::math::Transform2D;
+using nump::math::Circle;
 
 arma::arma_rng::seed_type randomSeed() {
     arma::arma_rng::set_seed_random();
@@ -101,9 +106,77 @@ void trajectoryTests() {
 }
 
 
+
+void intersectionTests() {
+    std::cout << "IntersectionTests: BEGIN" << std::endl;
+
+    // Get random seed:
+    int seed = randomSeed();
+    arma::arma_rng::set_seed(seed);
+    std::cout << "  SEED: " << seed << std::endl;
+
+    // Create surface:
+    arma::ivec2 surfaceDimensions = {500, 500};
+    cairo_surface_t *surface = cairo_pdf_surface_create("intersectionTests.pdf", surfaceDimensions(0), surfaceDimensions(1));
+    cairo_t *cr = cairo_create(surface);
+    cairo_scale(cr, surfaceDimensions(0), surfaceDimensions(1));
+
+    // White background:
+    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
+
+    // Set the robot's state and uncertainty:
+    arma::vec2 state = {0.5, 0.5};
+    arma::mat22 stateCov = {
+      { 0.025,  0.01},
+      { 0.01,  0.01}
+    };
+    Ellipse confEllipse = Ellipse::forConfidenceRegion(state, stateCov);
+
+    int numTrials = 10;
+    for (int i = 0; i < numTrials; i++) {
+        arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
+
+        arma::vec randCircle = arma::randu(3);
+
+        Circle circle = {randCircle.rows(0, 1), 0.1 + randCircle(2)*0.3};
+
+        cairo_set_line_width(cr, 0.01);
+        shared::utility::drawing::cairoSetSourceRGBAlpha(cr, col, 0.7);
+        shared::utility::drawing::drawCircle(cr, circle);
+
+        // TODO: Write a circle-ellipse intersection test.
+        bool intersects = utility::math::geometry::intersection::test(circle, confEllipse);
+        if (intersects) {
+            cairo_stroke(cr);
+        } else {
+            cairo_fill(cr);
+        }
+    }
+
+    // Draw confidence region of the robot:
+    shared::utility::drawing::cairoSetSourceRGB(cr, {0.5,0.5,0.5});
+    shared::utility::drawing::drawEllipse(cr, confEllipse);
+
+    shared::utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
+    shared::utility::drawing::drawRotatedRectangle(cr, confEllipse);
+
+    // Add page to PDF:
+    cairo_show_page(cr);
+
+    // Clean up:
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
+
+    std::cout << "IntersectionTests: END" << std::endl << std::endl;
+}
+
+
 int main() {
 
 //    trajectoryTests();
+    intersectionTests();
+
+    return 0;
 
     arma::ivec2 surfaceDimensions = {500, 500};
     cairo_surface_t *surface = cairo_pdf_surface_create("output.pdf", surfaceDimensions(0), surfaceDimensions(1));
@@ -129,44 +202,53 @@ int main() {
     obstacles.push_back({{0.5, 0.5}, 0.2});
 //    obstacles.push_back({{0.8, 0.5}, 0.25});
     obstacles.push_back({{0.4, 1.5}, 0.7});
+//
+//    // Run RRT:
+//    arma::arma_rng::set_seed(seed);
+//    auto rrtTree = nump::SearchTree::fromRRT(cr, start, goal, numPoints, obstacles);
+//
+//    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
+//    drawSearchTree(cr, rrtTree);
+//    cairo_show_page(cr);
+//    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
+////    cairo_push_group(cr);
+//
+//    // Run RRT*:
+//    arma::arma_rng::set_seed(seed);
+//    auto rrtsTree = nump::SearchTree::fromRRTs(cr, start, goal, numPoints, obstacles, [cr](const nump::SearchTree& tree, const nump::SearchTree::StateT newState, bool extended){
+////        if (!extended) {
+////            return;
+////        }
+////        cairo_pattern_t *group = cairo_pop_group(cr);
+////
+//////        fillCircle(cr, newState.rows(0,1), 0.025, {1, 0, 0});
+////        drawSearchTree(cr, tree);
+////
+////        cairo_set_source(cr, group);
+////        cairo_paint(cr);
+////        cairo_pattern_destroy(group);
+////
+////        cairo_show_page(cr);
+////        cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
+////        cairo_push_group(cr);
+//    });
+//
+////    cairo_pop_group_to_source(cr);
+//
+//    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
+//    drawSearchTree(cr, rrtsTree);
+//    cairo_show_page(cr);
 
-    // Run RRT:
+
+    // Run RRBT:
     arma::arma_rng::set_seed(seed);
-    auto rrtTree = nump::SearchTree::fromRRT(cr, start, goal, numPoints, obstacles);
-
-    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
-    drawSearchTree(cr, rrtTree);
-    cairo_show_page(cr);
-    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
-    cairo_push_group(cr);
-
-    // Run RRT*:
-    arma::arma_rng::set_seed(seed);
-    auto rrtsTree = nump::SearchTree::fromRRTs(cr, start, goal, numPoints, obstacles, [cr](const nump::SearchTree& tree, const nump::SearchTree::StateT newState, bool extended){
-//        if (!extended) {
-//            return;
-//        }
-//        cairo_pattern_t *group = cairo_pop_group(cr);
-//
-////        fillCircle(cr, newState.rows(0,1), 0.025, {1, 0, 0});
-//        drawSearchTree(cr, tree);
-//
-//        cairo_set_source(cr, group);
-//        cairo_paint(cr);
-//        cairo_pattern_destroy(group);
-//
-//        cairo_show_page(cr);
-//        cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
-//        cairo_push_group(cr);
+    nump::RRBT::StateCovT initCov = arma::diagmat(arma::vec({0.01, 0.01}));
+//    nump::RRBT::StateCovT initCov = arma::mat({{0.05, 0.01},{0.01,0.05}});
+    auto rrbtTree = nump::RRBT::fromRRBT(cr, start, initCov, goal, numPoints, obstacles, [cr](const nump::RRBT& tree, const nump::RRBT::StateT newState, bool extended){
     });
-
-    cairo_pop_group_to_source(cr);
-
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
-
-    drawSearchTree(cr, rrtsTree);
+    drawRRBT(cr, rrbtTree);
     cairo_show_page(cr);
-
 
     // Clean up:
     cairo_destroy(cr);

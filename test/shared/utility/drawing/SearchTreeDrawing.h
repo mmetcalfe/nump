@@ -7,6 +7,7 @@
 
 #include <armadillo>
 #include "nump.h"
+#include "shared/utility/math/geometry/Ellipse.h"
 #include <cairo/cairo.h>
 
 namespace shared {
@@ -14,6 +15,8 @@ namespace utility {
 namespace drawing {
 
     using nump::Transform2D;
+    using nump::math::RotatedRectangle;
+    using ::utility::math::geometry::Ellipse;
 
     arma::vec2 deviceToUser(cairo_t *cr, arma::vec2 pt);
     arma::vec2 deviceToUserDistance(cairo_t *cr, arma::vec2 vec);
@@ -44,11 +47,21 @@ namespace drawing {
 
     void fillCircle(cairo_t *cr, nump::math::Circle circle, arma::vec3 col = {0, 0, 0}, double alpha = 1);
 
+    void drawCircle(cairo_t *cr, nump::math::Circle circle);
+
     void drawTree(cairo_t *cr, const nump::SearchTree::TreeT& tree, double r);
 
     void drawSearchTree(cairo_t *cr, const nump::SearchTree& searchTree);
 
     void drawRobot(cairo_t *cr, Transform2D trans, double size);
+
+    void drawRRBT(cairo_t *cr, const nump::RRBT& rrbt);
+
+    void drawEllipse(cairo_t *cr, const Ellipse& ellipse);
+
+    void drawRotatedRectangle(cairo_t *cr, const RotatedRectangle& rect);
+
+    void drawErrorEllipse(cairo_t *cr, arma::vec2 mean, arma::mat22 cov, double confidence);
 
 }
 }

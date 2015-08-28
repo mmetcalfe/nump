@@ -2,15 +2,15 @@
 // Created by Mitchell Metcalfe on 8/08/15.
 //
 
+#ifndef NUMP_SEARCHTREE_H
+#define NUMP_SEARCHTREE_H
+
 #include <vector>
 #include <armadillo>
 #include <cairo/cairo.h>
 #include "math/geometry.h"
 #include "Tree.h"
 #include "Trajectory.h"
-
-#ifndef NUMP_SEARCHTREE_H
-#define NUMP_SEARCHTREE_H
 
 namespace nump {
 

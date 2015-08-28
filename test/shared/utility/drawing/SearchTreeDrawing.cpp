@@ -13,6 +13,7 @@
 #include <cairo/cairo.h>
 
 using nump::math::Transform2D;
+using utility::math::geometry::Ellipse;
 
 namespace shared {
 namespace utility {
@@ -75,6 +76,10 @@ namespace drawing {
 
     void fillCircle(cairo_t *cr, nump::math::Circle circle, arma::vec3 col, double alpha) {
         fillCircle(cr, circle.centre, circle.radius, col, alpha);
+    }
+
+    void drawCircle(cairo_t *cr, nump::math::Circle circle) {
+        cairo_arc(cr, circle.centre(0), circle.centre(1), circle.radius, -M_PI, M_PI);
     }
 
     void drawRobot(cairo_t *cr, arma::vec2 pos, double size) {
@@ -254,6 +259,151 @@ namespace drawing {
 
         cairo_restore(cr);
     }
+
+    void drawRRBT(cairo_t *cr, const nump::RRBT& rrbt) {
+        auto& tree = rrbt.graph;
+
+        cairo_save(cr);
+
+        double r = 0.04; //deviceToUserDistance(cr, {2, 0})(0);
+        cairo_set_source_rgb(cr, 1, 0.5, 0.5);
+        drawRobot(cr, rrbt.init, r);
+
+        cairo_set_source_rgb(cr, 0.5, 1, 0.5);
+        drawRobot(cr, rrbt.goal, r);
+
+        // Draw obstacles:
+        for (auto& obs : rrbt.obstacles) {
+            fillCircle(cr, obs, {0, 0, 0}, 0.3);
+        }
+
+//        // Draw edges:
+//        cairo_set_line_cap(cr,CAIRO_LINE_CAP_ROUND);
+//        cairo_set_line_join(cr,CAIRO_LINE_JOIN_ROUND);
+//        for (auto& node : tree.nodes) {
+//            if (node->parent == nullptr) {
+//                continue;
+//            }
+//
+//            double hr = node->value.cost / rrbt.maxCost();
+//            arma::vec3 col = arma::normalise(arma::vec({hr, hr, 1 - hr}));
+//            cairoSetSourceRGBAlpha(cr, col * 0.5, 1);
+//
+//            drawNodeTrajectoryPoints(cr, node->value.traj, r * 0.2);
+////            drawNodeTrajectory(cr, node->value.traj, r * 0.2);
+//        }
+
+       // Draw vertices:
+        for (auto& node : tree.nodes) {
+            nump::RRBT::StateT state = node->value.state;
+//
+////            double hr = tree.depth(node) / (double)tree.height();
+//            double hr = node->value.cost / rrbt.maxCost();
+//            arma::vec3 col = arma::normalise(arma::vec({hr, 0, 1 - hr}));
+//            col(1) = col(0);
+          //  cairoSetSourceRGBAlpha(cr, col, 1);
+            cairoSetSourceRGBAlpha(cr, {0.7, 0, 1}, 0.5);
+            drawRobot(cr, state, r);
+
+            for (auto& node : node->value.beliefNodes) {
+                drawErrorEllipse(cr, state, node->stateCov, 0.95);
+            }
+
+////            drawRobot(cr, {state, 0}, r); // TODO: Fix for arma::vec2.
+//
+//            cairo_set_source_rgb(cr, 0.7, 0.7, 0.7);
+//            showText(cr, state.rows(0, 1), r*0.15, node->value.cost);
+       }
+
+//        // Draw optimal path:
+//        auto goalNode = rrbt.createValidNodeForState(rrbt.goalState());
+//        if (goalNode) {
+//            cairoSetSourceRGBAlpha(cr, {0, 0.7, 0}, 0.8);
+//            auto zNearby = rrbt.nearVertices(goalNode, tree.nodes.size());
+//            searchTree.optimiseParent(goalNode, zNearby);
+//            for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
+//                drawRobot(cr, pathNode->value.state, r);
+//                drawNodeTrajectoryPoints(cr, pathNode->value.traj, r * 0.5);
+//            }
+//        }
+
+        cairo_restore(cr);
+    }
+
+    // TODO: Write in terms of math::geometry::ellipse;
+    void drawErrorEllipse(cairo_t *cr, arma::vec2 mean, arma::mat22 cov, double confidence) {
+        arma::vec eigval;  // eigenvalues are stored in ascending order.
+        arma::mat eigvec;
+        arma::eig_sym(eigval, eigvec, cov);
+        arma::vec2 primaryAxis = arma::vec(eigvec.col(1));
+        double angle = std::atan2(primaryAxis(1), primaryAxis(0));
+
+        Transform2D trans = {mean, angle};
+
+        double chiSquareVal = 5.991; // for 95% confidence interval
+
+        arma::vec axisLengths = 2*arma::sqrt(chiSquareVal*eigval);
+
+        cairo_save(cr);
+//        cairo_set_line_width(cr, 0.001);
+        cairoTransformToLocal(cr, trans);
+        cairo_scale(cr, axisLengths(1), axisLengths(0));
+        cairo_arc(cr, 0, 0, 0.5, -M_PI, M_PI); // diameter 1
+        cairo_restore(cr);
+
+        cairo_fill(cr);
+
+//        // CHECK:
+//        int count = 0;
+//        for (int i = 0; i < 10000; i++) {
+//            arma::vec randvec = arma::randn(2);
+//            arma::mat covtrans = arma::chol(cov);
+//            arma::vec val = mean + covtrans * randvec;
+//            fillCircle(cr, val, 0.0025,{0,0,0},1);
+//
+//            if (arma::norm(val - mean) < axisLengths(0)*0.5) { // for circle
+//                count++;
+//            }
+//        }
+//        std::cout << axisLengths << eigval << eigvec << count << std::endl;
+    }
+
+    void drawEllipse(cairo_t *cr, const Ellipse& ellipse) {
+        cairo_save(cr);
+          cairo_set_line_width(cr, 0.01);
+        cairoTransformToLocal(cr, ellipse.getTransform());
+
+        arma::vec2 size = ellipse.getSize();
+
+        cairo_scale(cr, size(0), size(1));
+        cairo_arc(cr, 0, 0, 0.5, -M_PI, M_PI); // diameter 1
+
+        cairo_stroke(cr);
+
+        cairo_restore(cr);
+    }
+
+    void drawRotatedRectangle(cairo_t *cr, const RotatedRectangle& rect) {
+        cairo_save(cr);
+        cairo_set_line_width(cr, 0.01);
+        cairoTransformToLocal(cr, rect.getTransform());
+
+        arma::vec2 size = rect.getSize();
+
+        cairo_scale(cr, size(0), size(1));
+//        cairo_arc(cr, 0, 0, 0.5, -M_PI, M_PI); // diameter 1
+        cairoMoveTo(cr, {-0.5, -0.5});
+        cairoLineTo(cr, {0.5, -0.5});
+        cairoLineTo(cr, {0.5, 0.5});
+        cairoLineTo(cr, {-0.5, 0.5});
+        cairo_close_path(cr);
+
+        cairo_stroke(cr);
+
+        cairo_restore(cr);
+    }
+
+
 
 }
 }

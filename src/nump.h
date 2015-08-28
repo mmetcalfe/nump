@@ -3,6 +3,7 @@
 //
 
 #include "SearchTree.h"
+#include "RRBT.h"
 
 #ifndef NUMP_NUMP_H
 #define NUMP_NUMP_H
