@@ -15,6 +15,15 @@
 
 namespace nump {
 
+    /* See the following paper for details:
+        @article{Bry:2011eh,
+            author = {Bry, Adam and Roy, Nicholas},
+            title = {{Rapidly-exploring Random Belief Trees for motion planning under uncertainty.}},
+            journal = {ICRA},
+            year = {2011},
+            pages = {723--730}
+        }
+     */
     class RRBT {
     public:
 
@@ -73,21 +82,25 @@ namespace nump {
 
         static double J(TrajT s);
 
+        bool extendRRBT(cairo_t *cr, StateT z);
+
         // Class and member functions:
         static RRBT fromRRBT(cairo_t *cr, StateT init, StateCovT initCov, StateT goal, int n,
-                                   std::vector<nump::math::Circle> obstacles,
-                                   std::function<void(const RRBT &, StateT, bool)> callback = [](
-                const RRBT &, StateT, bool) { });
-
-        bool extendRRBT(cairo_t *cr, StateT z);
+                             std::vector<nump::math::Circle> obstacles,
+                             std::function<void(const RRBT &, StateT, bool)> callback = [](auto a, auto b, auto c){});
 
         NodeT nearest(StateT state) const;
 
-        TrajT connect(StateT from, StateT to);
+        static TrajT connect(StateT from, StateT to);
 
         std::vector<NodeT> neighbours(NodeT node);
 
-        BeliefNodePtr propagate(const TrajT& traj, BeliefNodePtr belief);
+        static BeliefNodePtr propagate(
+                const TrajT& traj,
+                BeliefNodePtr belief,
+                const std::vector<nump::math::Circle>& obstacles,
+                std::function<void(double, StateT, BeliefNodePtr)> callback = [](auto a, auto b, auto c){}
+        );
 
         bool appendBelief(NodeT node, BeliefNodePtr belief);
 

@@ -9,6 +9,7 @@
 #include <queue>
 #include "shared/utility/drawing/SearchTreeDrawing.h"
 #include "shared/utility/math/geometry/Ellipse.h"
+#include "shared/utility/math/geometry/intersection/Intersection.h"
 
 using utility::math::geometry::Ellipse;
 
@@ -127,7 +128,12 @@ namespace nump {
         return tree;
     }
 
-    BeliefNodePtr RRBT::propagate(const TrajT& traj, BeliefNodePtr belief) {
+    BeliefNodePtr RRBT::propagate(
+            const TrajT& traj,
+            BeliefNodePtr belief,
+            const std::vector<nump::math::Circle>& obstacles,
+            std::function<void(double, StateT, BeliefNodePtr)> callback
+    ) {
         // Note: Notation transliteration conventions:
         // LaTeX  -->  C++
         //  t-1  -->  p
@@ -138,23 +144,49 @@ namespace nump {
         RRBT::StateCovT Σp = belief->stateCov;
         RRBT::StateCovT Λp = belief->stateDistribCov;
 
-        RRBT::StateCovT Σt, Λt; // ouptuts
-
+        RRBT::StateCovT Σt, Λt; // declare ouptuts
 
         // Iterate over trajectory:
         // TODO: Make trajectory iteration efficient.
-        int numSteps = 100;
+        // TODO: Determine how to change matrices per timestep so that timesteps do not have to equal in time.
+        int numSteps = traj.t / 0.01; // 100
         for (int i = 0; i <= numSteps; i++) {
-            double t = i / double(numSteps);
+            double t = (i / double(numSteps)) * traj.t;
 
             // Inputs: Qt, Rt, Σp, Λp.
-            RRBT::StateT xTraj = traj(t);
 
-            // TODO: Determine At, Bt, Ct, and Kt by linearising the robot's
+            // TODO: Determine At, Bt, Ct, and Kt by linearising the robot's dynamics at the current point.
             RRBT::StateCovT At, Bt, Ct, Kt, Qt, Rt;
-            // dynamics at the current point.
             // TODO: Have the trajectory use a model to determine Qt (the motion uncertainty).
             // TODO: Use a sensor model to determine Ct and Rt.
+
+            /*
+             * Note: Sensor and movement error model is:
+             *
+             *     x~t = At*x~p + Bt*u~p + wt,    wt ~ N(0, Qt)
+             *     z~t = Ct*x~t + vt,             vt ~ N(0, Rt)
+             *
+             * (where \tilde{x}  -->  x~)
+             *
+             */
+
+            At.eye();
+
+            Bt.eye();
+
+            Kt.eye();
+            Kt(0,0) = 1;
+            Kt(1,1) = 1;
+
+            Ct.eye();
+
+            Qt.eye();
+            Qt(0,0) = 0.001;
+            Qt(1,1) = 0.001;
+
+            Rt.eye();
+            Rt(0,0) = 0.01;
+            Rt(1,1) = 0.01;
 
 
             // Step 1 - Covariance prediction (equations 21, 33):
@@ -162,8 +194,8 @@ namespace nump {
             RRBT::StateCovT Σbt = At*Σp*At.t() + Qt; // (equation 17)
 
             // Kalman filter measurement update:
-            RRBT::StateCovT St = Ct*Σbt*Ct.t() + Rt;
-            RRBT::StateCovT Lt = Σbt*Ct.t()*St.i();
+            RRBT::StateCovT St = Ct*Σbt*Ct.t() + Rt; // (equation 18)
+            RRBT::StateCovT Lt = Σbt*Ct.t()*St.i(); // (equation 19)
             Σt = Σbt - Lt*Ct*Σbt; // (equation 21)
 
             // Distribution over state estimates:
@@ -175,6 +207,7 @@ namespace nump {
             // x_t ~ N(\check{x}, Λ_{t} + Σ_{t})
             // i.e. x_t ~ N(xTraj, xTrajCov)
             // (where x_t is the true state)
+            RRBT::StateT xTraj = traj(t);
             RRBT::StateCovT xTrajCov = Σt + Λt;
 
             // Step 2 - Cost expectation evaluation (equation 11):
@@ -186,49 +219,44 @@ namespace nump {
             Ellipse confEllipse = Ellipse::forConfidenceRegion(xTraj, xTrajCov);
             for (auto& obs : obstacles) {
                 // TODO: Enhance test to work for a polygonal robot footprint, rather than just a point robot.
-                bool intersects = utility::math::geometry::intersection::test(circle, confEllipse);
+                bool intersects = utility::math::geometry::intersection::test(obs, confEllipse);
 
                 // Return failure if the chance constraint is violated:
                 if (intersects) {
                     return nullptr;
                 }
             }
+
+            { // DEBUG
+                // Callback for debug drawing:
+                auto dbgBelief = std::make_shared<BeliefNode>(std::weak_ptr<GraphT::Node>());
+                dbgBelief->parent = belief;
+                dbgBelief->stateCov = Σt;
+                dbgBelief->stateDistribCov = Λt;
+                dbgBelief->cost = belief->cost; // + J(traj); // TODO: Implement cost function for partial trajectories.
+                callback(t, xTraj, dbgBelief);
+            }
+
+            // Update previous values:
+            Σp = Σt;
+            Λp = Λt;
         }
 
         // Construct a belief node with the resultant distribution:
-
         // TODO: Get node from the edge:
-//        auto newBelief = std::make_shared<BeliefNode>(initNode);
-//        belief->stateCov = initCov;
+        auto newBelief = std::make_shared<BeliefNode>(std::weak_ptr<GraphT::Node>()); // null weak pointer
+        newBelief->parent = belief;
 
+        // Assign calculated distributions and cost:
+        newBelief->stateCov = Σt;
+        newBelief->stateDistribCov = Λt;
+        newBelief->cost = belief->cost + J(traj);
 
-//        return newBelief;
-        return nullptr;
+        return newBelief;
     }
 
-//
-//    fn compare_covariances(cov_a : StateCovT, cov_b : StateCovT) {
-//        // TODO: Verify method of covariance comparison, + describe in report.
-//        if (is_positive_definite(cov_a - cov_b)) {
-//            // return greater_than;
-//        } else {
-//            // return greater_than;
-//        }
-//    }
-//
-//    fn belief_ordering_dominance(a : BeliefNode, b : BeliefNode) -> bool {
-//        // a < b <=> (a.Σ < b.Σ) and (a.Λ < b.Λ) and (a.c < b.c)
-//        compare_covariances(a.state_cov, b.state_cov) and
-//        compare_covariances(a.distribution_over_state_estimates, b.distribution_over_state_estimates) and
-//        a.c < b.c
-//    }
-//
-//    fn belief_ordering_pruning(a : BeliefNode, b : BeliefNode) -> bool {
-//        // a ≲ b <=> (a.Σ < (b.Σ + εI)) and (a.Λ < (b.Λ + εI)) and (a.c < b.c)
-//        true
-//    }
-
     // TODO: Make positive definite test more efficient.
+    // TODO: Verify method of covariance comparison, + describe in report.
     bool is_positive_definite(const RRBT::StateCovT& X) {
         arma::vec eigval = arma::eig_sym(X);
 
@@ -298,7 +326,7 @@ namespace nump {
         // violating the chance constraint, then return failure.
         BeliefNodePtr nRand = nullptr;
         for (auto& node : vNearest->value.beliefNodes) {
-            nRand = propagate(eNearestRand, node);
+            nRand = propagate(eNearestRand, node, obstacles);
             if (nRand != nullptr) {
                 break;
             }
@@ -352,7 +380,7 @@ namespace nump {
             for (auto& eNeighbour : graph.outgoing(vBelief)) {
                 auto vNeighbour = eNeighbour.child.lock();
 
-                auto nNew = propagate(eNeighbour.value, nBelief);
+                auto nNew = propagate(eNeighbour.value, nBelief, obstacles);
 
                 if (appendBelief(vNeighbour, nNew)) {
                     beliefNodeQ.push({nNew, vNeighbour});

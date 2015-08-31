@@ -54,6 +54,7 @@ namespace drawing {
     void drawSearchTree(cairo_t *cr, const nump::SearchTree& searchTree);
 
     void drawRobot(cairo_t *cr, Transform2D trans, double size);
+    void drawRobot(cairo_t *cr, arma::vec2 pos, double size);
 
     void drawRRBT(cairo_t *cr, const nump::RRBT& rrbt);
 
@@ -61,8 +62,7 @@ namespace drawing {
 
     void drawRotatedRectangle(cairo_t *cr, const RotatedRectangle& rect);
 
-    void drawErrorEllipse(cairo_t *cr, arma::vec2 mean, arma::mat22 cov, double confidence);
-
+    void drawErrorEllipse(cairo_t *cr, const arma::vec2& mean, const arma::mat22& cov, double confidence);
 }
 }
 }

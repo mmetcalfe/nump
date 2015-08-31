@@ -11,12 +11,15 @@
       <sourceFolder url="file://$MODULE_DIR$/src/Trajectory.h" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/math/geometry.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/math/geometry.h" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/test/intersection_tests.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/test/numptest.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/test/propogate_tests.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/test/shared/utility/drawing/SearchTreeDrawing.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/test/shared/utility/drawing/SearchTreeDrawing.h" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/test/shared/utility/math/geometry/Ellipse.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/test/shared/utility/math/geometry/Ellipse.h" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/test/shared/utility/math/geometry/intersection/TestCircleEllipse.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/test/trajectory_tests.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tools/cmake/FindCairo.cmake" isTestSource="false" />
     </content>
     <orderEntry type="inheritedJdk" />
@@ -372,11 +375,14 @@
           <root url="file://$MODULE_DIR$/src/SearchTree.h" />
           <root url="file://$MODULE_DIR$/src/SearchTree.cpp" />
           <root url="file://$MODULE_DIR$/src/RRBT.cpp" />
+          <root url="file://$MODULE_DIR$/test/trajectory_tests.cpp" />
+          <root url="file://$MODULE_DIR$/test/propogate_tests.cpp" />
           <root url="file://$MODULE_DIR$/test/numptest.cpp" />
           <root url="file://$MODULE_DIR$/test/shared/utility/drawing/SearchTreeDrawing.h" />
           <root url="file://$MODULE_DIR$/test/shared/utility/drawing/SearchTreeDrawing.cpp" />
           <root url="file://$MODULE_DIR$/test/shared/utility/math/geometry/Ellipse.cpp" />
           <root url="file://$MODULE_DIR$/test/shared/utility/math/geometry/intersection/TestCircleEllipse.cpp" />
+          <root url="file://$MODULE_DIR$/test/intersection_tests.cpp" />
           <root url="file://$MODULE_DIR$/test/shared/utility/math/geometry/Ellipse.h" />
         </excluded>
       </library>

@@ -330,50 +330,27 @@ namespace drawing {
         cairo_restore(cr);
     }
 
-    // TODO: Write in terms of math::geometry::ellipse;
-    void drawErrorEllipse(cairo_t *cr, arma::vec2 mean, arma::mat22 cov, double confidence) {
-        arma::vec eigval;  // eigenvalues are stored in ascending order.
-        arma::mat eigvec;
-        arma::eig_sym(eigval, eigvec, cov);
-        arma::vec2 primaryAxis = arma::vec(eigvec.col(1));
-        double angle = std::atan2(primaryAxis(1), primaryAxis(0));
-
-        Transform2D trans = {mean, angle};
-
-        double chiSquareVal = 5.991; // for 95% confidence interval
-
-        arma::vec axisLengths = 2*arma::sqrt(chiSquareVal*eigval);
-
-        cairo_save(cr);
-//        cairo_set_line_width(cr, 0.001);
-        cairoTransformToLocal(cr, trans);
-        cairo_scale(cr, axisLengths(1), axisLengths(0));
-        cairo_arc(cr, 0, 0, 0.5, -M_PI, M_PI); // diameter 1
-        cairo_restore(cr);
-
-        cairo_fill(cr);
-
-//        // CHECK:
-//        int count = 0;
-//        for (int i = 0; i < 10000; i++) {
-//            arma::vec randvec = arma::randn(2);
-//            arma::mat covtrans = arma::chol(cov);
-//            arma::vec val = mean + covtrans * randvec;
-//            fillCircle(cr, val, 0.0025,{0,0,0},1);
-//
-//            if (arma::norm(val - mean) < axisLengths(0)*0.5) { // for circle
-//                count++;
-//            }
-//        }
-//        std::cout << axisLengths << eigval << eigvec << count << std::endl;
+    void drawErrorEllipse(cairo_t *cr, const arma::vec2& mean, const arma::mat22& cov, double confidence) {
+        auto ellipse = Ellipse::forConfidenceRegion(mean, cov);
+        drawEllipse(cr, ellipse);
     }
 
     void drawEllipse(cairo_t *cr, const Ellipse& ellipse) {
+        arma::vec2 size = ellipse.getSize();
+
+        if (size(0) + size(1) > 1e3) {
+            std::cerr << __FILE__ << ", " << __LINE__ << " - " << __func__ << ": "
+                     << "Ellipse dimensions too large ("
+                     << size(0) << ", "
+                     << size(1) << ")"
+                     << std::endl;
+            return;
+        }
+
         cairo_save(cr);
-          cairo_set_line_width(cr, 0.01);
+        cairo_set_line_width(cr, 0.01);
         cairoTransformToLocal(cr, ellipse.getTransform());
 
-        arma::vec2 size = ellipse.getSize();
 
         cairo_scale(cr, size(0), size(1));
         cairo_arc(cr, 0, 0, 0.5, -M_PI, M_PI); // diameter 1

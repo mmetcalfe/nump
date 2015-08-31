@@ -7,6 +7,7 @@
 #include "shared/utility/drawing/SearchTreeDrawing.h"
 #include "shared/utility/math/geometry/Ellipse.h"
 #include "shared/utility/math/geometry/intersection/Intersection.h"
+#include "tests.h"
 
 using utility::math::geometry::Ellipse;
 using shared::utility::drawing::drawSearchTree;
@@ -23,160 +24,11 @@ arma::arma_rng::seed_type randomSeed() {
     return seed;
 }
 
-void trajectoryTests() {
-    std::cout << "TrajectoryTests: BEGIN" << std::endl;
-
-    // Create surface:
-    arma::ivec2 surfaceDimensions = {500, 500};
-    cairo_surface_t *surface = cairo_pdf_surface_create("trajectoryTests.pdf", surfaceDimensions(0), surfaceDimensions(1));
-    cairo_t *cr = cairo_create(surface);
-    cairo_scale(cr, surfaceDimensions(0), surfaceDimensions(1));
-
-    // White background:
-    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
-
-
-    // Get random seed:
-    int seed = randomSeed();
-    arma::arma_rng::set_seed(seed);
-    std::cout << "  SEED: " << seed << std::endl;
-
-    double size = 0.2;
-
-    Transform2D x1 = {0.5, 0.5, 1.5*M_PI}; //nump::SearchTree::TrajT::sample();
-
-    shared::utility::drawing::cairoSetSourceRGB(cr, {0.5, 0.5, 0.5});
-    shared::utility::drawing::drawRobot(cr, x1, size);
-
-    int numTrials = 10;
-    int numSteps = 200;
-    for (int i = 0; i < numTrials; i++) {
-        arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
-
-//        Transform2D x1 = nump::SearchTree::TrajT::sample();
-        nump::SearchTree::StateT x2 = nump::SearchTree::TrajT::sample();
-        nump::SearchTree::TrajT x = nump::SearchTree::steer(x1, x2);
-
-
-//        shared::utility::drawing::cairoSetSourceRGB(cr, col * 0.5);
-//        shared::utility::drawing::drawRobot(cr, x1, size);
-        shared::utility::drawing::cairoSetSourceRGBAlpha(cr, col, 0.5);
-        shared::utility::drawing::drawRobot(cr, x2, size);
-
-        if (!x.reachesTarget) {
-            cairo_set_source_rgb (cr, 1, 0.0, 0.0);
-            shared::utility::drawing::drawRobot(cr, x1, size);
-            cairo_set_source_rgb (cr, 1, 0.5, 0.5);
-            shared::utility::drawing::drawRobot(cr, x2, size);
-//            continue;
-        }
-
-        // Path colour:
-        arma::vec3 pathCol = col * 0.75;
-        if (x.reachesTarget) {
-            pathCol = col * 0.75;
-        } else {
-            pathCol = { 0.5, 0.2, 0.2 };
-        }
-
-        double timeStep = size*0.25;
-        for (double t = 0; t < x.t; t += timeStep) {
-            Transform2D pos = x(t);
-
-            shared::utility::drawing::cairoSetSourceRGBAlpha(cr, pathCol, 0.5);
-            shared::utility::drawing::drawRobot(cr, pos, size * 0.2);
-            shared::utility::drawing::cairoSetSourceRGBAlpha(cr, pathCol * 0.5, 0.5);
-            shared::utility::drawing::showText(cr, pos.rows(0,1), size * 0.1, t);
-        }
-
-//        shared::utility::drawing::cairoSetSourceRGB(cr, pathCol);
-        shared::utility::drawing::cairoSetSourceRGB(cr, {0,0,0});
-        shared::utility::drawing::drawRobot(cr, x(x.t), size * 0.2);
-        shared::utility::drawing::cairoSetSourceRGB(cr, {0.8,0.8,0.8});
-        shared::utility::drawing::showText(cr, x(x.t).rows(0,1), size * 0.1, x.t, ", ", x.reachesTarget);
-    }
-
-    cairo_show_page(cr);
-
-    // Clean up:
-    cairo_destroy(cr);
-    cairo_surface_destroy(surface);
-
-    std::cout << "TrajectoryTests: END" << std::endl << std::endl;
-}
-
-
-
-void intersectionTests() {
-    std::cout << "IntersectionTests: BEGIN" << std::endl;
-
-    // Get random seed:
-    int seed = randomSeed();
-    arma::arma_rng::set_seed(seed);
-    std::cout << "  SEED: " << seed << std::endl;
-
-    // Create surface:
-    arma::ivec2 surfaceDimensions = {500, 500};
-    cairo_surface_t *surface = cairo_pdf_surface_create("intersectionTests.pdf", surfaceDimensions(0), surfaceDimensions(1));
-    cairo_t *cr = cairo_create(surface);
-    cairo_scale(cr, surfaceDimensions(0), surfaceDimensions(1));
-
-    // White background:
-    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
-
-    // Set the robot's state and uncertainty:
-    arma::vec2 state = {0.5, 0.5};
-    arma::mat22 stateCov = {
-      { 0.025,  0.01},
-      { 0.01,  0.01}
-    };
-    Ellipse confEllipse = Ellipse::forConfidenceRegion(state, stateCov);
-
-    int numTrials = 10;
-    for (int i = 0; i < numTrials; i++) {
-        arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
-
-        arma::vec randCircle = arma::randu(3);
-
-        Circle circle = {randCircle.rows(0, 1), 0.1 + randCircle(2)*0.3};
-
-        cairo_set_line_width(cr, 0.01);
-        shared::utility::drawing::cairoSetSourceRGBAlpha(cr, col, 0.7);
-        shared::utility::drawing::drawCircle(cr, circle);
-
-        // TODO: Write a circle-ellipse intersection test.
-        bool intersects = utility::math::geometry::intersection::test(circle, confEllipse);
-        if (intersects) {
-            cairo_stroke(cr);
-        } else {
-            cairo_fill(cr);
-        }
-    }
-
-    // Draw confidence region of the robot:
-    shared::utility::drawing::cairoSetSourceRGB(cr, {0.5,0.5,0.5});
-    shared::utility::drawing::drawEllipse(cr, confEllipse);
-
-    shared::utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
-    shared::utility::drawing::drawRotatedRectangle(cr, confEllipse);
-
-    // Add page to PDF:
-    cairo_show_page(cr);
-
-    // Clean up:
-    cairo_destroy(cr);
-    cairo_surface_destroy(surface);
-
-    std::cout << "IntersectionTests: END" << std::endl << std::endl;
-}
-
-
 int main() {
-
-//    trajectoryTests();
+    // Run the tests:
+    trajectoryTests();
     intersectionTests();
-
-    return 0;
+    propogateTests();
 
     arma::ivec2 surfaceDimensions = {500, 500};
     cairo_surface_t *surface = cairo_pdf_surface_create("output.pdf", surfaceDimensions(0), surfaceDimensions(1));
@@ -242,7 +94,7 @@ int main() {
 
     // Run RRBT:
     arma::arma_rng::set_seed(seed);
-    nump::RRBT::StateCovT initCov = arma::diagmat(arma::vec({0.01, 0.01}));
+    nump::RRBT::StateCovT initCov = arma::diagmat(arma::vec({0.001, 0.001}));
 //    nump::RRBT::StateCovT initCov = arma::mat({{0.05, 0.01},{0.01,0.05}});
     auto rrbtTree = nump::RRBT::fromRRBT(cr, start, initCov, goal, numPoints, obstacles, [cr](const nump::RRBT& tree, const nump::RRBT::StateT newState, bool extended){
     });
