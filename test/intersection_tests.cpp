@@ -42,31 +42,34 @@ void intersectionTests() {
             { 0.025,  0.01},
             { 0.01,  0.01}
     };
-    Ellipse confEllipse = Ellipse::forConfidenceRegion(state, stateCov);
+    Ellipse confEllipse = Ellipse::forConfidenceRegion(state, stateCov * 0.5);
 
-    int numTrials = 10;
+    int numTrials = 5000;
     for (int i = 0; i < numTrials; i++) {
         arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
 
         arma::vec randCircle = arma::randu(3);
 
-        Circle circle = {randCircle.rows(0, 1), 0.1 + randCircle(2)*0.3};
+//        Circle circle = {randCircle.rows(0, 1), 0.01};
+        Circle circle = {randCircle.rows(0, 1), 0.05 + randCircle(2)*0.2};
 
-        cairo_set_line_width(cr, 0.01);
-        shared::utility::drawing::cairoSetSourceRGBAlpha(cr, col, 0.7);
+        cairo_set_line_width(cr, 0.002);
         shared::utility::drawing::drawCircle(cr, circle);
 
         // TODO: Write a circle-ellipse intersection test.
         bool intersects = utility::math::geometry::intersection::test(circle, confEllipse);
         if (intersects) {
+            shared::utility::drawing::cairoSetSourceRGBAlpha(cr, col, 0.1);
             cairo_stroke(cr);
         } else {
+            shared::utility::drawing::cairoSetSourceRGBAlpha(cr, col, 0.7);
             cairo_fill(cr);
         }
     }
 
     // Draw confidence region of the robot:
-    shared::utility::drawing::cairoSetSourceRGB(cr, {0.5,0.5,0.5});
+    cairo_set_line_width(cr, 0.02);
+    shared::utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
     shared::utility::drawing::drawEllipse(cr, confEllipse);
 
     shared::utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});

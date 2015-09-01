@@ -348,7 +348,7 @@ namespace drawing {
         }
 
         cairo_save(cr);
-        cairo_set_line_width(cr, 0.01);
+//        cairo_set_line_width(cr, 0.01);
         cairoTransformToLocal(cr, ellipse.getTransform());
 
 

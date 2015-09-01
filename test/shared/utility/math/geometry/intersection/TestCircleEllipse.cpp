@@ -29,33 +29,45 @@ namespace intersection {
     using ::nump::math::Circle;
     using nump::math::Transform2D;
 
+
     bool test(const Circle& circle, const Ellipse& ellipse) {
         Transform2D trans = ellipse.getTransform();
         Transform2D pos = trans.worldToLocal({circle.centre(0), circle.centre(1), 0});
 
-        double hw = 0.5 * ellipse.getSize()(0);
-        double hh = 0.5 * ellipse.getSize()(1);
-        double r = circle.radius;
+        arma::vec2 size = ellipse.getSize();
 
+        double hw = 0.5 * size(0); // half-width
+        double hh = 0.5 * size(1); // half-height
+
+        // Circle transformed to positive quadrant of local ellipse coords:
+        double r = circle.radius;
         double x = std::abs(pos(0));
         double y = std::abs(pos(1));
+        Circle localCircle = {{x, y}, r};
 
-        if (x < hw && y < hh) { // E
+        // Throw out far off circles:
+        if (x > hw + r || y > hh + r) {
+            return false;
+        }
+
+
+        // Throw out circles with centres inside the ellipse:
+        if ((x*x)/(hw*hw) + (y*y)/(hh*hh) <= 1) {
             return true;
         }
 
-        if (x < hw && y > hh) { // B
-            return y < hh + r;
+        // Intersect circle with ellipse:
+        int numSamples = 100;
+        for (int i = 0; i <= numSamples; i++) {
+            double qx = hw * (i / double(numSamples));
+            double qy = std::sqrt((hh*hh)*(1.0 - (qx*qx)/(hw*hw)));
+
+            if (localCircle.contains({qx, qy})) {
+                return true;
+            }
         }
 
-        if (x > hw && y < hh) { // F
-            return x < hw + r;
-        }
-
-        // if (x > hw && y > hh) { // C
-        arma::vec2 cornerDiff = { hw - x, hh - y };
-        return arma::norm(cornerDiff) < r;
-        // }
+        return false;
     }
 
 }

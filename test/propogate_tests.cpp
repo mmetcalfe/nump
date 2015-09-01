@@ -45,16 +45,25 @@ void propogateTests() {
 
     // Define colours:
     arma::vec3 colObstacle = {0.0, 0.0, 0.0};
+    arma::vec3 colRegion = {0.0, 0.0, 1.0};
     arma::vec3 colInitial = {0.5, 0.5, 0.5};
     arma::vec3 colProgress = {0.7, 0.6, 0.3};
     arma::vec3 colSuccess = {0.5, 0.9, 0.5};
     arma::vec3 colFailure = {0.9, 0.5, 0.5};
+    double lwHighlight = 0.05;
+    double lwNormal = 0.01;
 
     // Create the obstacles:
     std::vector<nump::math::Circle> obstacles;
-//    obstacles.push_back({{0.6, -0.9}, 1.0});
+    std::vector<nump::math::Circle> measurementRegions;
+    obstacles.push_back({{0.6, -0.9}, 1.0});
 //    obstacles.push_back({{0.5, 0.5}, 0.2});
-//    obstacles.push_back({{0.4, 1.5}, 0.7});
+    obstacles.push_back({{0.4, 1.5}, 0.7});
+
+    for (auto& obs : obstacles) {
+        nump::math::Circle reg = {obs.centre, obs.radius + 0.2};
+        measurementRegions.push_back(reg);
+    }
 
     // Create initial state:
     arma::vec2 x1 = {0.5, 0.5}; //nump::SearchTree::TrajT::sample();
@@ -75,6 +84,9 @@ void propogateTests() {
         cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
 
         // Draw obstacles:
+        for (auto& reg : measurementRegions) {
+            fillCircle(cr, reg, colRegion, 0.3);
+        }
         for (auto& obs : obstacles) {
             fillCircle(cr, obs, colObstacle, 0.3);
         }
@@ -82,6 +94,7 @@ void propogateTests() {
         // Draw initial distribution:
         cairoSetSourceRGB(cr, colInitial);
         drawRobot(cr, x1, size);
+        cairo_set_line_width(cr, lwHighlight);
         drawErrorEllipse(cr, x1, n1->stateCov + n1->stateDistribCov, 0.95);
 
         // Sample target state:
@@ -91,17 +104,31 @@ void propogateTests() {
         // Generate the trajectory:
         nump::SearchTree::TrajT traj = nump::RRBT::connect(x1, x2);
 
-        // Perform belief propogation:
-        auto n2 = nump::RRBT::propagate(traj, n1, obstacles,
-                                        [cr, size, colProgress, colSuccess, traj](auto t, auto xt, auto nt) {
+        // Perform belief propagation:
+        auto n2 = nump::RRBT::propagate(traj, n1, obstacles, measurementRegions, [&](auto t, auto xt, auto nt) {
             double frac = t / traj.t;
 
-            arma::vec3 col = (1-frac)*colProgress + frac*colSuccess;
+            nump::RRBT::StateCovT fullCov = nt->stateCov + nt->stateDistribCov;
 
-            cairoSetSourceRGBAlpha(cr, col, 0.2);
+            arma::vec3 colt = (1-frac)*colProgress + frac*colSuccess;
+            double alpha = 0.3;
+            cairo_set_line_width(cr, lwNormal);
+
+            if (!nump::RRBT::satisfiesChanceConstraint(xt, fullCov, obstacles)) {
+                colt = colFailure;
+                alpha = 1;
+                cairo_set_line_width(cr, lwHighlight);
+            }
+
+            cairoSetSourceRGBAlpha(cr, colt,alpha);
             drawRobot(cr, xt, size * 0.2);
-            drawErrorEllipse(cr, xt, nt->stateCov + nt->stateDistribCov, 0.95);
+            drawErrorEllipse(cr, xt, fullCov, 0.95);
+
+            cairoSetSourceRGBAlpha(cr, colt * 0.5, alpha);
+            drawErrorEllipse(cr, xt, nt->stateCov, 0.95);
         });
+
+        cairo_set_line_width(cr, lwHighlight);
 
         if (n2 == nullptr) {
             // Handle propogation failure:

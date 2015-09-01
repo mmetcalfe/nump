@@ -109,14 +109,26 @@ namespace nump {
         return steer(from, to);
     }
 
+    bool anyContain(const std::vector<nump::math::Circle>& regions, StateT pos) {
+        for (auto &reg : regions) {
+            if (reg.contains(pos)) {
+                return true;
+            }
+        }
 
-    RRBT RRBT::fromRRBT(cairo_t *cr, StateT init, StateCovT initCov, StateT goal, int n, std::vector<nump::math::Circle> obstacles,
-                                    std::function<void(const RRBT &, StateT, bool)> callback) {
+        return false;
+    }
+
+    RRBT RRBT::fromRRBT(cairo_t *cr, StateT init, StateCovT initCov, StateT goal, int n,
+                        std::vector<nump::math::Circle> obstacles,
+                        std::vector<nump::math::Circle> measurementRegions,
+                        std::function<void(const RRBT &, StateT, bool)> callback) {
 
         // Set initial state and covariance, set stateDistribCov to 0, and cost to 0.
         auto tree = RRBT(init, initCov, goal);
         tree.cairo = cr; // TODO: Fix this.
         tree.obstacles = obstacles;
+        tree.measurementRegions = measurementRegions;
 
         for (int i = 0; i < n; i++) {
             StateT xRand = TrajT::sample();
@@ -128,10 +140,27 @@ namespace nump {
         return tree;
     }
 
+    bool RRBT::satisfiesChanceConstraint(StateT state, StateCovT stateCov, const std::vector<nump::math::Circle>& obstacles) {
+        // TODO: Enhance the intersection test to use the ellipse, rather than its bounding rectangle.
+        Ellipse confEllipse = Ellipse::forConfidenceRegion(state, stateCov);
+        for (auto& obs : obstacles) {
+            // TODO: Enhance test to work for a polygonal robot footprint, rather than just a point robot.
+            bool intersects = utility::math::geometry::intersection::test(obs, confEllipse);
+
+            // Return failure if the chance constraint is violated:
+            if (intersects) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     BeliefNodePtr RRBT::propagate(
             const TrajT& traj,
             BeliefNodePtr belief,
             const std::vector<nump::math::Circle>& obstacles,
+            const std::vector<nump::math::Circle>& measurementRegions,
             std::function<void(double, StateT, BeliefNodePtr)> callback
     ) {
         // Note: Notation transliteration conventions:
@@ -152,6 +181,8 @@ namespace nump {
         int numSteps = traj.t / 0.01; // 100
         for (int i = 0; i <= numSteps; i++) {
             double t = (i / double(numSteps)) * traj.t;
+
+            RRBT::StateT xTraj = traj(t);
 
             // Inputs: Qt, Rt, Σp, Λp.
 
@@ -175,19 +206,22 @@ namespace nump {
             Bt.eye();
 
             Kt.eye();
-            Kt(0,0) = 1;
-            Kt(1,1) = 1;
+            Kt(0,0) = 0.5;
+            Kt(1,1) = 0.5;
 
             Ct.eye();
 
             Qt.eye();
-            Qt(0,0) = 0.001;
-            Qt(1,1) = 0.001;
+            Qt(0,0) = 0.0001;
+            Qt(1,1) = 0.0001;
 
             Rt.eye();
-            Rt(0,0) = 0.01;
-            Rt(1,1) = 0.01;
-
+            Rt(0,0) = 1e7;
+            Rt(1,1) = 1e7;
+            if (anyContain(measurementRegions, xTraj)) {
+                Rt(0,0) = 0.001;
+                Rt(1,1) = 0.001;
+            }
 
             // Step 1 - Covariance prediction (equations 21, 33):
             // Kalman filter process step:
@@ -207,25 +241,11 @@ namespace nump {
             // x_t ~ N(\check{x}, Λ_{t} + Σ_{t})
             // i.e. x_t ~ N(xTraj, xTrajCov)
             // (where x_t is the true state)
-            RRBT::StateT xTraj = traj(t);
             RRBT::StateCovT xTrajCov = Σt + Λt;
 
             // Step 2 - Cost expectation evaluation (equation 11):
             // TODO: Work out how to evaluate expected path cost.
 
-            // Step 3 - Chance-constraint checking (equation 13):
-            //   P(x_t \in \mathcal{X}_obs) < \delta, \forall t \in [0, T]
-            // TODO: Enhance the intersection test to use the ellipse, rather than its bounding rectangle.
-            Ellipse confEllipse = Ellipse::forConfidenceRegion(xTraj, xTrajCov);
-            for (auto& obs : obstacles) {
-                // TODO: Enhance test to work for a polygonal robot footprint, rather than just a point robot.
-                bool intersects = utility::math::geometry::intersection::test(obs, confEllipse);
-
-                // Return failure if the chance constraint is violated:
-                if (intersects) {
-                    return nullptr;
-                }
-            }
 
             { // DEBUG
                 // Callback for debug drawing:
@@ -235,6 +255,13 @@ namespace nump {
                 dbgBelief->stateDistribCov = Λt;
                 dbgBelief->cost = belief->cost; // + J(traj); // TODO: Implement cost function for partial trajectories.
                 callback(t, xTraj, dbgBelief);
+            }
+
+
+            // Step 3 - Chance-constraint checking (equation 13):
+            //   P(x_t \in \mathcal{X}_obs) < \delta, \forall t \in [0, T]
+            if (!satisfiesChanceConstraint(xTraj, xTrajCov, obstacles)) {
+                return nullptr;
             }
 
             // Update previous values:
@@ -326,7 +353,7 @@ namespace nump {
         // violating the chance constraint, then return failure.
         BeliefNodePtr nRand = nullptr;
         for (auto& node : vNearest->value.beliefNodes) {
-            nRand = propagate(eNearestRand, node, obstacles);
+            nRand = propagate(eNearestRand, node, obstacles, measurementRegions);
             if (nRand != nullptr) {
                 break;
             }
@@ -380,7 +407,7 @@ namespace nump {
             for (auto& eNeighbour : graph.outgoing(vBelief)) {
                 auto vNeighbour = eNeighbour.child.lock();
 
-                auto nNew = propagate(eNeighbour.value, nBelief, obstacles);
+                auto nNew = propagate(eNeighbour.value, nBelief, obstacles, measurementRegions);
 
                 if (appendBelief(vNeighbour, nNew)) {
                     beliefNodeQ.push({nNew, vNeighbour});

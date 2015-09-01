@@ -30,6 +30,8 @@ int main() {
     intersectionTests();
     propogateTests();
 
+    return 0;
+
     arma::ivec2 surfaceDimensions = {500, 500};
     cairo_surface_t *surface = cairo_pdf_surface_create("output.pdf", surfaceDimensions(0), surfaceDimensions(1));
     cairo_t *cr = cairo_create(surface);
@@ -49,11 +51,17 @@ int main() {
 
     int numPoints = 500;
     std::vector<nump::math::Circle> obstacles;
+    std::vector<nump::math::Circle> measurementRegions;
     obstacles.push_back({{0.6, -0.9}, 1.0});
 //    obstacles.push_back({{0.2, 0.2}, 0.1});
     obstacles.push_back({{0.5, 0.5}, 0.2});
 //    obstacles.push_back({{0.8, 0.5}, 0.25});
     obstacles.push_back({{0.4, 1.5}, 0.7});
+
+    for (auto& obs : obstacles) {
+        nump::math::Circle reg = {obs.centre, obs.radius + 0.2};
+        measurementRegions.push_back(reg);
+    }
 //
 //    // Run RRT:
 //    arma::arma_rng::set_seed(seed);
@@ -96,7 +104,7 @@ int main() {
     arma::arma_rng::set_seed(seed);
     nump::RRBT::StateCovT initCov = arma::diagmat(arma::vec({0.001, 0.001}));
 //    nump::RRBT::StateCovT initCov = arma::mat({{0.05, 0.01},{0.01,0.05}});
-    auto rrbtTree = nump::RRBT::fromRRBT(cr, start, initCov, goal, numPoints, obstacles, [cr](const nump::RRBT& tree, const nump::RRBT::StateT newState, bool extended){
+    auto rrbtTree = nump::RRBT::fromRRBT(cr, start, initCov, goal, numPoints, obstacles, measurementRegions, [cr](const nump::RRBT& tree, const nump::RRBT::StateT newState, bool extended){
     });
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
     drawRRBT(cr, rrbtTree);

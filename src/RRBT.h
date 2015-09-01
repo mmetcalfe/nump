@@ -65,6 +65,7 @@ namespace nump {
         };
 
         std::vector<nump::math::Circle> obstacles;
+        std::vector<nump::math::Circle> measurementRegions;
 
         StateT init;
         StateT goal;
@@ -87,6 +88,7 @@ namespace nump {
         // Class and member functions:
         static RRBT fromRRBT(cairo_t *cr, StateT init, StateCovT initCov, StateT goal, int n,
                              std::vector<nump::math::Circle> obstacles,
+                             std::vector<nump::math::Circle> measurementRegions,
                              std::function<void(const RRBT &, StateT, bool)> callback = [](auto a, auto b, auto c){});
 
         NodeT nearest(StateT state) const;
@@ -99,8 +101,11 @@ namespace nump {
                 const TrajT& traj,
                 BeliefNodePtr belief,
                 const std::vector<nump::math::Circle>& obstacles,
+                const std::vector<nump::math::Circle>& measurementRegions,
                 std::function<void(double, StateT, BeliefNodePtr)> callback = [](auto a, auto b, auto c){}
         );
+
+        static bool satisfiesChanceConstraint(StateT state, StateCovT stateCov, const std::vector<nump::math::Circle>& obstacles);
 
         bool appendBelief(NodeT node, BeliefNodePtr belief);
 
