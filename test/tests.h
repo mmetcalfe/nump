@@ -8,6 +8,7 @@
 void trajectoryTests();
 void intersectionTests();
 void propogateTests();
+void covarianceComparisonTests();
 
 arma::arma_rng::seed_type randomSeed();
 

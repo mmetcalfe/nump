@@ -41,6 +41,11 @@ namespace math {
         arma::vec2 centre;
         double radius;
 
+        Circle(arma::vec2 centre_, double radius_)
+          : centre(centre_)
+          , radius(radius_) {
+        }
+
         bool contains(arma::vec2 pt) const;
     };
 

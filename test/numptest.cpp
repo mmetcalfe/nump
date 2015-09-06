@@ -25,21 +25,25 @@ arma::arma_rng::seed_type randomSeed() {
 }
 
 int main() {
-    // Run the tests:
+    // // Run the tests:
+    covarianceComparisonTests();
     trajectoryTests();
     intersectionTests();
     propogateTests();
 
-    return 0;
 
     arma::ivec2 surfaceDimensions = {500, 500};
-    cairo_surface_t *surface = cairo_pdf_surface_create("output.pdf", surfaceDimensions(0), surfaceDimensions(1));
+    cairo_surface_t *surface = cairo_pdf_surface_create("searchTests.pdf", surfaceDimensions(0), surfaceDimensions(1));
     cairo_t *cr = cairo_create(surface);
 
     cairo_scale(cr, surfaceDimensions(0), surfaceDimensions(1));
+    double centeredFrac = 0.85;
+    double borderSize = 0.5 * (1 - centeredFrac) / centeredFrac;
+    cairo_scale(cr, centeredFrac, centeredFrac);
+    cairo_translate(cr, borderSize, borderSize);
 
     // Get random seed:
-    int seed = randomSeed();
+    int seed = 114013460; // randomSeed();
     arma::arma_rng::set_seed(seed);
     std::cout << "SEED: " << seed << std::endl;
 
@@ -49,17 +53,17 @@ int main() {
     arma::vec2 start = {0, 0};
     arma::vec2 goal  = {1, 1};
 
-    int numPoints = 500;
+    int numPoints = 50;
     std::vector<nump::math::Circle> obstacles;
     std::vector<nump::math::Circle> measurementRegions;
-    obstacles.push_back({{0.6, -0.9}, 1.0});
-//    obstacles.push_back({{0.2, 0.2}, 0.1});
-    obstacles.push_back({{0.5, 0.5}, 0.2});
-//    obstacles.push_back({{0.8, 0.5}, 0.25});
-    obstacles.push_back({{0.4, 1.5}, 0.7});
+//    obstacles.push_back({{0.6, -0.9}, 1.0});
+////    obstacles.push_back({{0.2, 0.2}, 0.1});
+    obstacles.push_back({{0.5, 0.5}, 0.1});
+////    obstacles.push_back({{0.8, 0.5}, 0.25});
+//    obstacles.push_back({{0.4, 1.5}, 0.7});
 
     for (auto& obs : obstacles) {
-        nump::math::Circle reg = {obs.centre, obs.radius + 0.2};
+        nump::math::Circle reg = {obs.centre, obs.radius + 0.3};
         measurementRegions.push_back(reg);
     }
 //
@@ -104,8 +108,35 @@ int main() {
     arma::arma_rng::set_seed(seed);
     nump::RRBT::StateCovT initCov = arma::diagmat(arma::vec({0.001, 0.001}));
 //    nump::RRBT::StateCovT initCov = arma::mat({{0.05, 0.01},{0.01,0.05}});
-    auto rrbtTree = nump::RRBT::fromRRBT(cr, start, initCov, goal, numPoints, obstacles, measurementRegions, [cr](const nump::RRBT& tree, const nump::RRBT::StateT newState, bool extended){
-    });
+    auto rrbtTree = nump::RRBT::fromRRBT(cr
+        , start
+        , initCov
+        , goal
+        , numPoints
+        , obstacles
+        , measurementRegions
+        , [cr](const nump::RRBT& rrbt, const nump::RRBT::StateT newState, bool extended) {
+            std::cout << "CALLBACK" << std::endl;
+
+              if (!extended) {
+                  std::cout << "CANCELLED" << std::endl;
+                  return;
+              }
+              cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
+              drawRRBT(cr, rrbt);
+
+              cairo_show_page(cr);
+              std::cout << "DRAW PAGE" << std::endl;
+          });
+
+    std::cout << "Num nodes: " << rrbtTree.graph.nodes.size() << std::endl;
+    std::cout << "Num edges: " << rrbtTree.graph.edges.size() << std::endl;
+    int beliefNodeCount = 0;
+    for (auto& node : rrbtTree.graph.nodes) {
+        beliefNodeCount += node->value.beliefNodes.size();
+    }
+    std::cout << "Num belief nodes: " << beliefNodeCount << std::endl;
+
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
     drawRRBT(cr, rrbtTree);
     cairo_show_page(cr);

@@ -69,6 +69,7 @@ namespace nump {
 
         StateT init;
         StateT goal;
+        BeliefNodePtr initialBelief;
 
     private:
         RRBT(StateT init, StateCovT initCov, StateT goal);
@@ -113,6 +114,7 @@ namespace nump {
 
         double maxCost() const;
 
+        static bool compareCovariancesLT(const RRBT::StateCovT& covA, const RRBT::StateCovT& covB);
     };
 }
 

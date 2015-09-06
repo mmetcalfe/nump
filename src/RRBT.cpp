@@ -31,6 +31,7 @@ namespace nump {
         auto belief = std::make_shared<BeliefNode>(initNode);
         belief->stateCov = initCov;
         initNode->value.beliefNodes.push_back(belief);
+        initialBelief = belief;
     }
 
     inline double RRBT::distance(StateT a, StateT b) {
@@ -71,9 +72,9 @@ namespace nump {
         double threshold = gammaRRTs * pow(log(cardV) / cardV, 1.0 / 2);
 
         for (auto &node : graph.nodes) {
-//            if (node == queryNode) {
-//                continue;
-//            }
+            if (node == queryNode) {
+                continue;
+            }
 
             if (distance(node->value.state, queryNode->value.state) < threshold) {
                 near.push_back(node);
@@ -286,6 +287,7 @@ namespace nump {
     // TODO: Verify method of covariance comparison, + describe in report.
     bool is_positive_definite(const RRBT::StateCovT& X) {
         arma::vec eigval = arma::eig_sym(X);
+        // std::cout << __LINE__ << "  eigval: " << eigval << std::endl;
 
         for (int i = 0; i < eigval.n_elem; i++) {
             if (eigval(i) <= 0) {
@@ -297,8 +299,18 @@ namespace nump {
     }
 
     // TODO: Check covariance comparison.
-    bool compareCovariancesLT(const RRBT::StateCovT& covA, const RRBT::StateCovT& covB) {
-        return is_positive_definite(covB - covA);
+    bool RRBT::compareCovariancesLT(const RRBT::StateCovT& covA, const RRBT::StateCovT& covB) {
+        std::cout << __LINE__ << ": compareCovariancesLT" << std::endl;
+        std::cout << __LINE__ << ":     covA: " << covA << std::endl;
+        std::cout << __LINE__ << ":     covB: " << covB << std::endl;
+
+        // return is_positive_definite(covB - covA);
+
+        Ellipse ellipseA = Ellipse::forConfidenceRegion({0,0}, covA);
+        Ellipse ellipseB = Ellipse::forConfidenceRegion({0,0}, covB);
+        arma::vec2 sizeA = ellipseA.getSize();
+        arma::vec2 sizeB = ellipseB.getSize();
+        return sizeA(0)*sizeA(1) < sizeB(0)*sizeB(1);
     }
 
     bool RRBT::BeliefNode::dominates(BeliefNodePtr belief, double tolerance) {
@@ -307,10 +319,20 @@ namespace nump {
         eps.eye();
         eps *= tolerance;
 
+        std::cout << __LINE__ << ": dominates:" << std::endl;
+        std::cout << __LINE__ << ":     tolerance: " << tolerance << std::endl;
+
         // Perform comparisons:
         bool stateCovDom = compareCovariancesLT(stateCov, belief->stateCov + eps);
+        std::cout << __LINE__ << ":     stateCovDom: " << stateCovDom << std::endl;
+
         bool stateDistribCovDom = compareCovariancesLT(stateDistribCov, belief->stateDistribCov + eps);
-        bool costDom = cost < belief->cost;
+        std::cout << __LINE__ << ":     stateDistribCovDom: " << stateDistribCovDom << std::endl;
+
+        // TODO: Document tolerance.
+        double costTolerance = tolerance == 0 ? 0 : 0.001;
+        bool costDom = cost < belief->cost * (1 + costTolerance);
+        std::cout << __LINE__ << ":     costDom: " << costDom << std::endl;
 
         return stateCovDom && stateDistribCovDom && costDom;
     }
@@ -328,6 +350,8 @@ namespace nump {
             }
         }
 
+        std::cout << __LINE__ << ": Prune nodes (" << beliefNodes.size() << ")" << std::endl;
+
         // Remove all nodes dominated by n from v.N.
         // TODO: When do we prune edges from the graph?
         beliefNodes.erase(std::remove_if(
@@ -338,13 +362,17 @@ namespace nump {
                 }),
                 beliefNodes.end());
 
+        std::cout << __LINE__ << ": Pruning complete (" << beliefNodes.size() << ")" << std::endl;
+
         // Add n to v.N.
         beliefNodes.push_back(belief);
+        belief->containingNode = node;
 
         return true;
     }
 
     bool RRBT::extendRRBT(cairo_t *cr, StateT xRand) {
+        std::cout << __LINE__ << ": Nearest." << std::endl;
 
         NodeT vNearest = nearest(xRand);
         TrajT eNearestRand = connect(vNearest->value.state, xRand);
@@ -359,11 +387,14 @@ namespace nump {
             }
         }
         if (nRand == nullptr) {
+            std::cout << __LINE__ << ": Add failure." << std::endl;
             return false;
         }
 
-        // TODO: Check whether this needs a belief node.
-        auto vRand = graph.makeNode(Vertex {xRand, {nRand}});
+        // TODO: Verify whether belief node should be added.
+        // auto vRand = graph.makeNode(Vertex {xRand, {nRand}});
+        auto vRand = graph.makeNode(Vertex {xRand, {}});
+        nRand->containingNode = vRand; // Set containing vertex of the belief node.
         graph.nodes.push_back(vRand);
 
         TrajT eRandNearest = connect(vRand->value.state, vNearest->value.state);
@@ -380,9 +411,17 @@ namespace nump {
             beliefNodeQ.push({node, vNearest});
         }
 
+        std::cout << __LINE__ << ": Add nearby nodes and edges." << std::endl;
         // Add all nearby nodes and edges for consideration:
         auto vNearby = nearVertices(vRand, graph.nodes.size());
         for (auto& vNear : vNearby) {
+            // Avoid duplicate edges:
+            if (vNear == vNearest) {
+                continue;
+            }
+
+            std::cout << __LINE__ << ": Add node " << vNear << std::endl;
+
             TrajT eNearRand = connect(vNear->value.state, vRand->value.state);
             TrajT eRandNear = connect(vRand->value.state, vNear->value.state);
 
@@ -396,9 +435,12 @@ namespace nump {
             }
         }
 
+
+        std::cout << __LINE__ << ": Consider nodes, and prune." << std::endl;
         // Consider all nearby nodes, pruning dominated paths:
         // (exhaustively search queue using uniform cost search)
         while (!beliefNodeQ.empty()) {
+            std::cout << __LINE__ << ": loop start Q size: " << beliefNodeQ.size()  << std::endl;
             BeliefNodePtr nBelief; // The belief node.
             NodeT vBelief; // The vertex containing belief.
             std::tie(nBelief, vBelief) = beliefNodeQ.front();
@@ -407,14 +449,41 @@ namespace nump {
             for (auto& eNeighbour : graph.outgoing(vBelief)) {
                 auto vNeighbour = eNeighbour.child.lock();
 
+                // {
+                //     cairo_set_source_rgb(cr, 1.0, 1.0, 0.9); cairo_paint_with_alpha (cr, 1);
+                //     shared::utility::drawing::drawRRBT(cr, *this);
+                //     cairo_set_source_rgba(cr, 0, 0, 0, 0.5);
+                //     shared::utility::drawing::showText(cr, {0.5, 0.5}, 0.03, "loop start");
+                //     cairo_stroke(cr);
+                //
+                //     cairo_set_line_width(cr, 0.01);
+                //     cairo_set_source_rgba(cr, 1, 0, 0, 0.5);
+                //     shared::utility::drawing::drawCircle(cr, {vBelief->value.state, 0.1});
+                //     cairo_stroke(cr);
+                //     cairo_set_source_rgba(cr, 0, 0, 1, 0.5);
+                //     shared::utility::drawing::drawCircle(cr, {vNeighbour->value.state, 0.1});
+                //     cairo_stroke(cr);
+                //     cairo_show_page(cr);
+                // }
+
+                std::cout << __LINE__ << ": propagate" << std::endl;
                 auto nNew = propagate(eNeighbour.value, nBelief, obstacles, measurementRegions);
 
+                // TODO: Confirm the necessity of this test. It is not present in the paper.
+                if (nNew == nullptr) {
+                    continue;
+                }
+
+                std::cout << __LINE__ << ": appendBelief" << std::endl;
                 if (appendBelief(vNeighbour, nNew)) {
                     beliefNodeQ.push({nNew, vNeighbour});
                 }
             }
+
+            std::cout << __LINE__ << ": loop end Q size: " << beliefNodeQ.size()  << std::endl;
         }
 
+        return true;
     }
 
 }
