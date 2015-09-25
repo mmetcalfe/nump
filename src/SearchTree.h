@@ -21,7 +21,8 @@ namespace nump {
         cairo_t *cairo = nullptr;
 
         struct SearchNode;
-        typedef arma::vec2 StateT;
+        typedef Transform2D StateT;
+//        typedef arma::vec2 StateT;
         typedef Trajectory<StateT> TrajT;
         typedef Tree<SearchNode> TreeT;
 

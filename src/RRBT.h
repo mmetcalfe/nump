@@ -32,8 +32,10 @@ namespace nump {
 
         struct Vertex;
         struct BeliefNode;
-        typedef arma::vec2 StateT;
-        typedef arma::mat22 StateCovT;
+        typedef Transform2D StateT;
+        typedef arma::mat33 StateCovT;
+//        typedef arma::vec2 StateT;
+//        typedef arma::mat22 StateCovT;
         typedef Trajectory<StateT> TrajT;
         typedef Graph<Vertex, TrajT> GraphT;
         typedef std::shared_ptr<GraphT::Node> NodeT;

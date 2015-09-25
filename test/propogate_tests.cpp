@@ -50,8 +50,8 @@ void propogateTests() {
     arma::vec3 colProgress = {0.7, 0.6, 0.3};
     arma::vec3 colSuccess = {0.5, 0.9, 0.5};
     arma::vec3 colFailure = {0.9, 0.5, 0.5};
-    double lwHighlight = 0.05;
-    double lwNormal = 0.01;
+    double lwHighlight = 0.01;
+    double lwNormal = 0.003;
 
     // Create the obstacles:
     std::vector<nump::math::Circle> obstacles;
@@ -66,14 +66,17 @@ void propogateTests() {
     }
 
     // Create initial state:
-    arma::vec2 x1 = {0.5, 0.5}; //nump::SearchTree::TrajT::sample();
+//    arma::vec2 x1 = {0.5, 0.5}; //nump::SearchTree::TrajT::sample();
+    Transform2D x1 = {0.5, 0.5, 0}; //nump::SearchTree::TrajT::sample();
 
     // Create initial belief node:
     auto n1 = std::make_shared<nump::RRBT::BeliefNode>(std::weak_ptr<nump::RRBT::GraphT::Node>()); // null weak pointer
     n1->parent = nullptr;
-    n1->stateCov = arma::diagmat(arma::vec({0.001, 0.001}));
+    n1->stateCov = arma::diagmat(arma::vec({0.001, 0.001, 0.001}));
+//    n1->stateCov = arma::diagmat(arma::vec({0.001, 0.001}));
     n1->stateCov(0,1) = n1->stateCov(1,0) = 0.0;
-    n1->stateDistribCov = arma::diagmat(arma::vec({0.0, 0.0}));
+    n1->stateDistribCov = arma::diagmat(arma::vec({0.0, 0.0, 0.0}));
+//    n1->stateDistribCov = arma::diagmat(arma::vec({0.0, 0.0}));
     n1->cost = 0;
 
     int numTrials = 10;
@@ -95,7 +98,7 @@ void propogateTests() {
         cairoSetSourceRGB(cr, colInitial);
         drawRobot(cr, x1, size);
         cairo_set_line_width(cr, lwHighlight);
-        drawErrorEllipse(cr, x1, n1->stateCov + n1->stateDistribCov, 0.95);
+        drawErrorEllipse(cr, x1.head(2), arma::mat(n1->stateCov + n1->stateDistribCov).submat(0,0,1,1), 0.95);
 
         // Sample target state:
         nump::SearchTree::StateT x2 = nump::SearchTree::TrajT::sample({1, 1});
@@ -122,10 +125,10 @@ void propogateTests() {
 
             cairoSetSourceRGBAlpha(cr, colt,alpha);
             drawRobot(cr, xt, size * 0.2);
-            drawErrorEllipse(cr, xt, fullCov, 0.95);
+            drawErrorEllipse(cr, xt.head(2), fullCov.submat(0,0,1,1), 0.95);
 
             cairoSetSourceRGBAlpha(cr, colt * 0.5, alpha);
-            drawErrorEllipse(cr, xt, nt->stateCov, 0.95);
+            drawErrorEllipse(cr, xt.head(2), nt->stateCov.submat(0,0,1,1), 0.95);
         });
 
         cairo_set_line_width(cr, lwHighlight);
@@ -139,7 +142,7 @@ void propogateTests() {
             cairoSetSourceRGB(cr, colSuccess);
             drawRobot(cr, x2, size);
 
-            drawErrorEllipse(cr, x2, n2->stateCov + n2->stateDistribCov, 0.95);
+            drawErrorEllipse(cr, x2.head(2), arma::mat(n2->stateCov + n2->stateDistribCov).submat(0,0,1,1), 0.95);
         }
 
         cairo_show_page(cr);

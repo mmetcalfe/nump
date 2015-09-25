@@ -15,11 +15,21 @@ namespace numptest {
 
 //    template<class StateT, class StateCovT>
     class SearchScenario {
-        typedef arma::vec2 StateT;
-        typedef arma::mat22 StateCovT;
+        // typedef arma::vec2 StateT;
+        // typedef arma::mat22 StateCovT;
+
+        typedef Transform2D StateT;
+        typedef arma::mat33 StateCovT;
 
     public:
+        enum class StateType {
+            Position,
+            PositionBearing,
+        };
+
         struct Config {
+            StateType stateType;
+
             // Search settings:
             int seed;
             int numSamples;

@@ -29,18 +29,44 @@ arma::arma_rng::seed_type randomSeed() {
     return seed;
 }
 
+numptest::SearchScenario::StateType stateTypeFromYaml(const YAML::Node& yaml) {
+    if (yaml.as<std::string>() == "Position") {
+        return numptest::SearchScenario::StateType::Position;
+    } else if (yaml.as<std::string>() == "PositionBearing") {
+        return numptest::SearchScenario::StateType::PositionBearing;
+    }
 
-arma::vec2 stateFromYaml(const YAML::Node& yaml) {
+    std::cout << __FILE__ << ", " << __LINE__ << ", ERROR: Invalid state type '" << yaml.as<std::string>() << "'." << std::endl;
+    exit(1);
+}
+
+arma::vec2 vec2FromYaml(const YAML::Node& yaml) {
     return {
             yaml[0].as<double>(),
             yaml[1].as<double>(),
     };
 }
 
-arma::mat22 stateCovFromYaml(const YAML::Node& yaml) {
+arma::vec3 vec3FromYaml(const YAML::Node& yaml) {
+    return {
+            yaml[0].as<double>(),
+            yaml[1].as<double>(),
+            yaml[2].as<double>(),
+    };
+}
+
+arma::mat22 mat22FromYaml(const YAML::Node& yaml) {
     return {
             { yaml[0][0].as<double>(), yaml[0][1].as<double>(), },
             { yaml[1][0].as<double>(), yaml[1][1].as<double>(), },
+    };
+}
+
+arma::mat33 mat33FromYaml(const YAML::Node& yaml) {
+    return {
+            { yaml[0][0].as<double>(), yaml[0][1].as<double>(), yaml[0][2].as<double>(), },
+            { yaml[1][0].as<double>(), yaml[1][1].as<double>(), yaml[1][2].as<double>(), },
+            { yaml[2][0].as<double>(), yaml[2][1].as<double>(), yaml[2][2].as<double>(), },
     };
 }
 
@@ -81,13 +107,25 @@ numptest::SearchScenario numptest::SearchScenario::fromFile(const std::string &f
     scenario.cfg_.canvasSize = {canvasWidth, canvasHeight};
 
     // Scenario description:
+    scenario.cfg_.stateType = stateTypeFromYaml(scenarioYaml["state_type"]);
+
     double mapWidth = scenarioYaml["map_size"][0].as<double>();
     double mapHeight = scenarioYaml["map_size"][1].as<double>();
     scenario.cfg_.mapSize = {mapWidth, mapHeight};
 
-    scenario.cfg_.initialState = stateFromYaml(scenarioYaml["initial_state"]);
-    scenario.cfg_.goalState = stateFromYaml(scenarioYaml["goal_state"]);
-    scenario.cfg_.initialCovariance = stateCovFromYaml(scenarioYaml["initial_covariance"]);
+    if (scenario.cfg_.stateType == StateType::Position) {
+//        scenario.cfg_.initialState = vec2FromYaml(scenarioYaml["initial_state"]);
+//        scenario.cfg_.goalState = vec2FromYaml(scenarioYaml["goal_state"]);
+//        scenario.cfg_.initialCovariance = mat22FromYaml(scenarioYaml["initial_covariance"]);
+    } else if (scenario.cfg_.stateType == StateType::PositionBearing) {
+        scenario.cfg_.initialState = vec3FromYaml(scenarioYaml["initial_state"]);
+        scenario.cfg_.goalState = vec3FromYaml(scenarioYaml["goal_state"]);
+        scenario.cfg_.initialCovariance = mat33FromYaml(scenarioYaml["initial_covariance"]);
+    } else {
+        std::cout << __FILE__ << ", " << __LINE__ << ", ERROR: Invalid state type '." << std::endl;
+        exit(1);
+    }
+
 
     for (const auto& obsYaml : scenarioYaml["obstacles"]) {
         scenario.cfg_.obstacles.push_back(shapeFromYaml(obsYaml));

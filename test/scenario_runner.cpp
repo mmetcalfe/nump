@@ -10,11 +10,11 @@
 #include "tests.h"
 
 int main() {
-   // Run the tests:
-   covarianceComparisonTests();
-   trajectoryTests();
-   intersectionTests();
-   propogateTests();
+    // Run the tests:
+    covarianceComparisonTests();
+    trajectoryTests();
+    intersectionTests();
+    propogateTests();
 
     auto scenario_dir = "scenarios";
 

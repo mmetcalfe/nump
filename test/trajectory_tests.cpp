@@ -39,8 +39,8 @@ void trajectoryTests() {
 
     double size = 0.2;
 
-//    Transform2D x1 = {0.5, 0.5, 1.5*M_PI}; //nump::SearchTree::TrajT::sample();
-    arma::vec2 x1 = {0.5, 0.5}; //nump::SearchTree::TrajT::sample();
+    Transform2D x1 = {0.5, 0.5, 1.5*M_PI}; //nump::SearchTree::TrajT::sample();
+//    arma::vec2 x1 = {0.5, 0.5}; //nump::SearchTree::TrajT::sample();
 
     shared::utility::drawing::cairoSetSourceRGB(cr, {0.5, 0.5, 0.5});
     shared::utility::drawing::drawRobot(cr, x1, size);

@@ -122,7 +122,7 @@ namespace nump {
 
     bool anyContain(const std::vector<nump::math::Circle>& regions, StateT pos) {
         for (auto &reg : regions) {
-            if (reg.contains(pos)) {
+            if (reg.contains(pos.head(2))) {
                 return true;
             }
         }
@@ -164,7 +164,7 @@ namespace nump {
     }
 
     bool RRBT::satisfiesChanceConstraint(StateT state, StateCovT stateCov, const std::vector<nump::math::Circle>& obstacles) {
-        Ellipse confEllipse = Ellipse::forConfidenceRegion(state, stateCov);
+        Ellipse confEllipse = Ellipse::forConfidenceRegion(state.head(2), stateCov.submat(0,0,1,1));
         for (auto& obs : obstacles) {
             // TODO: Enhance test to work for a polygonal robot footprint, rather than just a point robot.
             bool intersects = utility::math::geometry::intersection::test(obs, confEllipse);
@@ -331,7 +331,8 @@ namespace nump {
         // arma::vec2 sizeB = ellipseB.getSize();
         // return sizeA(0)*sizeA(1) < sizeB(0)*sizeB(1);
 
-        return Ellipse::confidenceRegionArea(covA) < Ellipse::confidenceRegionArea(covB);
+        // TODO: Enhance covariace comparision to include heading uncertainty.
+        return Ellipse::confidenceRegionArea(covA.submat(0,0,1,1)) < Ellipse::confidenceRegionArea(covB.submat(0,0,1,1));
     }
 
     bool RRBT::BeliefNode::dominates(BeliefNodePtr belief, double tolerance) {

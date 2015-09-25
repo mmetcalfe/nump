@@ -316,10 +316,10 @@ namespace drawing {
 
             cairoSetSourceRGBAlpha(cr, colt, alpha);
             drawRobot(cr, xt, size * 0.2);
-            drawErrorEllipse(cr, xt, fullCov, 0.95);
+            drawErrorEllipse(cr, xt.head(2), fullCov.submat(0,0,1,1), 0.95);
 
             cairoSetSourceRGBAlpha(cr, colt * 0.5, alpha);
-            drawErrorEllipse(cr, xt, nt->stateCov, 0.95);
+            drawErrorEllipse(cr, xt.head(2), nt->stateCov.submat(0,0,1,1), 0.95);
         });
 
         cairoSetSourceRGBAlpha(cr, colSuccess, 1);
@@ -340,22 +340,9 @@ namespace drawing {
         double lwHighlight = 0.01;
         double lwNormal = 0.005;
 
+        double r = 0.1; //deviceToUserDistance(cr, {2, 0})(0);
+
         cairo_save(cr);
-
-        double r = 0.04; //deviceToUserDistance(cr, {2, 0})(0);
-        cairo_set_source_rgb(cr, 1, 0.5, 0.5);
-        drawRobot(cr, rrbt.scenario.initialState, r);
-
-        cairo_set_source_rgb(cr, 0.5, 1, 0.5);
-        drawRobot(cr, rrbt.scenario.goalState, r);
-
-        // Draw obstacles:
-        for (auto& reg : rrbt.scenario.measurementRegions) {
-            fillCircle(cr, reg, colRegion, 0.3);
-        }
-        for (auto& obs : rrbt.scenario.obstacles) {
-            fillCircle(cr, obs, colObstacle, 0.3);
-        }
 
         // std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
 
@@ -422,69 +409,84 @@ namespace drawing {
 
             for (auto& bn : node->value.beliefNodes) {
                 cairo_set_line_width(cr, lwNormal);
-                drawErrorEllipse(cr, state, bn->stateCov + bn->stateDistribCov, 0.95);
+                drawErrorEllipse(cr, state.head(2), arma::mat(bn->stateCov + bn->stateDistribCov).submat(0,0,1,1), 0.95);
             }
 
             cairoSetSourceRGBAlpha(cr, colText, 1);
-            showText(cr, state.rows(0, 1), r*0.6, node->value.beliefNodes.size());
-       }
+            showText(cr, state.rows(0, 1), r*0.2, node->value.beliefNodes.size());
+        }
 
-       {
-           // Draw optimal path:
-           nump::RRBT::NodeT vNearest = rrbt.nearest(rrbt.scenario.goalState);
-           nump::RRBT::TrajT eNearestRand = rrbt.connect(vNearest->value.state, rrbt.scenario.goalState);
+        // TODO: Extract a method for drawBestPath. Make it draw key states, actual trajectories, and all/most confidence ellipses, and angle uncertainty.
+        {
+            // Draw optimal path:
+            nump::RRBT::NodeT vNearest = rrbt.nearest(rrbt.scenario.goalState);
+            nump::RRBT::TrajT eNearestRand = rrbt.connect(vNearest->value.state, rrbt.scenario.goalState);
 
-           // If eNearest can not be traversed by any belief node in vNearest without
-           // violating the chance constraint, then return failure.
-           nump::RRBT::BeliefNodePtr nBest = nullptr;
-           for (auto& node : vNearest->value.beliefNodes) {
-               auto nRand = nump::RRBT::propagate(eNearestRand, node, rrbt.scenario.obstacles, rrbt.scenario.measurementRegions);
-               if (nRand != nullptr) {
-                   if (nBest == nullptr || nBest->cost > nRand->cost) {
-                       nBest = nRand;
-                   }
-               }
-           }
+            // If eNearest can not be traversed by any belief node in vNearest without
+            // violating the chance constraint, then return failure.
+            nump::RRBT::BeliefNodePtr nBest = nullptr;
+            for (auto& node : vNearest->value.beliefNodes) {
+                auto nRand = nump::RRBT::propagate(eNearestRand, node, rrbt.scenario.obstacles, rrbt.scenario.measurementRegions);
+                if (nRand != nullptr) {
+                    if (nBest == nullptr || nBest->cost > nRand->cost) {
+                        nBest = nRand;
+                    }
+                }
+            }
 
-           if (nBest != nullptr) {
+            if (nBest != nullptr) {
                 auto vRand = rrbt.graph.makeNode(nump::RRBT::Vertex {rrbt.scenario.goalState, {}});
-               nBest->containingNode = vRand; // Set containing vertex of the belief node.
-              //  drawEdgeRRBT(cr, eNearestRand, rrbt.obstacles, rrbt.measurementRegions);
+                nBest->containingNode = vRand; // Set containing vertex of the belief node.
+                //  drawEdgeRRBT(cr, eNearestRand, rrbt.obstacles, rrbt.measurementRegions);
 
-               auto n = nBest;
-               int depth = 0;
-               while (n != rrbt.initialBelief) {
-                   cairo_set_line_width(cr, lwNormal);
-                   cairoSetSourceRGBAlpha(cr, {1.0,0.0,0.0}, 1);
-                   if (!n->containingNode.lock()) {
-//                       std::cout << "b";
-                       break;
-                   }
-                   cairoMoveTo(cr, n->containingNode.lock()->value.state);
-                   cairoLineTo(cr, n->parent->containingNode.lock()->value.state);
-                   cairo_stroke(cr);
+                auto n = nBest;
+                int depth = 0;
+                while (n != rrbt.initialBelief) {
+                    cairo_set_line_width(cr, lwNormal);
+                    cairoSetSourceRGBAlpha(cr, {1.0,0.0,0.0}, 1);
+                    if (!n->containingNode.lock()) {
+                    //                       std::cout << "b";
+                        break;
+                    }
+                    cairoMoveTo(cr, n->containingNode.lock()->value.state.head(2));
+                    cairoLineTo(cr, n->parent->containingNode.lock()->value.state.head(2));
+                    cairo_stroke(cr);
 
-                   cairo_set_line_width(cr, lwHighlight);
-                   drawErrorEllipse(cr, n->containingNode.lock()->value.state, n->stateCov + n->stateDistribCov, 0.95);
-                   n = n->parent;
-                   ++depth;
-                   if (depth > rrbt.graph.nodes.size()) {
-//                       std::cout << "l";
-                       break;
-                   }
-               }
-           }
+                    cairo_set_line_width(cr, lwHighlight);
+                    drawErrorEllipse(cr, n->containingNode.lock()->value.state.head(2), arma::mat(n->stateCov + n->stateDistribCov).submat(0,0,1,1), 0.95);
+                    n = n->parent;
+                    ++depth;
+                    if (depth > rrbt.graph.nodes.size()) {
+                    //                       std::cout << "l";
+                        break;
+                    }
+                }
+            }
 
-          //  if (goalNode) {
-          //      cairoSetSourceRGBAlpha(cr, {0, 0.7, 0}, 0.8);
-          //      auto zNearby = rrbt.nearVertices(goalNode, tree.nodes.size());
-          //      searchTree.optimiseParent(goalNode, zNearby);
-          //      for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
-          //          drawRobot(cr, pathNode->value.state, r);
-          //          drawNodeTrajectoryPoints(cr, pathNode->value.traj, r * 0.5);
-          //      }
-          //  }
-       }
+            //  if (goalNode) {
+            //      cairoSetSourceRGBAlpha(cr, {0, 0.7, 0}, 0.8);
+            //      auto zNearby = rrbt.nearVertices(goalNode, tree.nodes.size());
+            //      searchTree.optimiseParent(goalNode, zNearby);
+            //      for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
+            //          drawRobot(cr, pathNode->value.state, r);
+            //          drawNodeTrajectoryPoints(cr, pathNode->value.traj, r * 0.5);
+            //      }
+            //  }
+        }
+
+        cairo_set_source_rgb(cr, 1, 0.5, 0.5);
+        drawRobot(cr, rrbt.scenario.initialState, r);
+
+        cairo_set_source_rgb(cr, 0.5, 1, 0.5);
+        drawRobot(cr, rrbt.scenario.goalState, r);
+
+        // Draw obstacles:
+        for (auto& reg : rrbt.scenario.measurementRegions) {
+            fillCircle(cr, reg, colRegion, 0.3);
+        }
+        for (auto& obs : rrbt.scenario.obstacles) {
+            fillCircle(cr, obs, colObstacle, 0.3);
+        }
 
         cairo_restore(cr);
     }

@@ -41,17 +41,20 @@ void covarianceComparisonTests() {
     int numTrials = 20;
     for (int i = 0; i < numTrials; i++) {
         // Set the robot's state and uncertainty:
-        arma::vec2 stateA = {0.33, 0.5};
-        arma::vec2 stateB = {0.66, 0.5};
-        arma::mat22 normMatA = arma::randn(2, 2);
-        arma::mat22 normMatB = arma::randn(2, 2);
-        arma::mat22 stateCovA = normMatA.t()*normMatA * 0.01;
-        arma::mat22 stateCovB = normMatB.t()*normMatB * 0.01;
+        nump::RRBT::StateT stateA, stateB;
+        stateA.head(2) = arma::vec({0.33, 0.5});
+        stateB.head(2) = arma::vec({0.66, 0.5});
+
+        int matsize = 3;
+        nump::RRBT::StateCovT normMatA = arma::randn(matsize, matsize);
+        nump::RRBT::StateCovT normMatB = arma::randn(matsize, matsize);
+        nump::RRBT::StateCovT stateCovA = normMatA.t()*normMatA * 0.01;
+        nump::RRBT::StateCovT stateCovB = normMatB.t()*normMatB * 0.01;
 
         bool aLessThanB = nump::RRBT::compareCovariancesLT(stateCovA, stateCovB);
 
-        Ellipse ellipseA = Ellipse::forConfidenceRegion(stateA, stateCovA);
-        Ellipse ellipseB = Ellipse::forConfidenceRegion(stateB, stateCovB);
+        Ellipse ellipseA = Ellipse::forConfidenceRegion(stateA.head(2), stateCovA.submat(0,0,1,1));
+        Ellipse ellipseB = Ellipse::forConfidenceRegion(stateB.head(2), stateCovB.submat(0,0,1,1));
 
         cairo_set_line_width(cr, 0.02);
         if (aLessThanB) {
