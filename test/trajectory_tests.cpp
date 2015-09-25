@@ -51,7 +51,7 @@ void trajectoryTests() {
         arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
 
 //        Transform2D x1 = nump::SearchTree::TrajT::sample();
-        nump::SearchTree::StateT x2 = nump::SearchTree::TrajT::sample();
+        nump::SearchTree::StateT x2 = nump::SearchTree::TrajT::sample({1, 1});
         nump::SearchTree::TrajT x = nump::SearchTree::steer(x1, x2);
 
 

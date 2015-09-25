@@ -17,8 +17,9 @@ namespace geometry {
         using RotatedRectangle::RotatedRectangle;
     public:
 
-        // TODO: Consider making a NormalDistribution class and moving this there.
+        // TODO: Consider making a NormalDistribution class and moving these there.
         static Ellipse forConfidenceRegion(arma::vec2 mean, arma::mat22 cov);
+        static double confidenceRegionArea(arma::mat22 cov);
     };
 
 }

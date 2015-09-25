@@ -156,7 +156,7 @@ namespace nump {
         tree.obstacles = obstacles;
 
         for (int i = 0; i < n; i++) {
-            StateT zRand = TrajT::sample();
+            StateT zRand = TrajT::sample({1, 1});
             tree.extendRRT(zRand);
         }
 
@@ -203,7 +203,7 @@ namespace nump {
 
 
         for (int i = 0; i < n; i++) {
-            StateT zRand = TrajT::sample();
+            StateT zRand = TrajT::sample({1, 1});
             bool extended = tree.extendRRTs(cr, zRand);
 
             callback(tree, zRand, extended);

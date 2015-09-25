@@ -12,7 +12,6 @@ namespace nump {
         auto diff = arma::vec2(targetState.xy() - currentState.xy());
         auto dir = utility::math::angle::vectorToBearing(diff);
         double wcAngle = utility::math::angle::signedDifference(dir, currentState.angle());
-        // TODO: Consider the heading of targetState in planning.
         int angleSign = (wcAngle < 0) ? -1 : 1;
 
         double walk_far_rotation_speed = 5;
@@ -153,14 +152,14 @@ namespace nump {
 
 
     template <>
-    arma::vec2 Trajectory<arma::vec2>::sample() {
+    arma::vec2 Trajectory<arma::vec2>::sample(arma::vec2 mapSize) {
         arma::vec rvec = arma::randu(2);
-        return { rvec(0), rvec(1) };
+        return { rvec(0)*mapSize(0), rvec(1)*mapSize(1) };
     }
 
     template <>
-    Transform2D Trajectory<Transform2D>::sample() {
+    Transform2D Trajectory<Transform2D>::sample(arma::vec2 mapSize) {
         arma::vec rvec = arma::randu(3);
-        return { rvec(0), rvec(1), (rvec(2) * 2 - 1) * M_PI };
+        return { rvec(0)*mapSize(0), rvec(1)*mapSize(1), (rvec(2) * 2 - 1) * M_PI };
     }
 }

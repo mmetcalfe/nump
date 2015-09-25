@@ -98,7 +98,7 @@ void propogateTests() {
         drawErrorEllipse(cr, x1, n1->stateCov + n1->stateDistribCov, 0.95);
 
         // Sample target state:
-        nump::SearchTree::StateT x2 = nump::SearchTree::TrajT::sample();
+        nump::SearchTree::StateT x2 = nump::SearchTree::TrajT::sample({1, 1});
 //        x2(0) = 0.5 + 0.5 * x2(0);
 
         // Generate the trajectory:

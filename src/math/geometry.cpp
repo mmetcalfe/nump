@@ -49,14 +49,14 @@ namespace math {
         };
     }
 
-    inline double Transform2D::x() const { return at(0); }
-    inline double& Transform2D::x() { return at(0); }
-    inline double Transform2D::y() const { return at(1); }
-    inline double& Transform2D::y() { return at(1); }
-    inline double Transform2D::angle() const { return at(2); }
-    inline double& Transform2D::angle() { return at(2); }
-    inline const arma::subview_col<double> Transform2D::xy() const { return rows(0,1); }
-    inline arma::subview_col<double> Transform2D::xy() { return rows(0,1); }
+    double Transform2D::x() const { return at(0); }
+    double& Transform2D::x() { return at(0); }
+    double Transform2D::y() const { return at(1); }
+    double& Transform2D::y() { return at(1); }
+    double Transform2D::angle() const { return at(2); }
+    double& Transform2D::angle() { return at(2); }
+    const arma::subview_col<double> Transform2D::xy() const { return rows(0,1); }
+    arma::subview_col<double> Transform2D::xy() { return rows(0,1); }
 
     RotatedRectangle::RotatedRectangle(const Transform2D& transform_, const arma::vec2& size_)
             : transform(transform_), size(size_) { }

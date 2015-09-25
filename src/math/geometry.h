@@ -26,14 +26,14 @@ namespace math {
         Transform2D localToWorld(const Transform2D& reference) const;
         Transform2D worldToLocal(const Transform2D& reference) const;
 
-        inline double x() const;
-        inline double& x();
-        inline double y() const;
-        inline double& y();
-        inline double angle() const;
-        inline double& angle();
-        inline const arma::subview_col<double> xy() const;
-        inline arma::subview_col<double> xy();
+        double x() const;
+        double& x();
+        double y() const;
+        double& y();
+        double angle() const;
+        double& angle();
+        const arma::subview_col<double> xy() const;
+        arma::subview_col<double> xy();
     };
 
     class Circle {
@@ -50,11 +50,13 @@ namespace math {
     };
 
     class RotatedRectangle {
-    private:
+    // private:
+    public:
+
         Transform2D transform;
         arma::vec2 size;
 
-    public:
+    // public:
         RotatedRectangle(const Transform2D& transform_, const arma::vec2& size_);
         Transform2D getTransform() const;
         arma::vec2 getPosition()   const;

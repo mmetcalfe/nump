@@ -12,6 +12,7 @@
 //#include "Tree.h"
 #include "Graph.h"
 #include "Trajectory.h"
+#include "SearchScenario.h"
 
 namespace nump {
 
@@ -30,17 +31,19 @@ namespace nump {
         cairo_t *cairo = nullptr;
 
         struct Vertex;
+        struct BeliefNode;
         typedef arma::vec2 StateT;
         typedef arma::mat22 StateCovT;
         typedef Trajectory<StateT> TrajT;
         typedef Graph<Vertex, TrajT> GraphT;
-
-        GraphT graph;
         typedef std::shared_ptr<GraphT::Node> NodeT;
-
-        struct BeliefNode;
         typedef std::shared_ptr<BeliefNode> BeliefNodePtr;
 
+        numptest::SearchScenario::Config scenario;
+        GraphT graph;
+        BeliefNodePtr initialBelief;
+
+        std::vector<double> iterationTimes;
 
         struct BeliefNode { // n \in v.N
             StateCovT stateCov; // Σ
@@ -64,15 +67,9 @@ namespace nump {
             std::vector<BeliefNodePtr> beliefNodes; // N
         };
 
-        std::vector<nump::math::Circle> obstacles;
-        std::vector<nump::math::Circle> measurementRegions;
-
-        StateT init;
-        StateT goal;
-        BeliefNodePtr initialBelief;
-
     private:
-        RRBT(StateT init, StateCovT initCov, StateT goal);
+//        RRBT(StateT init, StateCovT initCov, StateT goal);
+        RRBT(const numptest::SearchScenario::Config& scenario);
 
     public:
         bool obstacleFree(TrajT s) const;
@@ -87,10 +84,17 @@ namespace nump {
         bool extendRRBT(cairo_t *cr, StateT z);
 
         // Class and member functions:
-        static RRBT fromRRBT(cairo_t *cr, StateT init, StateCovT initCov, StateT goal, int n,
-                             std::vector<nump::math::Circle> obstacles,
-                             std::vector<nump::math::Circle> measurementRegions,
-                             std::function<void(const RRBT &, StateT, bool)> callback = [](auto a, auto b, auto c){});
+//        static RRBT fromRRBT(cairo_t *cr, StateT init, StateCovT initCov, StateT goal, int n,
+//                             std::vector<nump::math::Circle> obstacles,
+//                             std::vector<nump::math::Circle> measurementRegions,
+//                             std::function<void(const RRBT &, StateT, bool)> callback = [](auto a, auto b, auto c){});
+
+        static RRBT fromSearchScenario(
+                const numptest::SearchScenario::Config& scenario,
+                cairo_t *cr = nullptr,
+                std::function<void(const RRBT &, StateT, bool)> callback = [](auto a, auto b, auto c){}
+        );
+
 
         NodeT nearest(StateT state) const;
 

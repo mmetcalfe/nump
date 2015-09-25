@@ -239,7 +239,6 @@ namespace drawing {
             col(1) = col(0);
             cairoSetSourceRGBAlpha(cr, col, 1);
             drawRobot(cr, state, r);
-//            drawRobot(cr, {state, 0}, r); // TODO: Fix for arma::vec2.
 
             cairo_set_source_rgb(cr, 0.7, 0.7, 0.7);
             showText(cr, state.rows(0, 1), r*0.15, node->value.cost);
@@ -277,7 +276,7 @@ namespace drawing {
         nump::RRBT::BeliefNodePtr n1 = nullptr;
         for (auto nChild : edge.child.lock()->value.beliefNodes) {
             if (nChild->parent == nullptr) {
-                std::cout << "NO PARENT: " << nChild << std::endl;
+//                std::cout << "NO PARENT: " << nChild << std::endl;
                 continue;
             }
             if (nChild->parent->containingNode.lock() != edge.parent.lock()) {
@@ -288,12 +287,19 @@ namespace drawing {
             break;
         }
         if (n1 == nullptr) {
-            std::cout << "BAD EDGE" << std::endl;
+//            std::cout << "b";
             return;
         }
 
+        int stepNum = 0;
+        int drawPeriod = 5;
         // Perform belief propagation:
         auto n2 = nump::RRBT::propagate(traj, n1, obstacles, measurementRegions, [&](auto t, auto xt, auto nt) {
+            ++stepNum;
+            if (stepNum % drawPeriod != 0) {
+                return;
+            }
+
             double frac = t / traj.t;
 
             nump::RRBT::StateCovT fullCov = nt->stateCov + nt->stateDistribCov;
@@ -322,7 +328,7 @@ namespace drawing {
 
     void drawRRBT(cairo_t *cr, const nump::RRBT& rrbt) {
         arma::vec3 colObstacle = {0.0, 0.0, 0.0};
-        arma::vec3 colRegion = {0.5, 0.5, 0.5};
+        arma::vec3 colRegion = {0.5, 0.5, 1};
         arma::vec3 colInitial = {0.5, 0.5, 0.5};
         arma::vec3 colProgress = {0.5, 0.5, 0.5};
         arma::vec3 colSuccess = {0.5, 0.9, 0.5};
@@ -331,25 +337,29 @@ namespace drawing {
         arma::vec3 colLine = {0.0, 0.0, 0.0};
         arma::vec3 colText = {0.0, 0.0, 1.0};
         double alphaNormal = 0.05;
-        double lwHighlight = 0.05;
-        double lwNormal = 0.01;
+        double lwHighlight = 0.01;
+        double lwNormal = 0.005;
 
         cairo_save(cr);
 
         double r = 0.04; //deviceToUserDistance(cr, {2, 0})(0);
         cairo_set_source_rgb(cr, 1, 0.5, 0.5);
-        drawRobot(cr, rrbt.init, r);
+        drawRobot(cr, rrbt.scenario.initialState, r);
 
         cairo_set_source_rgb(cr, 0.5, 1, 0.5);
-        drawRobot(cr, rrbt.goal, r);
+        drawRobot(cr, rrbt.scenario.goalState, r);
 
         // Draw obstacles:
-        for (auto& reg : rrbt.measurementRegions) {
+        for (auto& reg : rrbt.scenario.measurementRegions) {
             fillCircle(cr, reg, colRegion, 0.3);
         }
-        for (auto& obs : rrbt.obstacles) {
+        for (auto& obs : rrbt.scenario.obstacles) {
             fillCircle(cr, obs, colObstacle, 0.3);
         }
+
+        // std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
+
+        // std::cout << "Drawing graph edges: " << cr << std::endl;
 
         // Draw graph edges:
         cairo_set_line_cap(cr,CAIRO_LINE_CAP_ROUND);
@@ -361,37 +371,47 @@ namespace drawing {
             cairoLineTo(cr, edge.child.lock()->value.state.rows(0,1));
             cairo_stroke(cr);
 
-            drawEdgeRRBT(cr, edge, rrbt.obstacles, rrbt.measurementRegions);
+            drawEdgeRRBT(cr, edge, rrbt.scenario.obstacles, rrbt.scenario.measurementRegions);
         }
+        // std::cout << std::endl;
+
+        // std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
+
+        // std::cout << "Drawing tree edges: " << cr << std::endl;
 
         // Draw tree edges:
-        for (auto& vertex : rrbt.graph.nodes) {
-            for (auto queryNode : vertex->value.beliefNodes) {
-                auto n = queryNode;
-                int depth = 0;
-                while (n != rrbt.initialBelief) {
-                    cairo_set_line_width(cr, 0.001);
-                    cairoSetSourceRGBAlpha(cr, {1.0,0.0,0.0}, 1);
-                    if (!n->containingNode.lock()) {
-                        std::cout << "BAD NODE" << std::endl;
-                        break;
-                    }
-                    cairoMoveTo(cr, n->containingNode.lock()->value.state);
-                    cairoLineTo(cr, n->parent->containingNode.lock()->value.state);
-                    cairo_stroke(cr);
-                    n = n->parent;
-                    ++depth;
-                    if (depth > rrbt.graph.nodes.size()) {
-                        std::cout << "LOOP" << std::endl;
-                        break;
-                    }
-                }
+//         for (auto& vertex : rrbt.graph.nodes) {
+//             for (auto queryNode : vertex->value.beliefNodes) {
+//                 auto n = queryNode;
+//                 int depth = 0;
+//                 while (n != rrbt.initialBelief) {
+//                     cairo_set_line_width(cr, 0.001);
+//                     cairoSetSourceRGBAlpha(cr, {1.0,0.0,0.0}, 1);
+//                     if (!n->containingNode.lock()) {
+//                         std::cout << "b";
+//                         break;
+//                     }
+//                     cairoMoveTo(cr, n->containingNode.lock()->value.state);
+//                     cairoLineTo(cr, n->parent->containingNode.lock()->value.state);
+//                     cairo_stroke(cr);
+//                     n = n->parent;
+//                     ++depth;
+//                     if (depth > rrbt.graph.nodes.size()) {
+//                         std::cout << "l";
+//                         break;
+//                     }
+//                 }
+//
+//                 // TODO: Edge getEdgeBetween(n->parent, n);
+//
+// //                drawEdgeRRBT(cr, edge, rrbt.obstacles, rrbt.measurementRegions);
+//             }
+//         }
+        // std::cout << std::endl;
 
-                // TODO: Edge getEdgeBetween(n->parent, n);
+        // std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
 
-//                drawEdgeRRBT(cr, edge, rrbt.obstacles, rrbt.measurementRegions);
-            }
-        }
+        // std::cout << "Drawing vertices: " << cr << std::endl;
 
         // Draw vertices:
         for (auto& node : rrbt.graph.nodes) {
@@ -409,27 +429,72 @@ namespace drawing {
             showText(cr, state.rows(0, 1), r*0.6, node->value.beliefNodes.size());
        }
 
-//        // Draw optimal path:
-//        auto goalNode = rrbt.createValidNodeForState(rrbt.goalState());
-//        if (goalNode) {
-//            cairoSetSourceRGBAlpha(cr, {0, 0.7, 0}, 0.8);
-//            auto zNearby = rrbt.nearVertices(goalNode, tree.nodes.size());
-//            searchTree.optimiseParent(goalNode, zNearby);
-//            for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
-//                drawRobot(cr, pathNode->value.state, r);
-//                drawNodeTrajectoryPoints(cr, pathNode->value.traj, r * 0.5);
-//            }
-//        }
+       {
+           // Draw optimal path:
+           nump::RRBT::NodeT vNearest = rrbt.nearest(rrbt.scenario.goalState);
+           nump::RRBT::TrajT eNearestRand = rrbt.connect(vNearest->value.state, rrbt.scenario.goalState);
+
+           // If eNearest can not be traversed by any belief node in vNearest without
+           // violating the chance constraint, then return failure.
+           nump::RRBT::BeliefNodePtr nBest = nullptr;
+           for (auto& node : vNearest->value.beliefNodes) {
+               auto nRand = nump::RRBT::propagate(eNearestRand, node, rrbt.scenario.obstacles, rrbt.scenario.measurementRegions);
+               if (nRand != nullptr) {
+                   if (nBest == nullptr || nBest->cost > nRand->cost) {
+                       nBest = nRand;
+                   }
+               }
+           }
+
+           if (nBest != nullptr) {
+                auto vRand = rrbt.graph.makeNode(nump::RRBT::Vertex {rrbt.scenario.goalState, {}});
+               nBest->containingNode = vRand; // Set containing vertex of the belief node.
+              //  drawEdgeRRBT(cr, eNearestRand, rrbt.obstacles, rrbt.measurementRegions);
+
+               auto n = nBest;
+               int depth = 0;
+               while (n != rrbt.initialBelief) {
+                   cairo_set_line_width(cr, lwNormal);
+                   cairoSetSourceRGBAlpha(cr, {1.0,0.0,0.0}, 1);
+                   if (!n->containingNode.lock()) {
+//                       std::cout << "b";
+                       break;
+                   }
+                   cairoMoveTo(cr, n->containingNode.lock()->value.state);
+                   cairoLineTo(cr, n->parent->containingNode.lock()->value.state);
+                   cairo_stroke(cr);
+
+                   cairo_set_line_width(cr, lwHighlight);
+                   drawErrorEllipse(cr, n->containingNode.lock()->value.state, n->stateCov + n->stateDistribCov, 0.95);
+                   n = n->parent;
+                   ++depth;
+                   if (depth > rrbt.graph.nodes.size()) {
+//                       std::cout << "l";
+                       break;
+                   }
+               }
+           }
+
+          //  if (goalNode) {
+          //      cairoSetSourceRGBAlpha(cr, {0, 0.7, 0}, 0.8);
+          //      auto zNearby = rrbt.nearVertices(goalNode, tree.nodes.size());
+          //      searchTree.optimiseParent(goalNode, zNearby);
+          //      for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
+          //          drawRobot(cr, pathNode->value.state, r);
+          //          drawNodeTrajectoryPoints(cr, pathNode->value.traj, r * 0.5);
+          //      }
+          //  }
+       }
 
         cairo_restore(cr);
     }
 
-    void drawErrorEllipse(cairo_t *cr, const arma::vec2& mean, const arma::mat22& cov, double confidence) {
+    bool drawErrorEllipse(cairo_t *cr, const arma::vec2& mean, const arma::mat22& cov, double confidence) {
         auto ellipse = Ellipse::forConfidenceRegion(mean, cov);
-        drawEllipse(cr, ellipse);
+        return drawEllipse(cr, ellipse);
     }
 
-    void drawEllipse(cairo_t *cr, const Ellipse& ellipse) {
+    bool drawEllipse(cairo_t *cr, const Ellipse& ellipse) {
         arma::vec2 size = ellipse.getSize();
 
         if (size(0) + size(1) > 1e3) {
@@ -438,18 +503,27 @@ namespace drawing {
                      << size(0) << ", "
                      << size(1) << ")"
                      << std::endl;
-            return;
+            return false;
+        }
+
+        if (!ellipse.getTransform().is_finite()) {
+            std::cout << "Warning: Cannot draw non-finite ellipse." << ellipse.getTransform() << std::endl;
+            return false;
         }
 
         cairo_save(cr);
+
         cairoTransformToLocal(cr, ellipse.getTransform());
 
         cairo_scale(cr, size(0), size(1));
+
         cairo_arc(cr, 0, 0, 0.5, -M_PI, M_PI); // diameter 1
+
+        cairo_restore(cr);
 
         cairo_stroke(cr);
 
-        cairo_restore(cr);
+        return true;
     }
 
     void drawRotatedRectangle(cairo_t *cr, const RotatedRectangle& rect) {
@@ -467,9 +541,9 @@ namespace drawing {
         cairoLineTo(cr, {-0.5, 0.5});
         cairo_close_path(cr);
 
-        cairo_stroke(cr);
-
         cairo_restore(cr);
+
+        cairo_stroke(cr);
     }
 
 

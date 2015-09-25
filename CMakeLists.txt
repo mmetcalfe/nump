@@ -7,8 +7,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -g")
 
 find_package(Cairo REQUIRED)
 find_package(Armadillo REQUIRED)
-include_directories(${CAIRO_INCLUDE_DIRS} REQUIRED)
-include_directories(${ARMADILLO_INCLUDE_DIRS} REQUIRED)
+find_package(YAML-CPP REQUIRED)
+find_package(Boost COMPONENTS system filesystem REQUIRED)
+
+include_directories(SYSTEM ${CAIRO_INCLUDE_DIRS})
+include_directories(SYSTEM ${ARMADILLO_INCLUDE_DIRS})
+include_directories(SYSTEM ${YAML-CPP_INCLUDE_DIRS})
+include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
 # Build NUMP:
 
@@ -32,16 +37,14 @@ file(GLOB_RECURSE CPP_SOURCE_FILES "src/*.cpp" "test/*.cpp")
 
 #set(NUMPTEST_SOURCES test/numptest.cpp)
 #add_executable(numptest ${NUMPTEST_SOURCES} ${SOURCE_FILES})
-add_executable(numptest ${CPP_SOURCE_FILES})
-set_target_properties(numptest PROPERTIES LINKER_LANGUAGE CXX)
-
-#target_include_directories(numptest SYSTEM INTERFACE ${CAIRO_INCLUDE_DIRS} REQUIRED)
-target_include_directories(numptest PRIVATE "src" "test")
-#target_include_directories(numptest PRIVATE "test")
-
-
-target_link_libraries(numptest
+add_executable(runscenarios ${CPP_SOURCE_FILES})
+set_target_properties(runscenarios PROPERTIES LINKER_LANGUAGE CXX)
+target_include_directories(runscenarios PRIVATE "src" "test")
+target_link_libraries(runscenarios
 #    nump
     ${CAIRO_LIBRARIES}
     ${ARMADILLO_LIBRARIES}
+    ${YAML-CPP_LIBRARIES}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
     )

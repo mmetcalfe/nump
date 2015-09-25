@@ -30,11 +30,10 @@ namespace nump {
         double t = 0; // time
         bool reachesTarget = true;
 
-        static StateT sample();
+        static StateT sample(arma::vec2 mapSize);
 
         static Trajectory fromEndpoints(StateT xInit, StateT xGoal);
 
-        // TODO: Use armadillo's linear interpolation feature for more complex controls?
         Trajectory();
         Trajectory(StateT xInit, StateT xGoal, StateT u, double t)
                 : xInit(xInit)

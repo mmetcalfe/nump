@@ -1,0 +1,45 @@
+# Search settings:
+seed: 61535755 # RANDOM, or an integer.
+# seed: RANDOM # RANDOM, or an integer.
+num_samples: 1000
+
+rrbt_append_reject_cov_threshold: 10
+rrbt_append_reject_cost_threshold: 0.01
+
+
+# Drawing:
+draw_period: 100
+canvas_size: [300, 500]
+
+# Scenario description:
+state_type: Point2D # Point2D, Dubins
+map_size: [1, 1.6666]
+initial_state: [0.1, 0.9]
+initial_covariance:
+    - [0.002, 0]
+    - [0, 0.002]
+
+goal_state: [0.9, 0.1]
+
+obstacles:
+    - { type: CIRCLE, position: [0.0, 0.5], radius: 0.1 }
+    - { type: CIRCLE, position: [0.1, 0.5], radius: 0.1 }
+    - { type: CIRCLE, position: [0.2, 0.5], radius: 0.1 }
+    - { type: CIRCLE, position: [0.3, 0.5], radius: 0.1 }
+    - { type: CIRCLE, position: [0.7, 0.5], radius: 0.1 }
+    - { type: CIRCLE, position: [0.8, 0.5], radius: 0.1 }
+    - { type: CIRCLE, position: [0.9, 0.5], radius: 0.1 }
+    - { type: CIRCLE, position: [1.0, 0.5], radius: 0.1 }
+
+measurement_regions:
+    - { type: CIRCLE, position: [0.0, 1.4666], radius: 0.2 }
+    - { type: CIRCLE, position: [0.1, 1.4666], radius: 0.2 }
+    - { type: CIRCLE, position: [0.2, 1.4666], radius: 0.2 }
+    - { type: CIRCLE, position: [0.3, 1.4666], radius: 0.2 }
+    - { type: CIRCLE, position: [0.4, 1.4666], radius: 0.2 }
+    - { type: CIRCLE, position: [0.5, 1.4666], radius: 0.2 }
+    - { type: CIRCLE, position: [0.6, 1.4666], radius: 0.2 }
+    - { type: CIRCLE, position: [0.7, 1.4666], radius: 0.2 }
+    - { type: CIRCLE, position: [0.8, 1.4666], radius: 0.2 }
+    - { type: CIRCLE, position: [0.9, 1.4666], radius: 0.2 }
+    - { type: CIRCLE, position: [1.0, 1.4666], radius: 0.2 }

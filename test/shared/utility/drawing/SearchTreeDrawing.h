@@ -58,11 +58,11 @@ namespace drawing {
 
     void drawRRBT(cairo_t *cr, const nump::RRBT& rrbt);
 
-    void drawEllipse(cairo_t *cr, const Ellipse& ellipse);
+    bool drawEllipse(cairo_t *cr, const Ellipse& ellipse);
 
     void drawRotatedRectangle(cairo_t *cr, const RotatedRectangle& rect);
 
-    void drawErrorEllipse(cairo_t *cr, const arma::vec2& mean, const arma::mat22& cov, double confidence);
+    bool drawErrorEllipse(cairo_t *cr, const arma::vec2& mean, const arma::mat22& cov, double confidence);
 }
 }
 }
