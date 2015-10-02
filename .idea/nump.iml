@@ -18,8 +18,8 @@
       <sourceFolder url="file://$MODULE_DIR$/test/numptest.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/test/propogate_tests.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/test/scenario_runner.cpp" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/test/shared/utility/drawing/SearchTreeDrawing.cpp" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/test/shared/utility/drawing/SearchTreeDrawing.h" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/test/shared/utility/drawing/cairo_drawing.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/test/shared/utility/drawing/cairo_drawing.h" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/test/shared/utility/math/geometry/Ellipse.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/test/shared/utility/math/geometry/Ellipse.h" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/test/shared/utility/math/geometry/intersection/TestCircleEllipse.cpp" isTestSource="false" />
@@ -381,7 +381,7 @@
           <root url="file://$MODULE_DIR$/src/SearchTree.h" />
           <root url="file://$MODULE_DIR$/src/SearchTree.cpp" />
           <root url="file://$MODULE_DIR$/src/RRBT.cpp" />
-          <root url="file://$MODULE_DIR$/test/shared/utility/drawing/SearchTreeDrawing.cpp" />
+          <root url="file://$MODULE_DIR$/test/shared/utility/drawing/cairo_drawing.cpp" />
           <root url="file://$MODULE_DIR$/test/SearchScenario.h" />
           <root url="file://$MODULE_DIR$/test/SearchScenario.cpp" />
           <root url="file://$MODULE_DIR$/test/scenario_runner.cpp" />
@@ -390,7 +390,7 @@
           <root url="file://$MODULE_DIR$/test/trajectory_tests.cpp" />
           <root url="file://$MODULE_DIR$/test/shared/utility/math/geometry/Ellipse.cpp" />
           <root url="file://$MODULE_DIR$/test/covariance_comparison_tests.cpp" />
-          <root url="file://$MODULE_DIR$/test/shared/utility/drawing/SearchTreeDrawing.h" />
+          <root url="file://$MODULE_DIR$/test/shared/utility/drawing/cairo_drawing.h" />
           <root url="file://$MODULE_DIR$/test/shared/utility/math/geometry/intersection/TestCircleEllipse.cpp" />
           <root url="file://$MODULE_DIR$/test/numptest.cpp" />
           <root url="file://$MODULE_DIR$/test/shared/utility/math/geometry/Ellipse.h" />

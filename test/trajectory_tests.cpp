@@ -8,15 +8,15 @@
 #include <math.h>
 #include <armadillo>
 #include "nump.h"
-#include "shared/utility/drawing/SearchTreeDrawing.h"
+#include "shared/utility/drawing/cairo_drawing.h"
 #include "shared/utility/math/geometry/Ellipse.h"
 #include "shared/utility/math/geometry/intersection/Intersection.h"
 #include "tests.h"
 
 using utility::math::geometry::Ellipse;
-using shared::utility::drawing::drawSearchTree;
-using shared::utility::drawing::drawRRBT;
-using shared::utility::drawing::fillCircle;
+using utility::drawing::drawSearchTree;
+using utility::drawing::drawRRBT;
+using utility::drawing::fillCircle;
 using nump::math::Transform2D;
 using nump::math::Circle;
 
@@ -42,8 +42,8 @@ void trajectoryTests() {
     Transform2D x1 = {0.5, 0.5, 1.5*M_PI}; //nump::SearchTree::TrajT::sample();
 //    arma::vec2 x1 = {0.5, 0.5}; //nump::SearchTree::TrajT::sample();
 
-    shared::utility::drawing::cairoSetSourceRGB(cr, {0.5, 0.5, 0.5});
-    shared::utility::drawing::drawRobot(cr, x1, size);
+    utility::drawing::cairoSetSourceRGB(cr, {0.5, 0.5, 0.5});
+    utility::drawing::drawRobot(cr, x1, size);
 
     int numTrials = 10;
     int numSteps = 200;
@@ -55,16 +55,16 @@ void trajectoryTests() {
         nump::SearchTree::TrajT x = nump::SearchTree::steer(x1, x2);
 
 
-//        shared::utility::drawing::cairoSetSourceRGB(cr, col * 0.5);
-//        shared::utility::drawing::drawRobot(cr, x1, size);
-        shared::utility::drawing::cairoSetSourceRGBAlpha(cr, col, 0.5);
-        shared::utility::drawing::drawRobot(cr, x2, size);
+//        utility::drawing::cairoSetSourceRGB(cr, col * 0.5);
+//        utility::drawing::drawRobot(cr, x1, size);
+        utility::drawing::cairoSetSourceRGBAlpha(cr, col, 0.5);
+        utility::drawing::drawRobot(cr, x2, size);
 
         if (!x.reachesTarget) {
             cairo_set_source_rgb (cr, 1, 0.0, 0.0);
-            shared::utility::drawing::drawRobot(cr, x1, size);
+            utility::drawing::drawRobot(cr, x1, size);
             cairo_set_source_rgb (cr, 1, 0.5, 0.5);
-            shared::utility::drawing::drawRobot(cr, x2, size);
+            utility::drawing::drawRobot(cr, x2, size);
 //            continue;
         }
 
@@ -80,17 +80,17 @@ void trajectoryTests() {
         for (double t = 0; t < x.t; t += timeStep) {
             nump::SearchTree::StateT pos = x(t);
 
-            shared::utility::drawing::cairoSetSourceRGBAlpha(cr, pathCol, 0.5);
-            shared::utility::drawing::drawRobot(cr, pos, size * 0.2);
-            shared::utility::drawing::cairoSetSourceRGBAlpha(cr, pathCol * 0.5, 0.5);
-            shared::utility::drawing::showText(cr, pos.rows(0,1), size * 0.1, t);
+            utility::drawing::cairoSetSourceRGBAlpha(cr, pathCol, 0.5);
+            utility::drawing::drawRobot(cr, pos, size * 0.2);
+            utility::drawing::cairoSetSourceRGBAlpha(cr, pathCol * 0.5, 0.5);
+            utility::drawing::showText(cr, pos.rows(0,1), size * 0.1, t);
         }
 
-//        shared::utility::drawing::cairoSetSourceRGB(cr, pathCol);
-        shared::utility::drawing::cairoSetSourceRGB(cr, {0,0,0});
-        shared::utility::drawing::drawRobot(cr, x(x.t), size * 0.2);
-        shared::utility::drawing::cairoSetSourceRGB(cr, {0.8,0.8,0.8});
-        shared::utility::drawing::showText(cr, x(x.t).rows(0,1), size * 0.1, x.t, ", ", x.reachesTarget);
+//        utility::drawing::cairoSetSourceRGB(cr, pathCol);
+        utility::drawing::cairoSetSourceRGB(cr, {0,0,0});
+        utility::drawing::drawRobot(cr, x(x.t), size * 0.2);
+        utility::drawing::cairoSetSourceRGB(cr, {0.8,0.8,0.8});
+        utility::drawing::showText(cr, x(x.t).rows(0,1), size * 0.1, x.t, ", ", x.reachesTarget);
     }
 
     cairo_show_page(cr);

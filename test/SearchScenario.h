@@ -43,6 +43,7 @@ namespace numptest {
 
             // Scenario description:
             arma::vec2 mapSize;
+            arma::vec2 footprintSize;
             StateT initialState;
             StateCovT initialCovariance;
             StateT goalState;
@@ -51,7 +52,7 @@ namespace numptest {
             std::vector<Circle> measurementRegions;
         } cfg_;
 
-        void execute();
+        void execute(const std::string& scenario_prefix);
 
         static SearchScenario fromFile(const std::string& file_path);
     };

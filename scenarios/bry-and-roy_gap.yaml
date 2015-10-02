@@ -1,7 +1,7 @@
 # Search settings:
-seed: 61535755 # RANDOM, or an integer.
-# seed: RANDOM # RANDOM, or an integer.
-num_samples: 500
+#seed: 61535755 # RANDOM, or an integer.
+seed: RANDOM # RANDOM, or an integer.
+num_samples: 50
 
 rrbt_append_reject_cov_threshold: 10
 rrbt_append_reject_cost_threshold: 0.01
@@ -19,6 +19,8 @@ map_size: [1, 1.6666]
 #    - [0.002, 0]
 #    - [0, 0.002]
 #goal_state: [0.9, 0.1]
+
+footprint_size: [0.1, 0.15]
 
 initial_state: [0.1, 0.9, 0]
 initial_covariance:

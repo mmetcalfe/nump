@@ -6,16 +6,17 @@
 // Created by Mitchell Metcalfe on 8/08/15.
 //
 
-#include "SearchTreeDrawing.h"
+#include "cairo_drawing.h"
 
 #include <armadillo>
-#include "nump.h"
 #include <cairo/cairo.h>
+
+#include "nump.h"
+#include "shared/utility/math/distributions.h"
 
 using nump::math::Transform2D;
 using utility::math::geometry::Ellipse;
 
-namespace shared {
 namespace utility {
 namespace drawing {
 
@@ -37,6 +38,11 @@ namespace drawing {
 
     void cairoLineTo(cairo_t *cr, arma::vec2 pos) {
         cairo_line_to(cr, pos(0), pos(1));
+    }
+
+    void drawLine(cairo_t *cr, arma::vec2 from, arma::vec2 to) {
+        cairoMoveTo(cr, from);
+        cairoLineTo(cr, to);
     }
 
     void cairoSetSourceRGB(cairo_t *cr, arma::vec3 rgb) {
@@ -130,6 +136,18 @@ namespace drawing {
         cairo_fill(cr);
 //        cairo_set_line_width(cr, radius * 0.2);
 //        cairo_stroke(cr);
+
+        cairo_restore(cr);
+    }
+
+    void drawRobot(cairo_t *cr, Transform2D trans, double size, arma::vec2 footprintSize) {
+        double radius = 1.5 * size*0.15;
+        double length = 1.5 * size*0.4;
+
+        cairo_save(cr);
+
+        drawRotatedRectangle(cr, {trans, footprintSize});
+        drawRobot(cr, trans, size);
 
         cairo_restore(cr);
     }
@@ -261,8 +279,7 @@ namespace drawing {
 
     void drawEdgeRRBT(cairo_t *cr,
         const nump::RRBT::GraphT::Edge& edge,
-        const std::vector<nump::math::Circle>& obstacles,
-        const std::vector<nump::math::Circle>& measurementRegions) {
+        const numptest::SearchScenario::Config& scenario) {
         arma::vec3 colProgress = {0.5, 0.5, 0.5};
         arma::vec3 colSuccess = {0.2, 0.8, 0.2};
         arma::vec3 colFailure = {0.9, 0.5, 0.5};
@@ -294,7 +311,7 @@ namespace drawing {
         int stepNum = 0;
         int drawPeriod = 5;
         // Perform belief propagation:
-        auto n2 = nump::RRBT::propagate(traj, n1, obstacles, measurementRegions, [&](auto t, auto xt, auto nt) {
+        auto n2 = nump::RRBT::propagate(traj, n1, scenario.footprintSize, scenario.obstacles, scenario.measurementRegions, [&](auto t, auto xt, auto nt) {
             ++stepNum;
             if (stepNum % drawPeriod != 0) {
                 return;
@@ -308,7 +325,7 @@ namespace drawing {
             double alpha = alphaNormal;
             cairo_set_line_width(cr, lwNormal);
 
-            if (!nump::RRBT::satisfiesChanceConstraint(xt, fullCov, obstacles)) {
+            if (!nump::RRBT::satisfiesChanceConstraint(xt, fullCov, scenario.footprintSize, scenario.obstacles)) {
                 colt = colFailure;
                 alpha = 1;
                 cairo_set_line_width(cr, lwHighlight);
@@ -358,7 +375,7 @@ namespace drawing {
             cairoLineTo(cr, edge.child.lock()->value.state.rows(0,1));
             cairo_stroke(cr);
 
-            drawEdgeRRBT(cr, edge, rrbt.scenario.obstacles, rrbt.scenario.measurementRegions);
+            drawEdgeRRBT(cr, edge, rrbt.scenario);
         }
         // std::cout << std::endl;
 
@@ -405,7 +422,8 @@ namespace drawing {
             nump::RRBT::StateT state = node->value.state;
 
             cairoSetSourceRGBAlpha(cr, colNode, 0.5);
-            drawRobot(cr, state, r);
+            cairo_set_line_width(cr, lwNormal);
+            drawRobot(cr, state, r, rrbt.scenario.footprintSize);
 
             for (auto& bn : node->value.beliefNodes) {
                 cairo_set_line_width(cr, lwNormal);
@@ -426,7 +444,7 @@ namespace drawing {
             // violating the chance constraint, then return failure.
             nump::RRBT::BeliefNodePtr nBest = nullptr;
             for (auto& node : vNearest->value.beliefNodes) {
-                auto nRand = nump::RRBT::propagate(eNearestRand, node, rrbt.scenario.obstacles, rrbt.scenario.measurementRegions);
+                auto nRand = nump::RRBT::propagate(eNearestRand, node, rrbt.scenario.footprintSize, rrbt.scenario.obstacles, rrbt.scenario.measurementRegions);
                 if (nRand != nullptr) {
                     if (nBest == nullptr || nBest->cost > nRand->cost) {
                         nBest = nRand;
@@ -492,7 +510,7 @@ namespace drawing {
     }
 
     bool drawErrorEllipse(cairo_t *cr, const arma::vec2& mean, const arma::mat22& cov, double confidence) {
-        auto ellipse = Ellipse::forConfidenceRegion(mean, cov);
+        auto ellipse = utility::math::distributions::confidenceRegion(mean, cov, confidence);
         return drawEllipse(cr, ellipse);
     }
 
@@ -509,7 +527,10 @@ namespace drawing {
         }
 
         if (!ellipse.getTransform().is_finite()) {
-            std::cout << "Warning: Cannot draw non-finite ellipse." << ellipse.getTransform() << std::endl;
+            std::cout << "Warning: Cannot draw non-finite ellipse with trans =" << ellipse.getTransform() << std::endl;
+            return false;
+        } else if (!ellipse.getSize().is_finite()) {
+            std::cout << "Warning: Cannot draw non-finite ellipse with size = " << ellipse.getSize() << std::endl;
             return false;
         }
 
@@ -550,6 +571,5 @@ namespace drawing {
 
 
 
-}
 }
 }

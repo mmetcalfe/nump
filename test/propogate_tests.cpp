@@ -8,19 +8,19 @@
 #include <math.h>
 #include <armadillo>
 #include "nump.h"
-#include "shared/utility/drawing/SearchTreeDrawing.h"
+#include "shared/utility/drawing/cairo_drawing.h"
 #include "shared/utility/math/geometry/Ellipse.h"
 #include "shared/utility/math/geometry/intersection/Intersection.h"
 #include "tests.h"
 
 using utility::math::geometry::Ellipse;
-using shared::utility::drawing::drawSearchTree;
-using shared::utility::drawing::drawRRBT;
-using shared::utility::drawing::fillCircle;
-using shared::utility::drawing::cairoSetSourceRGB;
-using shared::utility::drawing::cairoSetSourceRGBAlpha;
-using shared::utility::drawing::drawRobot;
-using shared::utility::drawing::drawErrorEllipse;
+using utility::drawing::drawSearchTree;
+using utility::drawing::drawRRBT;
+using utility::drawing::fillCircle;
+using utility::drawing::cairoSetSourceRGB;
+using utility::drawing::cairoSetSourceRGBAlpha;
+using utility::drawing::drawRobot;
+using utility::drawing::drawErrorEllipse;
 
 using nump::math::Transform2D;
 using nump::math::Circle;
@@ -69,6 +69,8 @@ void propogateTests() {
 //    arma::vec2 x1 = {0.5, 0.5}; //nump::SearchTree::TrajT::sample();
     Transform2D x1 = {0.5, 0.5, 0}; //nump::SearchTree::TrajT::sample();
 
+    arma::vec2 footprintSize = {0.1, 0.15};
+
     // Create initial belief node:
     auto n1 = std::make_shared<nump::RRBT::BeliefNode>(std::weak_ptr<nump::RRBT::GraphT::Node>()); // null weak pointer
     n1->parent = nullptr;
@@ -108,7 +110,7 @@ void propogateTests() {
         nump::SearchTree::TrajT traj = nump::RRBT::connect(x1, x2);
 
         // Perform belief propagation:
-        auto n2 = nump::RRBT::propagate(traj, n1, obstacles, measurementRegions, [&](auto t, auto xt, auto nt) {
+        auto n2 = nump::RRBT::propagate(traj, n1, footprintSize, obstacles, measurementRegions, [&](auto t, auto xt, auto nt) {
             double frac = t / traj.t;
 
             nump::RRBT::StateCovT fullCov = nt->stateCov + nt->stateDistribCov;
@@ -117,7 +119,7 @@ void propogateTests() {
             double alpha = 0.3;
             cairo_set_line_width(cr, lwNormal);
 
-            if (!nump::RRBT::satisfiesChanceConstraint(xt, fullCov, obstacles)) {
+            if (!nump::RRBT::satisfiesChanceConstraint(xt, fullCov, footprintSize, obstacles)) {
                 colt = colFailure;
                 alpha = 1;
                 cairo_set_line_width(cr, lwHighlight);
@@ -152,5 +154,6 @@ void propogateTests() {
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
 
+    std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
     std::cout << "PropogateTests: END" << std::endl << std::endl;
 }

@@ -10,14 +10,14 @@
 #include <armadillo>
 
 #include "nump.h"
-#include "shared/utility/drawing/SearchTreeDrawing.h"
+#include "shared/utility/drawing/cairo_drawing.h"
 #include "shared/utility/math/geometry/Ellipse.h"
 #include "shared/utility/math/geometry/intersection/Intersection.h"
 
 using utility::math::geometry::Ellipse;
-using shared::utility::drawing::drawSearchTree;
-using shared::utility::drawing::drawRRBT;
-using shared::utility::drawing::fillCircle;
+using utility::drawing::drawSearchTree;
+using utility::drawing::drawRRBT;
+using utility::drawing::fillCircle;
 using nump::math::Transform2D;
 using nump::math::Circle;
 
@@ -109,9 +109,8 @@ numptest::SearchScenario numptest::SearchScenario::fromFile(const std::string &f
     // Scenario description:
     scenario.cfg_.stateType = stateTypeFromYaml(scenarioYaml["state_type"]);
 
-    double mapWidth = scenarioYaml["map_size"][0].as<double>();
-    double mapHeight = scenarioYaml["map_size"][1].as<double>();
-    scenario.cfg_.mapSize = {mapWidth, mapHeight};
+    scenario.cfg_.mapSize = vec2FromYaml(scenarioYaml["map_size"]);
+    scenario.cfg_.footprintSize = vec2FromYaml(scenarioYaml["footprint_size"]);
 
     if (scenario.cfg_.stateType == StateType::Position) {
 //        scenario.cfg_.initialState = vec2FromYaml(scenarioYaml["initial_state"]);
@@ -148,11 +147,12 @@ void writeDataFile(std::string fname, const std::vector<double>& values) {
     fs.close();
 }
 
-void numptest::SearchScenario::execute() {
+void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
     arma::arma_rng::set_seed(cfg_.seed);
     std::cout << "SEED: " << cfg_.seed << std::endl;
 
-    cairo_surface_t *surface = cairo_pdf_surface_create("searchTests.pdf", cfg_.canvasSize(0), cfg_.canvasSize(1));
+    auto ouptut_img_file_name = scenario_prefix + "_searchTests.pdf";
+    cairo_surface_t *surface = cairo_pdf_surface_create(ouptut_img_file_name.c_str(), cfg_.canvasSize(0), cfg_.canvasSize(1));
     cairo_t *cr = cairo_create(surface);
 
     double canvasAspect = cfg_.canvasSize(0) / cfg_.canvasSize(1);
@@ -215,7 +215,7 @@ void numptest::SearchScenario::execute() {
 
     std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
 
-    writeDataFile("iteration_times.dat", rrbtTree.iterationTimes);
+    writeDataFile(scenario_prefix + "_iteration_times.dat", rrbtTree.iterationTimes);
 
     // Clean up:
     cairo_destroy(cr);

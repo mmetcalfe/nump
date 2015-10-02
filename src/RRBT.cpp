@@ -7,13 +7,14 @@
 #include <vector>
 #include <algorithm> // remove and remove_if
 #include <queue>
-#include "shared/utility/drawing/SearchTreeDrawing.h"
+#include "shared/utility/drawing/cairo_drawing.h"
 #include "shared/utility/math/geometry/Ellipse.h"
 #include "shared/utility/math/geometry/intersection/Intersection.h"
+#include "shared/utility/math/distributions.h"
 
 using utility::math::geometry::Ellipse;
 
-using shared::utility::drawing::fillCircle;
+using utility::drawing::fillCircle;
 
 namespace nump {
 
@@ -163,10 +164,10 @@ namespace nump {
         return tree;
     }
 
-    bool RRBT::satisfiesChanceConstraint(StateT state, StateCovT stateCov, const std::vector<nump::math::Circle>& obstacles) {
-        Ellipse confEllipse = Ellipse::forConfidenceRegion(state.head(2), stateCov.submat(0,0,1,1));
+    bool satisfiesChanceConstraintPointFootprint(RRBT::StateT mean, RRBT::StateCovT cov,
+                                   const std::vector<nump::math::Circle>& obstacles) {
+        Ellipse confEllipse = utility::math::distributions::confidenceRegion(mean.head(2), cov.submat(0,0,1,1), 0.95);
         for (auto& obs : obstacles) {
-            // TODO: Enhance test to work for a polygonal robot footprint, rather than just a point robot.
             bool intersects = utility::math::geometry::intersection::test(obs, confEllipse);
 
             // Return failure if the chance constraint is violated:
@@ -178,9 +179,36 @@ namespace nump {
         return true;
     }
 
+    bool satisfiesChanceConstraintTransform2D(Transform2D mean, arma::mat33 cov, arma::vec2 footprintSize,
+                                   const std::vector<nump::math::Circle>& obstacles) {
+        Ellipse confEllipse = utility::math::distributions::confidenceRegion(mean.head(2), cov.submat(0,0,1,1), 0.95);
+        for (auto& obs : obstacles) {
+            bool intersects = utility::math::geometry::intersection::test(obs, confEllipse);
+
+            // Return failure if the chance constraint is violated:
+            if (intersects) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    bool RRBT::satisfiesChanceConstraint(StateT state, StateCovT stateCov, arma::vec2 footprintSize,
+                                         const std::vector<nump::math::Circle>& obstacles) {
+        arma::vec size = arma::vec(arma::size(state));
+        if (size(0) == 2) {
+            // TODO: Enhance test to work for a polygonal robot footprint, rather than just a point robot.
+            return satisfiesChanceConstraintPointFootprint(state, stateCov, obstacles);
+        } else {
+            return satisfiesChanceConstraintTransform2D(state, stateCov, footprintSize, obstacles);
+        }
+    }
+
     BeliefNodePtr RRBT::propagate(
             const TrajT& traj,
             BeliefNodePtr belief,
+            arma::vec2 footprintSize,
             const std::vector<nump::math::Circle>& obstacles,
             const std::vector<nump::math::Circle>& measurementRegions,
             std::function<void(double, StateT, BeliefNodePtr)> callback
@@ -282,7 +310,7 @@ namespace nump {
 
             // Step 3 - Chance-constraint checking (equation 13):
             //   P(x_t \in \mathcal{X}_obs) < \delta, \forall t \in [0, T]
-            if (!satisfiesChanceConstraint(xTraj, xTrajCov, obstacles)) {
+            if (!satisfiesChanceConstraint(xTraj, xTrajCov, footprintSize, obstacles)) {
                 return nullptr;
             }
 
@@ -332,7 +360,7 @@ namespace nump {
         // return sizeA(0)*sizeA(1) < sizeB(0)*sizeB(1);
 
         // TODO: Enhance covariace comparision to include heading uncertainty.
-        return Ellipse::confidenceRegionArea(covA.submat(0,0,1,1)) < Ellipse::confidenceRegionArea(covB.submat(0,0,1,1));
+        return utility::math::distributions::confidenceRegionArea(covA.submat(0,0,1,1), 0.95) < utility::math::distributions::confidenceRegionArea(covB.submat(0,0,1,1), 0.95);
     }
 
     bool RRBT::BeliefNode::dominates(BeliefNodePtr belief, double tolerance) {
@@ -399,7 +427,7 @@ namespace nump {
         // violating the chance constraint, then return failure.
         BeliefNodePtr nRand = nullptr;
         for (auto& node : vNearest->value.beliefNodes) {
-            nRand = propagate(eNearestRand, node, scenario.obstacles, scenario.measurementRegions);
+            nRand = propagate(eNearestRand, node, scenario.footprintSize, scenario.obstacles, scenario.measurementRegions);
             if (nRand != nullptr) {
                 break;
             }
@@ -469,23 +497,23 @@ namespace nump {
 
                 // {
                 //     cairo_set_source_rgb(cr, 1.0, 1.0, 0.9); cairo_paint_with_alpha (cr, 1);
-                //     shared::utility::drawing::drawRRBT(cr, *this);
+                //     utility::drawing::drawRRBT(cr, *this);
                 //     cairo_set_source_rgba(cr, 0, 0, 0, 0.5);
-                //     shared::utility::drawing::showText(cr, {0.5, 0.5}, 0.03, "loop start");
+                //     utility::drawing::showText(cr, {0.5, 0.5}, 0.03, "loop start");
                 //     cairo_stroke(cr);
                 //
                 //     cairo_set_line_width(cr, 0.01);
                 //     cairo_set_source_rgba(cr, 1, 0, 0, 0.5);
-                //     shared::utility::drawing::drawCircle(cr, {vBelief->value.state, 0.1});
+                //     utility::drawing::drawCircle(cr, {vBelief->value.state, 0.1});
                 //     cairo_stroke(cr);
                 //     cairo_set_source_rgba(cr, 0, 0, 1, 0.5);
-                //     shared::utility::drawing::drawCircle(cr, {vNeighbour->value.state, 0.1});
+                //     utility::drawing::drawCircle(cr, {vNeighbour->value.state, 0.1});
                 //     cairo_stroke(cr);
                 //     cairo_show_page(cr);
                 // }
 
                 // std::cout << __LINE__ << ": propagate" << std::endl;
-                auto nNew = propagate(eNeighbour.value, nBelief, scenario.obstacles, scenario.measurementRegions);
+                auto nNew = propagate(eNeighbour.value, nBelief, scenario.footprintSize, scenario.obstacles, scenario.measurementRegions);
 
                 // TODO: Confirm the necessity of this test. It is not present in the paper.
                 if (nNew == nullptr) {

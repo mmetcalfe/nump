@@ -4,15 +4,15 @@
 //#include <math.h>
 //#include <armadillo>
 //#include "nump.h"
-//#include "shared/utility/drawing/SearchTreeDrawing.h"
+//#include "shared/utility/drawing/cairo_drawing.h"
 //#include "shared/utility/math/geometry/Ellipse.h"
 //#include "shared/utility/math/geometry/intersection/Intersection.h"
 //#include "tests.h"
 //
 //using utility::math::geometry::Ellipse;
-//using shared::utility::drawing::drawSearchTree;
-//using shared::utility::drawing::drawRRBT;
-//using shared::utility::drawing::fillCircle;
+//using utility::drawing::drawSearchTree;
+//using utility::drawing::drawRRBT;
+//using utility::drawing::fillCircle;
 //using nump::math::Transform2D;
 //using nump::math::Circle;
 //

@@ -11,9 +11,9 @@
 #include <armadillo>
 #include "math/geometry.h"
 #include "Tree.h"
-#include "shared/utility/drawing/SearchTreeDrawing.h"
+#include "shared/utility/drawing/cairo_drawing.h"
 
-using shared::utility::drawing::fillCircle;
+using utility::drawing::fillCircle;
 
 namespace nump {
 
@@ -120,7 +120,7 @@ namespace nump {
             arma::vec2 pos = {x(0), x(1)};
 ////            fillCircle(cairo, {x(0), x(1)}, 0.001, {1, 1, 1}, 1);
 //            cairo_set_source_rgba(cairo, 0, 0, 0, 0.5);
-//            shared::utility::drawing::drawRobot(cairo, x, 0.01);
+//            utility::drawing::drawRobot(cairo, x, 0.01);
 
             for (auto &obs : obstacles) {
                 if (obs.contains(pos)) {

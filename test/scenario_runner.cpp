@@ -11,10 +11,11 @@
 
 int main() {
     // Run the tests:
-    covarianceComparisonTests();
-    trajectoryTests();
+    // covarianceComparisonTests();
+    // trajectoryTests();
     intersectionTests();
-    propogateTests();
+    // propogateTests();
+    return 0;
 
     auto scenario_dir = "scenarios";
 
@@ -28,17 +29,17 @@ int main() {
             // itr->path() is a directory.
         } else {
             auto curr_scenario_path = itr->path().string();
-            auto curr_scenario_name = itr->path().leaf().string();
-
-            if (curr_scenario_name[0] == '.') {
+            auto curr_scenario_file = itr->path().leaf().string();
+            if (curr_scenario_file[0] == '.') {
                 continue;
             }
 
+            auto curr_scenario_name = itr->path().stem().string();
             std::cout << "Processing '" << curr_scenario_name << "'" << std::endl;
 
             auto scenario = numptest::SearchScenario::fromFile(curr_scenario_path);
 
-            scenario.execute();
+            scenario.execute(curr_scenario_name);
         }
     }
 

@@ -107,12 +107,14 @@ namespace nump {
         static BeliefNodePtr propagate(
                 const TrajT& traj,
                 BeliefNodePtr belief,
+                arma::vec2 footprintSize,
                 const std::vector<nump::math::Circle>& obstacles,
                 const std::vector<nump::math::Circle>& measurementRegions,
                 std::function<void(double, StateT, BeliefNodePtr)> callback = [](auto a, auto b, auto c){}
         );
 
-        static bool satisfiesChanceConstraint(StateT state, StateCovT stateCov, const std::vector<nump::math::Circle>& obstacles);
+        static bool satisfiesChanceConstraint(StateT state, StateCovT stateCov, arma::vec2 footprintSize,
+                                              const std::vector<nump::math::Circle>& obstacles);
 
         bool appendBelief(NodeT node, BeliefNodePtr belief);
 

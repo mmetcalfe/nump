@@ -8,16 +8,17 @@
 #include <math.h>
 #include <armadillo>
 #include "nump.h"
-#include "shared/utility/drawing/SearchTreeDrawing.h"
+#include "shared/utility/drawing/cairo_drawing.h"
 #include "shared/utility/math/geometry/Ellipse.h"
+#include "shared/utility/math/distributions.h"
 #include "shared/utility/math/geometry/intersection/Intersection.h"
 #include "tests.h"
 #include "RRBT.h"
 
 using utility::math::geometry::Ellipse;
-using shared::utility::drawing::drawSearchTree;
-using shared::utility::drawing::drawRRBT;
-using shared::utility::drawing::fillCircle;
+using utility::drawing::drawSearchTree;
+using utility::drawing::drawRRBT;
+using utility::drawing::fillCircle;
 using nump::math::Transform2D;
 using nump::math::Circle;
 
@@ -53,20 +54,20 @@ void covarianceComparisonTests() {
 
         bool aLessThanB = nump::RRBT::compareCovariancesLT(stateCovA, stateCovB);
 
-        Ellipse ellipseA = Ellipse::forConfidenceRegion(stateA.head(2), stateCovA.submat(0,0,1,1));
-        Ellipse ellipseB = Ellipse::forConfidenceRegion(stateB.head(2), stateCovB.submat(0,0,1,1));
+        Ellipse ellipseA = utility::math::distributions::confidenceRegion(stateA.head(2), stateCovA.submat(0,0,1,1), 0.95);
+        Ellipse ellipseB = utility::math::distributions::confidenceRegion(stateB.head(2), stateCovB.submat(0,0,1,1), 0.95);
 
         cairo_set_line_width(cr, 0.02);
         if (aLessThanB) {
-            shared::utility::drawing::cairoSetSourceRGB(cr, {0.0, 0.8, 0.0});
-            shared::utility::drawing::drawEllipse(cr, ellipseA);
-            shared::utility::drawing::cairoSetSourceRGB(cr, {0.8, 0.0, 0.0});
-            shared::utility::drawing::drawEllipse(cr, ellipseB);
+            utility::drawing::cairoSetSourceRGB(cr, {0.0, 0.8, 0.0});
+            utility::drawing::drawEllipse(cr, ellipseA);
+            utility::drawing::cairoSetSourceRGB(cr, {0.8, 0.0, 0.0});
+            utility::drawing::drawEllipse(cr, ellipseB);
         } else {
-            shared::utility::drawing::cairoSetSourceRGB(cr, {0.0, 0.8, 0.0});
-            shared::utility::drawing::drawEllipse(cr, ellipseB);
-            shared::utility::drawing::cairoSetSourceRGB(cr, {0.8, 0.0, 0.0});
-            shared::utility::drawing::drawEllipse(cr, ellipseA);
+            utility::drawing::cairoSetSourceRGB(cr, {0.0, 0.8, 0.0});
+            utility::drawing::drawEllipse(cr, ellipseB);
+            utility::drawing::cairoSetSourceRGB(cr, {0.8, 0.0, 0.0});
+            utility::drawing::drawEllipse(cr, ellipseA);
         }
 
         // Add page to PDF:
@@ -77,5 +78,6 @@ void covarianceComparisonTests() {
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
 
+    std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
     std::cout << "covarianceComparisonTests: END" << std::endl << std::endl;
 }
