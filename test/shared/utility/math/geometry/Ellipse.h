@@ -15,6 +15,9 @@ namespace geometry {
 
     class Ellipse : public RotatedRectangle {
         using RotatedRectangle::RotatedRectangle;
+
+    public:
+        std::vector<double> yRangeForX(double x);
     };
 
 }

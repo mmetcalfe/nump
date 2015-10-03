@@ -103,7 +103,7 @@ void confidenceEllipseTests(cairo_t *cr) {
 }
 
 void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
-    Transform2D state = {0.5, 0.5, 0};
+    Transform2D state = {0.5, 0.5, 0.5};
     arma::mat33 stateCov = {
             { 0.015, 0.01, 0.005},
             { 0.01, 0.03, 0.01},
@@ -119,6 +119,10 @@ void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
     RotatedRectangle robotFootprint = {state, footprintSize};
     utility::drawing::drawRotatedRectangle(cr, robotFootprint);
 
+    Ellipse confEllipseXY = utility::math::distributions::confidenceRegion(state.head(2), stateCov.submat(0,0,1,1), 0.95, 3);
+    utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
+    utility::drawing::drawRotatedRectangle(cr, confEllipseXY);
+    utility::drawing::drawEllipse(cr, confEllipseXY);
 
     // Draw a point-based representation of the true projection of the
     // confidence ellipsoid onto the XY plane.
@@ -130,30 +134,74 @@ void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
         // std::cout << __FILE__ << ", " << __LINE__ << ": eigvals: " << eigval.t() << std::endl;
         // std::cout << __FILE__ << ", " << __LINE__ << ": eigvec: " << eigvec.t() << std::endl;
 
+        // arma::mat33 ellipsoidRot = eigvec.t(); // Transforms to local rotation.
+        // double step = 0.02;
+        // double smin = -1;
+        // double smax = 1;
+        // for (double sx = smin; sx < smax; sx += step) {
+        //     for (double sy = smin; sy < smax; sy += step) {
+        //         for (double st = smin; st < smax; st += step) {
+        //             // double chiSquareVal = 5.991;
+        //             double chiSquareVal = 7.815;
+        //             arma::vec3 sp = {sx, sy, st};
+        //             arma::vec3 spDiff = sp - state;
+        //             arma::vec3 spLocal = ellipsoidRot * spDiff;
+        //             arma::vec3 halfAxisLengths = arma::sqrt(chiSquareVal*eigval);
+        //             double rx = spLocal(0) / halfAxisLengths(0);
+        //             double ry = spLocal(1) / halfAxisLengths(1);
+        //             double rt = spLocal(2) / halfAxisLengths(2);
+        //             if (rx*rx + ry*ry + rt*rt <= 1) {
+        //                 // utility::drawing::cairoSetSourceRGBAlpha(cr, {0.0,1.0,1.0}, 0.1);
+        //                 utility::drawing::cairoSetSourceRGB(cr, {0.0,1.0,0.0});
+        //                 utility::drawing::drawCircle(cr, {{sx, sy}, 0.001});
+        //                 cairo_stroke(cr);
+        //             }
+        //         }
+        //     }
+        // }
+
         arma::mat33 ellipsoidRot = eigvec.t(); // Transforms to local rotation.
         double step = 0.02;
         double smin = -1;
         double smax = 1;
         for (double sx = smin; sx < smax; sx += step) {
-            for (double sy = smin; sy < smax; sy += step) {
-                for (double st = smin; st < smax; st += step) {
-                    // double chiSquareVal = 5.991;
-                    double chiSquareVal = 7.815;
-                    arma::vec3 sp = {sx, sy, st};
-                    arma::vec3 spDiff = sp - state;
-                    arma::vec3 spLocal = ellipsoidRot * spDiff;
-                    arma::vec3 halfAxisLengths = arma::sqrt(chiSquareVal*eigval);
-                    double rx = spLocal(0) / halfAxisLengths(0);
-                    double ry = spLocal(1) / halfAxisLengths(1);
-                    double rt = spLocal(2) / halfAxisLengths(2);
-                    if (rx*rx + ry*ry + rt*rt <= 1) {
-                        // utility::drawing::cairoSetSourceRGBAlpha(cr, {0.0,1.0,1.0}, 0.1);
-                        utility::drawing::cairoSetSourceRGB(cr, {0.0,1.0,0.0});
-                        utility::drawing::drawCircle(cr, {{sx, sy}, 0.001});
-                        cairo_stroke(cr);
-                    }
-                }
+
+            auto yRange = confEllipseXY.yRangeForX(sx);
+
+            if (yRange.size() == 2) {
+                utility::drawing::cairoSetSourceRGB(cr, {0.0,1.0,0.0});
+                utility::drawing::drawLine(cr, {sx, yRange[0]}, {sx, yRange[1]});
+                cairo_stroke(cr);
             }
+            // for (double sy = smin; sy < smax; sy += step) {
+            //         // double chiSquareVal = 5.991;
+            //         double chiSquareVal = 7.815;
+            //         arma::vec3 sp = {sx, sy, sx}; // Note: Dummy t value.
+            //         arma::vec3 spDiff = sp - state;
+            //         arma::vec3 spLocal = ellipsoidRot * spDiff;
+            //         arma::vec3 halfAxisLengths = arma::sqrt(chiSquareVal*eigval);
+            //         double rx = spLocal(0) / halfAxisLengths(0);
+            //         double ry = spLocal(1) / halfAxisLengths(1);
+            //         // double rt = spLocal(2) / halfAxisLengths(2);
+            //
+            //         double s = rx*rx + ry*ry;
+            //         if (1 - s < 0) {
+            //             continue;
+            //         }
+            //
+            //         double rtMax = std::sqrt(1 - s);
+            //         double rtMin = -rtMax;
+            //
+            //         arma::vec3 rMin = {rx, ry, rtMin};
+            //         arma::vec3 rMax = {rx, ry, rtMax};
+            //
+            //         // if (rx*rx + ry*ry + rt*rt <= 1) {
+            //         //     // utility::drawing::cairoSetSourceRGBAlpha(cr, {0.0,1.0,1.0}, 0.1);
+            //         //     utility::drawing::cairoSetSourceRGB(cr, {0.0,1.0,0.0});
+            //         //     utility::drawing::drawCircle(cr, {{sx, sy}, 0.001});
+            //         //     cairo_stroke(cr);
+            //         // }
+            // }
         }
 
         // arma::vec2 eigval;  // eigenvalues are stored in ascending order.
@@ -194,17 +242,11 @@ void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
         // return {trans, size};
     }
 
-    utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
-
-    Ellipse confEllipseXY = utility::math::distributions::confidenceRegion(state.head(2), stateCov.submat(0,0,1,1), 0.95, 3);
-    utility::drawing::drawRotatedRectangle(cr, confEllipseXY);
-    utility::drawing::drawEllipse(cr, confEllipseXY);
-
     arma::mat22 stateCovXT = {
             { stateCov(0,0), stateCov(0,2)},
             { stateCov(2,0), stateCov(2,2)}
     };
-    Ellipse confEllipseXT = utility::math::distributions::confidenceRegion(state.head(2), stateCovXT, 0.95, 3);
+    Ellipse confEllipseXT = utility::math::distributions::confidenceRegion({state(0), state(2)}, stateCovXT, 0.95, 3);
     utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,1.0});
     utility::drawing::drawEllipse(cr, confEllipseXT);
 

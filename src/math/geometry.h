@@ -10,6 +10,15 @@
 namespace nump {
 namespace math {
 
+    class Rotation2D : public arma::mat22 {
+        using arma::mat22::mat22; // inherit constructors
+        public:
+            Rotation2D();
+            Rotation2D rotate(double radians) const;
+            Rotation2D i() const;
+            static Rotation2D createRotation(double radians);
+    };
+
     class Transform2D : public arma::vec3 {
         using arma::vec3::vec3; // inherit constructors
 
@@ -34,6 +43,8 @@ namespace math {
         double& angle();
         const arma::subview_col<double> xy() const;
         arma::subview_col<double> xy();
+
+        inline Rotation2D rotation() {return Rotation2D::createRotation(angle());}
     };
 
     class Circle {
