@@ -129,6 +129,32 @@ double confidenceRegionArea(arma::mat22 cov, double conf, int dof) {
     return arma::datum::pi * arma::prod(halfAxisLengths);
 }
 
+std::vector<double> confidenceEllipsoidZRangeForXY(arma::vec2 xy, arma::vec3 centre, arma::mat33 cov, double conf) {
+
+    // arma::vec3 eigval;  // eigenvalues are stored in ascending order.
+    // arma::mat33 eigvec;
+    // arma::eig_sym(eigval, eigvec, cov, "std");
+
+    // double chiSquareVal = cChiSquare(conf, 3);
+
+    // // arma::vec axisLengths = 2*arma::sqrt(chiSquareVal*eigval);
+    // // arma::vec3 size = {axisLengths(0), axisLengths(1), axisLengths(2)};
+    // // arma::vec3 reciprocalHalfAxisLengths = 1.0 / (size*0.5);
+    // // arma::vec3 ellipseEigvals = reciprocalHalfAxisLengths % reciprocalHalfAxisLengths;
+
+    // arma::vec3 ellipseEigvals = 1.0 / (chiSquareVal*eigval);
+    //
+    // arma::mat33 rot = eigvec;
+    // arma::mat33 scale = arma::diagmat(ellipseEigvals);
+    // arma::mat33 ellipseMat = rot * scale * rot.t();
+    //
+    // return Ellipse::zRangeForXY(xy, centre, ellipseMat);
+
+    double chiSquareVal = cChiSquare(conf, 3);
+    return Ellipse::zRangeForXY(xy, centre, (cov*chiSquareVal).i());
+}
+
+
 }
 }
 }

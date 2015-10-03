@@ -19,6 +19,8 @@ namespace distributions {
     Ellipse confidenceRegion(arma::vec2 mean, arma::mat22 cov, double conf, int dof = 2);
 
     double confidenceRegionArea(arma::mat22 cov, double conf, int dof = 2);
+
+    std::vector<double> confidenceEllipsoidZRangeForXY(arma::vec2 xy, arma::vec3 centre, arma::mat33 cov, double conf);
 }
 }
 }

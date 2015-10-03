@@ -18,6 +18,8 @@ namespace geometry {
 
     public:
         std::vector<double> yRangeForX(double x);
+
+        static std::vector<double> zRangeForXY(arma::vec2 xy, arma::vec3 centre, arma::mat33 A);
     };
 
 }

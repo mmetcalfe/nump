@@ -40,6 +40,34 @@ namespace geometry {
 
         return {yMin, yMax};
     }
+
+    std::vector<double> Ellipse::zRangeForXY(arma::vec2 xy, arma::vec3 centre, arma::mat33 A) {
+        arma::vec X = xy - centre.head(2);
+
+        arma::mat22 L = A.submat(0, 0, 1, 1);
+        arma::vec2 R = A.submat(0, 2, 1, 2);
+        arma::rowvec2 B = A.submat(2, 0, 2, 1);
+//        arma::mat R = arma::mat(A.submat(0, 2, 1, 2));
+//        arma::mat B = arma::mat(A.submat(2, 0, 2, 1));
+
+        double aq = A(2, 2);
+        double bq = arma::mat(B*X + X.t()*R)(0,0);
+        double cq = arma::mat(X.t()*L*X - 1.0)(0,0);
+
+        double discriminant = bq*bq - 4*aq*cq;
+
+        if (discriminant < 0) {
+            return {};
+        }
+
+        double sqrtDisc = std::sqrt(discriminant);
+
+        double zMax = (-bq + sqrtDisc) / (2*aq) + centre(2);
+        double zMin = (-bq - sqrtDisc) / (2*aq) + centre(2);
+
+        return {zMin, zMax};
+    }
+
 }
 }
 }

@@ -167,13 +167,22 @@ void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
         for (double sx = smin; sx < smax; sx += step) {
 
             auto yRange = confEllipseXY.yRangeForX(sx);
-
             if (yRange.size() == 2) {
                 utility::drawing::cairoSetSourceRGB(cr, {0.0,1.0,0.0});
                 utility::drawing::drawLine(cr, {sx, yRange[0]}, {sx, yRange[1]});
                 cairo_stroke(cr);
             }
-            // for (double sy = smin; sy < smax; sy += step) {
+
+            for (double sy = smin; sy < smax; sy += step) {
+
+                auto tRange = utility::math::distributions::confidenceEllipsoidZRangeForXY({sx, sy}, state, stateCov, 0.95);
+
+                if (tRange.size() == 2) {
+                    utility::drawing::cairoSetSourceRGB(cr, {1.0,0.0,1.0});
+                    utility::drawing::drawLine(cr, {sx, tRange[0]}, {sx, tRange[1]});
+                    cairo_stroke(cr);
+                }
+
             //         // double chiSquareVal = 5.991;
             //         double chiSquareVal = 7.815;
             //         arma::vec3 sp = {sx, sy, sx}; // Note: Dummy t value.
@@ -201,7 +210,7 @@ void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
             //         //     utility::drawing::drawCircle(cr, {{sx, sy}, 0.001});
             //         //     cairo_stroke(cr);
             //         // }
-            // }
+            }
         }
 
         // arma::vec2 eigval;  // eigenvalues are stored in ascending order.
