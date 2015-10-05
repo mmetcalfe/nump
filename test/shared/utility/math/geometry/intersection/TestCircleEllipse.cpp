@@ -53,16 +53,17 @@ namespace intersection {
         double y = std::abs(pos(1));
 
         // Throw out circles that don't intersect the rotated-rectangle:
-        if (x > hw + r || y > hh + r) {
+        if (x - r > hw || y - r > hh) {
             return false;
         }
 
-        // Throw out circles that intersect an internal rotated-rectangle:
-        double ihw = hw / arma::datum::sqrt2;
-        double ihh = hh / arma::datum::sqrt2;
-        if (!(x > ihw + r || y > ihh + r)) {
-            return true;
-        }
+        // // Throw out circles that intersect an internal rotated-rectangle:
+        // double ihw = hw / arma::datum::sqrt2;
+        // double ihh = hh / arma::datum::sqrt2;
+        // bool doesNotIntersectInternal = x - r > ihw || y - r > ihh;
+        // if (!doesNotIntersectInternal) {
+        //     return true;
+        // }
 
         // Throw out circles with centres inside the ellipse:
         if ((x*x)/(hw*hw) + (y*y)/(hh*hh) <= 1) {
@@ -71,15 +72,18 @@ namespace intersection {
 
         // Intersect circle with ellipse:
         Circle localCircle = {{x, y}, r};
-        int numSamples = 5;
+        int numSamples = 1000;
         for (int i = 0; i <= numSamples; i++) {
-            double qhx = 0.5 * i * (hw / double(numSamples));
+            double t = i / double(numSamples);
+            double l = t / arma::datum::sqrt2;
+
+            double qhx = l * hw;
             double qhy = std::sqrt((hh*hh)*(1.0 - (qhx*qhx)/(hw*hw)));
             if (localCircle.contains({qhx, qhy})) {
                 return true;
             }
 
-            double qvy = 0.5 * i * (hh / double(numSamples));
+            double qvy = l * hh;
             double qvx = std::sqrt((hw*hw)*(1.0 - (qvy*qvy)/(hh*hh)));
             if (localCircle.contains({qvx, qvy})) {
                 return true;

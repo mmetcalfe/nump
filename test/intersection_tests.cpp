@@ -22,6 +22,80 @@ using nump::math::Transform2D;
 using nump::math::RotatedRectangle;
 using nump::math::Circle;
 
+
+void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
+
+    Transform2D state = {0.5, 0.5, 0.5};
+    double vxy = 0.005;
+    double vxt = 0.002;
+    double vyt = 0.001;
+    arma::mat33 stateCov = {
+            { 0.005, vxy, vxt},
+            { vxy, 0.01, vyt},
+            { vxt, vyt, 0.1}
+    };
+    arma::vec2 footprintSize = {0.12, 0.17};
+
+    RotatedRectangle robotFootprint = {state, footprintSize};
+    Ellipse confEllipseXY = utility::math::distributions::confidenceRegion(state.head(2), stateCov.submat(0,0,1,1), 0.95, 3);
+
+    int numTrials = 10000;
+    for (int i = 0; i < numTrials; i++) {
+        arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
+        arma::vec randCircle = arma::randu(3);
+        // double rad = 0.01 + randCircle(2)*randCircle(2)*0.2;
+        double rad = 0.01;
+        Circle circle = {randCircle.rows(0, 1), rad};
+
+        cairo_set_line_width(cr, 0.002);
+        utility::drawing::drawCircle(cr, circle);
+
+        bool intersects = utility::math::geometry::intersection::testConfidenceRegion(robotFootprint, stateCov, 0.95, circle);
+        if (intersects) {
+            utility::drawing::cairoSetSourceRGBAlpha(cr, col, 0.1);
+            cairo_stroke(cr);
+        } else {
+            utility::drawing::cairoSetSourceRGBAlpha(cr, col, 0.7);
+            cairo_fill(cr);
+        }
+    }
+
+
+    // Draw full confidence interval footprint:
+    arma::vec2 confIntervalX = utility::math::distributions::confidenceRegion(state(0), stateCov(0, 0), 0.95, 3);
+    arma::vec2 confIntervalY = utility::math::distributions::confidenceRegion(state(1), stateCov(1, 1), 0.95, 3);
+
+    // double ss = 0.05;
+    double ss = 0.01;
+    for (double sx = confIntervalX(0); sx < confIntervalX(1); sx += ss) {
+        for (double sy = confIntervalY(0); sy < confIntervalY(1); sy += ss) {
+            auto tRange = utility::math::distributions::confidenceEllipsoidZRangeForXY({sx, sy}, state, stateCov, 0.95);
+
+            if (tRange.size() != 2) {
+                continue;
+            }
+
+            for (double st = tRange[0]; st < tRange[1]; st += ss) {
+                utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
+                utility::drawing::drawRotatedRectangle(cr, {{sx, sy, st}, footprintSize});
+            }
+        }
+    }
+
+    utility::drawing::cairoSetSourceRGB(cr, {0.8,0.8,0.8});
+
+    utility::drawing::drawRotatedRectangle(cr, {{state.xy(), 0}, {confIntervalX(1) - confIntervalX(0), confIntervalY(1) - confIntervalY(0)}});
+
+    // Draw footprint and confidence ellipse:
+    cairo_set_line_width(cr, 0.005);
+    utility::drawing::drawRotatedRectangle(cr, robotFootprint);
+    utility::drawing::drawRotatedRectangle(cr, confEllipseXY);
+    utility::drawing::drawRotatedRectangle(cr, {confEllipseXY.transform, confEllipseXY.size/arma::datum::sqrt2});
+    utility::drawing::drawEllipse(cr, confEllipseXY);
+
+    std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
+}
+
 void circleEllipseIntersectionTests(cairo_t *cr) {
     // Set the robot's state and uncertainty:
     arma::vec2 state = {0.5, 0.5};
@@ -31,14 +105,14 @@ void circleEllipseIntersectionTests(cairo_t *cr) {
     };
     Ellipse confEllipse = utility::math::distributions::confidenceRegion(state, stateCov * 0.5, 0.95);
 
-    int numTrials = 2000;
+    int numTrials = 10000;
     for (int i = 0; i < numTrials; i++) {
         arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
 
         arma::vec randCircle = arma::randu(3);
 
-//        Circle circle = {randCircle.rows(0, 1), 0.01};
-        Circle circle = {randCircle.rows(0, 1), 0.01 + randCircle(2)*randCircle(2)*0.2};
+       Circle circle = {randCircle.rows(0, 1), 0.05};
+        // Circle circle = {randCircle.rows(0, 1), 0.01 + randCircle(2)*randCircle(2)*0.2};
 
         cairo_set_line_width(cr, 0.002);
         utility::drawing::drawCircle(cr, circle);
@@ -68,48 +142,37 @@ void circleEllipseIntersectionTests(cairo_t *cr) {
 }
 
 void confidenceEllipseTests(cairo_t *cr) {
-    cairo_set_line_width(cr, 0.005);
-    utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
+    {
+        cairo_set_line_width(cr, 0.005);
+        utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
 
-    arma::vec2 stateL = {0.333, 0.5};
-    arma::mat22 stateCovL = {
-            { 0.030, 0.000},
-            { 0.000, 0.015},
-    };
-    Ellipse confEllipseL = utility::math::distributions::confidenceRegion(stateL.head(2), stateCovL.submat(0,0,1,1), 0.95, 2);
-    utility::drawing::cairoSetSourceRGB(cr, {1.0,0.0,0.0});
-    utility::drawing::drawRotatedRectangle(cr, confEllipseL);
-    utility::drawing::drawEllipse(cr, confEllipseL);
+        arma::vec2 stateL = {0.333, 0.5};
+        arma::mat22 stateCovL = {
+                { 0.030, 0.000},
+                { 0.000, 0.015},
+        };
+        Ellipse confEllipseL = utility::math::distributions::confidenceRegion(stateL.head(2), stateCovL.submat(0,0,1,1), 0.95, 2);
+        utility::drawing::cairoSetSourceRGB(cr, {1.0,0.0,0.0});
+        utility::drawing::drawRotatedRectangle(cr, confEllipseL);
+        utility::drawing::drawEllipse(cr, confEllipseL);
 
-    arma::vec2 stateR = {0.666, 0.5};
-    arma::mat22 stateCovR = {
-            { 0.015, 0.000},
-            { 0.000, 0.03},
-    };
-    Ellipse confEllipseR = utility::math::distributions::confidenceRegion(stateR.head(2), stateCovR.submat(0,0,1,1), 0.95, 2);
-    utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,1.0});
-    utility::drawing::drawRotatedRectangle(cr, confEllipseR);
-    utility::drawing::drawEllipse(cr, confEllipseR);
+        arma::vec2 stateR = {0.666, 0.5};
+        arma::mat22 stateCovR = {
+                { 0.015, 0.000},
+                { 0.000, 0.03},
+        };
+        Ellipse confEllipseR = utility::math::distributions::confidenceRegion(stateR.head(2), stateCovR.submat(0,0,1,1), 0.95, 2);
+        utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,1.0});
+        utility::drawing::drawRotatedRectangle(cr, confEllipseR);
+        utility::drawing::drawEllipse(cr, confEllipseR);
+    }
 
-
-    // arma::vec2 confInterval = utility::math::distributions::confidenceRegion(state(0), stateCov(0, 0), 0.95, 3);
-    // utility::drawing::cairoSetSourceRGB(cr, {1.0,0.0,0.0});
-    // utility::drawing::drawLine(cr, {confInterval(0), state(1)}, {confInterval(1), state(1)});
-    // utility::drawing::drawLine(cr, {confInterval(0), 0}, {confInterval(0), 1});
-    // utility::drawing::drawLine(cr, {confInterval(1), 0}, {confInterval(1), 1});
-    // cairo_stroke(cr);
-
-    std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
-}
-
-void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
     Transform2D state = {0.5, 0.5, 0.5};
     arma::mat33 stateCov = {
             { 0.015, 0.01, 0.005},
             { 0.01, 0.03, 0.01},
             { 0.005, 0.01, 0.02}
     };
-
 
     arma::vec2 footprintSize = {0.12, 0.17};
 
@@ -290,10 +353,10 @@ void intersectionTests() {
     circleRobotConfidenceRegionIntersectionTests(cr);
     cairo_show_page(cr);
 
-    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
-    confidenceEllipseTests(cr);
-    cairo_show_page(cr);
-
+    // cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
+    // confidenceEllipseTests(cr);
+    // cairo_show_page(cr);
+    //
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
     circleEllipseIntersectionTests(cr);
     cairo_show_page(cr);
