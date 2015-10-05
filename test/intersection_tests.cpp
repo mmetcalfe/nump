@@ -43,8 +43,8 @@ void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
     for (int i = 0; i < numTrials; i++) {
         arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
         arma::vec randCircle = arma::randu(3);
-        // double rad = 0.01 + randCircle(2)*randCircle(2)*0.2;
-        double rad = 0.01;
+        double rad = 0.01 + randCircle(2)*randCircle(2)*0.2;
+        // double rad = 0.01;
         Circle circle = {randCircle.rows(0, 1), rad};
 
         cairo_set_line_width(cr, 0.002);
@@ -66,7 +66,8 @@ void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
     arma::vec2 confIntervalY = utility::math::distributions::confidenceRegion(state(1), stateCov(1, 1), 0.95, 3);
 
     // double ss = 0.05;
-    double ss = 0.01;
+    cairo_push_group(cr);
+    double ss = 0.02;
     for (double sx = confIntervalX(0); sx < confIntervalX(1); sx += ss) {
         for (double sy = confIntervalY(0); sy < confIntervalY(1); sy += ss) {
             auto tRange = utility::math::distributions::confidenceEllipsoidZRangeForXY({sx, sy}, state, stateCov, 0.95);
@@ -78,19 +79,26 @@ void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
             for (double st = tRange[0]; st < tRange[1]; st += ss) {
                 utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
                 utility::drawing::drawRotatedRectangle(cr, {{sx, sy, st}, footprintSize});
+                cairo_fill(cr);
             }
         }
     }
+    cairo_pop_group_to_source(cr);
+    cairo_paint_with_alpha(cr, 0.5);
 
     utility::drawing::cairoSetSourceRGB(cr, {0.8,0.8,0.8});
 
     utility::drawing::drawRotatedRectangle(cr, {{state.xy(), 0}, {confIntervalX(1) - confIntervalX(0), confIntervalY(1) - confIntervalY(0)}});
+    cairo_stroke(cr);
 
     // Draw footprint and confidence ellipse:
     cairo_set_line_width(cr, 0.005);
     utility::drawing::drawRotatedRectangle(cr, robotFootprint);
+    cairo_stroke(cr);
     utility::drawing::drawRotatedRectangle(cr, confEllipseXY);
+    cairo_stroke(cr);
     utility::drawing::drawRotatedRectangle(cr, {confEllipseXY.transform, confEllipseXY.size/arma::datum::sqrt2});
+    cairo_stroke(cr);
     utility::drawing::drawEllipse(cr, confEllipseXY);
 
     std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
@@ -138,6 +146,7 @@ void circleEllipseIntersectionTests(cairo_t *cr) {
 
     utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
     utility::drawing::drawRotatedRectangle(cr, confEllipse);
+    cairo_stroke(cr);
     std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
 }
 
@@ -154,6 +163,7 @@ void confidenceEllipseTests(cairo_t *cr) {
         Ellipse confEllipseL = utility::math::distributions::confidenceRegion(stateL.head(2), stateCovL.submat(0,0,1,1), 0.95, 2);
         utility::drawing::cairoSetSourceRGB(cr, {1.0,0.0,0.0});
         utility::drawing::drawRotatedRectangle(cr, confEllipseL);
+        cairo_stroke(cr);
         utility::drawing::drawEllipse(cr, confEllipseL);
 
         arma::vec2 stateR = {0.666, 0.5};
@@ -164,6 +174,7 @@ void confidenceEllipseTests(cairo_t *cr) {
         Ellipse confEllipseR = utility::math::distributions::confidenceRegion(stateR.head(2), stateCovR.submat(0,0,1,1), 0.95, 2);
         utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,1.0});
         utility::drawing::drawRotatedRectangle(cr, confEllipseR);
+        cairo_stroke(cr);
         utility::drawing::drawEllipse(cr, confEllipseR);
     }
 
@@ -181,10 +192,12 @@ void confidenceEllipseTests(cairo_t *cr) {
 
     RotatedRectangle robotFootprint = {state, footprintSize};
     utility::drawing::drawRotatedRectangle(cr, robotFootprint);
+    cairo_stroke(cr);
 
     Ellipse confEllipseXY = utility::math::distributions::confidenceRegion(state.head(2), stateCov.submat(0,0,1,1), 0.95, 3);
     utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
     utility::drawing::drawRotatedRectangle(cr, confEllipseXY);
+    cairo_stroke(cr);
     utility::drawing::drawEllipse(cr, confEllipseXY);
 
     // Draw a point-based representation of the true projection of the

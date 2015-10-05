@@ -565,8 +565,6 @@ namespace drawing {
         cairo_close_path(cr);
 
         cairo_restore(cr);
-
-        cairo_stroke(cr);
     }
 
 

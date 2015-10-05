@@ -72,7 +72,7 @@ namespace intersection {
 
         // Intersect circle with ellipse:
         Circle localCircle = {{x, y}, r};
-        int numSamples = 1000;
+        int numSamples = 10;
         for (int i = 0; i <= numSamples; i++) {
             double t = i / double(numSamples);
             double l = t / arma::datum::sqrt2;

@@ -16,6 +16,7 @@ namespace intersection {
 
     using ::nump::math::Circle;
 
+    bool test(const Circle& circle, const RotatedRectangle& rect);
     bool test(const Circle& circle, const Ellipse& ellipse);
     bool testConfidenceRegion(const RotatedRectangle& rect, const arma::mat33& posHeadingCov, double conf, Circle& circle);
 

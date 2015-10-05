@@ -32,22 +32,61 @@ namespace intersection {
 
     bool testConfidenceRegion(const RotatedRectangle& rect, const arma::mat33& posHeadingCov, double conf, Circle& circle) {
 
-        Ellipse confEllipseXY = utility::math::distributions::confidenceRegion(rect.transform.head(2), posHeadingCov.submat(0,0,1,1), 0.95, 3);
+        Ellipse ellipse = utility::math::distributions::confidenceRegion(rect.transform.head(2), posHeadingCov.submat(0,0,1,1), 0.95, 3);
 
-        // Throw out far off circles:
+        // // Throw out far off circles:
         double maxRectRad = arma::norm(rect.size / 2);
-        if (!test({circle.centre, circle.radius + maxRectRad}, confEllipseXY)) {
+        if (!test({circle.centre, circle.radius + maxRectRad}, ellipse)) {
             return false;
         }
 
         // Throw out very close circles:
         double minRectRad = std::min(rect.size(0), rect.size(1)) / 2;
-        if (test({circle.centre, circle.radius + minRectRad}, confEllipseXY)) {
-            return false;
+        if (test({circle.centre, circle.radius + minRectRad}, ellipse)) {
+            return true;
         }
 
+        arma::vec2 size = ellipse.getSize();
+        double hw = 0.5 * size(0); // half-width
+        double hh = 0.5 * size(1); // half-height
 
-        return true;
+        double r = circle.radius;
+
+        Transform2D trans = ellipse.getTransform();
+        Transform2D pos = trans.worldToLocal({circle.centre, 0});
+
+        // Circle transformed to positive quadrant of local ellipse coords:
+        double x = std::abs(pos(0));
+        double y = std::abs(pos(1));
+        Circle localCircle = {{x, y}, r};
+
+        // Perform rejection sampling:
+        // Circle globalMaxCircle = {trans.localToWorld({x, y, 0}).xy(), r + maxRectRad};
+        int numSamples = 30;
+        for (double qx = -hw; qx < hw; qx += 2*hw/numSamples) {
+            for (double qy = -hh; qy < hh; qy += 2*hh/numSamples) {
+                Transform2D gq = trans.localToWorld({qx, qy, 0});
+
+                // if (!globalMaxCircle.contains(gq.head(2))) {
+                //     continue;
+                // }
+
+                auto tRange = utility::math::distributions::confidenceEllipsoidZRangeForXY({gq.x(), gq.y()}, rect.transform, posHeadingCov, 0.95);
+                if (tRange.size() != 2) {
+                    continue;
+                }
+
+                double tspan = tRange[1] - tRange[0];
+                arma::vec2 trangevec = {tRange[0], tRange[1]};
+                for (double gqt = arma::min(trangevec); gqt < arma::max(trangevec); gqt += tspan/numSamples) {
+                    if (test(circle, RotatedRectangle {{gq.x(), gq.y(), gqt}, rect.size})) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
 }
