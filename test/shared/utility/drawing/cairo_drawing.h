@@ -64,6 +64,9 @@ namespace drawing {
     void drawRotatedRectangle(cairo_t *cr, const RotatedRectangle& rect);
 
     bool drawErrorEllipse(cairo_t *cr, const arma::vec2& mean, const arma::mat22& cov, double confidence);
+
+    void drawRectangleRotationRange(cairo_t *cr, arma::vec2 position, arma::vec2 footprint, arma::vec2 angleRange);
+
 }
 }
 

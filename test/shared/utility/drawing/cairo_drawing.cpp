@@ -15,6 +15,7 @@
 #include "shared/utility/math/distributions.h"
 
 using nump::math::Transform2D;
+using nump::math::Rotation2D;
 using utility::math::geometry::Ellipse;
 
 namespace utility {
@@ -551,7 +552,6 @@ namespace drawing {
 
     void drawRotatedRectangle(cairo_t *cr, const RotatedRectangle& rect) {
         cairo_save(cr);
-        cairo_set_line_width(cr, 0.01);
         cairoTransformToLocal(cr, rect.getTransform());
 
         arma::vec2 size = rect.getSize();
@@ -567,7 +567,65 @@ namespace drawing {
         cairo_restore(cr);
     }
 
+    // Draws a rectangle swept around its centre through the given range of angles.
+    void drawRectangleRotationRange(cairo_t *cr, arma::vec2 position, arma::vec2 footprintSize, arma::vec2 angleRange) {
+        cairo_save(cr);
 
+        double rangeSize = std::abs(angleRange(0) - angleRange(1));
+        double halfAngle = rangeSize / 2;
+        double midAngle = (angleRange(0) + angleRange(1)) / 2;
+        cairoTransformToLocal(cr, {position, midAngle});
+
+        double hw = footprintSize(0) / 2;
+        double hh = footprintSize(1) / 2;
+
+        double fpRad = arma::norm(footprintSize / 2);
+
+        double lw = hw / std::cos(halfAngle);
+        double lh = hh / std::cos(halfAngle);
+
+        auto rot = Rotation2D::createRotation(halfAngle);
+
+        arma::vec2 cornerL = {hw, -hh};
+        arma::vec2 cornerR = {hw, hh};
+
+        double cornerRAngle = std::atan2(cornerR(1), cornerR(0));
+        double cornerLAngle = std::atan2(cornerL(1), cornerL(0));
+
+        if (lw > fpRad) {
+            // Don't draw corners for w.
+            if (lh > fpRad) {
+                // Don't draw corners for h.
+                cairoMoveTo(cr, {fpRad, 0});
+                cairo_arc(cr, 0, 0, fpRad, 0, 2*arma::datum::pi);
+            } else {
+                cairoMoveTo(cr, {0, -lh});
+                cairo_arc_negative(cr, 0, 0, fpRad, arma::datum::pi + cornerRAngle + halfAngle, arma::datum::pi + cornerLAngle - halfAngle);
+                cairoLineTo(cr, {0, lh});
+                cairo_arc_negative(cr, 0, 0, fpRad, cornerRAngle + halfAngle, cornerLAngle - halfAngle);
+            }
+        } else {
+            if (lh > fpRad) {
+                // Don't draw corners for h.
+                cairoMoveTo(cr, {lw, 0});
+                cairo_arc_negative(cr, 0, 0, fpRad, cornerLAngle + halfAngle, arma::datum::pi + cornerRAngle - halfAngle);
+                cairoLineTo(cr, {-lw, 0});
+                cairo_arc_negative(cr, 0, 0, fpRad, arma::datum::pi + cornerLAngle + halfAngle, cornerRAngle - halfAngle);
+            } else {
+                cairoMoveTo(cr, {lw, 0});
+                cairo_arc_negative(cr, 0, 0, fpRad, cornerLAngle + halfAngle, cornerLAngle - halfAngle);
+                cairoLineTo(cr, {0, -lh});
+                cairo_arc_negative(cr, 0, 0, fpRad, arma::datum::pi + cornerRAngle + halfAngle, arma::datum::pi + cornerRAngle - halfAngle);
+                cairoLineTo(cr, {-lw, 0});
+                cairo_arc_negative(cr, 0, 0, fpRad, arma::datum::pi + cornerLAngle + halfAngle, arma::datum::pi + cornerLAngle - halfAngle);
+                cairoLineTo(cr, {0, lh});
+                cairo_arc_negative(cr, 0, 0, fpRad, cornerRAngle + halfAngle, cornerRAngle - halfAngle);
+            }
+        }
+
+        cairo_close_path(cr);
+        cairo_restore(cr);
+    }
 
 }
 }

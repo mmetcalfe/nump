@@ -23,6 +23,56 @@ using nump::math::RotatedRectangle;
 using nump::math::Circle;
 
 
+void drawRobotConfidenceFootprint(cairo_t *cr, arma::vec2 footprintSize, Transform2D state, arma::mat33 stateCov) {
+    arma::vec2 confIntervalX = utility::math::distributions::confidenceRegion(state(0), stateCov(0, 0), 0.95, 3);
+    arma::vec2 confIntervalY = utility::math::distributions::confidenceRegion(state(1), stateCov(1, 1), 0.95, 3);
+
+    Ellipse confEllipseXY = utility::math::distributions::confidenceRegion(state.head(2), stateCov.submat(0,0,1,1), 0.95, 3);
+
+    std::cout << arma::min(confEllipseXY.size)/2 << std::endl;
+    std::cout << arma::norm(footprintSize/2) << std::endl;
+
+    arma::vec2 halfFP = footprintSize / 2;
+    double ignoreRadius = arma::min(confEllipseXY.size/2) + arma::min(halfFP) - arma::norm(halfFP);
+
+    // double ss = 0.05;
+    cairo_push_group(cr);
+    double ss = 0.02;
+    for (double sx = confIntervalX(0); sx < confIntervalX(1); sx += ss) {
+        for (double sy = confIntervalY(0); sy < confIntervalY(1); sy += ss) {
+
+            arma::vec2 sp = {sx, sy};
+            if (arma::norm(state.head(2) - sp) < ignoreRadius) {
+                continue;
+            }
+
+            auto tRange = utility::math::distributions::confidenceEllipsoidZRangeForXY({sx, sy}, state, stateCov, 0.95);
+
+            if (tRange.size() != 2) {
+                continue;
+            }
+
+            // for (double st = tRange[0]; st < tRange[1]; st += ss) {
+            //     utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
+            //     utility::drawing::drawRotatedRectangle(cr, {{sx, sy, st}, footprintSize});
+            //     cairo_fill(cr);
+            // }
+
+            // utility::drawing::cairoSetSourceRGB(cr, {1.0,0.0,0.0});
+            utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
+            utility::drawing::drawRectangleRotationRange(cr, {sx, sy}, footprintSize, {tRange[0], tRange[1]});
+            cairo_stroke(cr);
+        }
+    }
+    cairo_pop_group_to_source(cr);
+    cairo_paint_with_alpha(cr, 0.5);
+
+    utility::drawing::cairoSetSourceRGB(cr, {0.8,0.8,0.8});
+
+    utility::drawing::drawRotatedRectangle(cr, {{state.xy(), 0}, {confIntervalX(1) - confIntervalX(0), confIntervalY(1) - confIntervalY(0)}});
+    cairo_stroke(cr);
+}
+
 void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
 
     Transform2D state = {0.5, 0.5, 0.5};
@@ -34,12 +84,14 @@ void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
             { vxy, 0.01, vyt},
             { vxt, vyt, 0.1}
     };
+    // arma::vec2 footprintSize = {0.17, 0.12};
     arma::vec2 footprintSize = {0.12, 0.17};
+
 
     RotatedRectangle robotFootprint = {state, footprintSize};
     Ellipse confEllipseXY = utility::math::distributions::confidenceRegion(state.head(2), stateCov.submat(0,0,1,1), 0.95, 3);
 
-    int numTrials = 10000;
+    int numTrials = 100;
     for (int i = 0; i < numTrials; i++) {
         arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
         arma::vec randCircle = arma::randu(3);
@@ -60,38 +112,11 @@ void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
         }
     }
 
-
     // Draw full confidence interval footprint:
-    arma::vec2 confIntervalX = utility::math::distributions::confidenceRegion(state(0), stateCov(0, 0), 0.95, 3);
-    arma::vec2 confIntervalY = utility::math::distributions::confidenceRegion(state(1), stateCov(1, 1), 0.95, 3);
-
-    // double ss = 0.05;
-    cairo_push_group(cr);
-    double ss = 0.02;
-    for (double sx = confIntervalX(0); sx < confIntervalX(1); sx += ss) {
-        for (double sy = confIntervalY(0); sy < confIntervalY(1); sy += ss) {
-            auto tRange = utility::math::distributions::confidenceEllipsoidZRangeForXY({sx, sy}, state, stateCov, 0.95);
-
-            if (tRange.size() != 2) {
-                continue;
-            }
-
-            for (double st = tRange[0]; st < tRange[1]; st += ss) {
-                utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
-                utility::drawing::drawRotatedRectangle(cr, {{sx, sy, st}, footprintSize});
-                cairo_fill(cr);
-            }
-        }
-    }
-    cairo_pop_group_to_source(cr);
-    cairo_paint_with_alpha(cr, 0.5);
-
-    utility::drawing::cairoSetSourceRGB(cr, {0.8,0.8,0.8});
-
-    utility::drawing::drawRotatedRectangle(cr, {{state.xy(), 0}, {confIntervalX(1) - confIntervalX(0), confIntervalY(1) - confIntervalY(0)}});
-    cairo_stroke(cr);
+    drawRobotConfidenceFootprint(cr, footprintSize, state, stateCov);
 
     // Draw footprint and confidence ellipse:
+    utility::drawing::cairoSetSourceRGB(cr, {0.8,0.8,0.8});
     cairo_set_line_width(cr, 0.005);
     utility::drawing::drawRotatedRectangle(cr, robotFootprint);
     cairo_stroke(cr);
