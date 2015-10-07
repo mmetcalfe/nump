@@ -35,8 +35,11 @@ namespace geometry {
 
         double sqrtDisc = std::sqrt(discriminant);
 
-        double yMax = (-(c+b)*x + sqrtDisc) / (2*d) + transform.y();
-        double yMin = (-(c+b)*x - sqrtDisc) / (2*d) + transform.y();
+        double yPos = (-(c+b)*x + sqrtDisc) / (2*d) + transform.y();
+        double yNeg = (-(c+b)*x - sqrtDisc) / (2*d) + transform.y();
+
+        double yMin = std::min(yPos, yNeg);
+        double yMax = std::max(yPos, yNeg);
 
         return {yMin, yMax};
     }
@@ -47,8 +50,6 @@ namespace geometry {
         arma::mat22 L = A.submat(0, 0, 1, 1);
         arma::vec2 R = A.submat(0, 2, 1, 2);
         arma::rowvec2 B = A.submat(2, 0, 2, 1);
-//        arma::mat R = arma::mat(A.submat(0, 2, 1, 2));
-//        arma::mat B = arma::mat(A.submat(2, 0, 2, 1));
 
         double aq = A(2, 2);
         double bq = arma::mat(B*X + X.t()*R)(0,0);
@@ -62,8 +63,11 @@ namespace geometry {
 
         double sqrtDisc = std::sqrt(discriminant);
 
-        double zMax = (-bq + sqrtDisc) / (2*aq) + centre(2);
-        double zMin = (-bq - sqrtDisc) / (2*aq) + centre(2);
+        double zPos = (-bq + sqrtDisc) / (2*aq) + centre(2);
+        double zNeg = (-bq - sqrtDisc) / (2*aq) + centre(2);
+
+        double zMin = std::min(zPos, zNeg);
+        double zMax = std::max(zPos, zNeg);
 
         return {zMin, zMax};
     }

@@ -61,15 +61,17 @@ namespace intersection {
         Circle localCircle = {{x, y}, r};
 
         // Perform rejection sampling:
-        // Circle globalMaxCircle = {trans.localToWorld({x, y, 0}).xy(), r + maxRectRad};
+        arma::vec2 halfFP = rect.size / 2;
+        double ignoreRadius = std::min(hw,hh) + arma::min(halfFP) - arma::norm(halfFP);
+        Circle ignoreCircle = {rect.transform.xy(), ignoreRadius};
         int numSamples = 30;
         for (double qx = -hw; qx < hw; qx += 2*hw/numSamples) {
             for (double qy = -hh; qy < hh; qy += 2*hh/numSamples) {
                 Transform2D gq = trans.localToWorld({qx, qy, 0});
 
-                // if (!globalMaxCircle.contains(gq.head(2))) {
-                //     continue;
-                // }
+                if (ignoreCircle.contains(gq.head(2))) {
+                    continue;
+                }
 
                 auto tRange = utility::math::distributions::confidenceEllipsoidZRangeForXY({gq.x(), gq.y()}, rect.transform, posHeadingCov, 0.95);
                 if (tRange.size() != 2) {

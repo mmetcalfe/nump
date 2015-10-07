@@ -134,19 +134,22 @@ std::vector<double> confidenceEllipsoidZRangeForXY(arma::vec2 xy, arma::vec3 cen
     // arma::vec3 eigval;  // eigenvalues are stored in ascending order.
     // arma::mat33 eigvec;
     // arma::eig_sym(eigval, eigvec, cov, "std");
-
+    //
     // double chiSquareVal = cChiSquare(conf, 3);
-
+    //
     // // arma::vec axisLengths = 2*arma::sqrt(chiSquareVal*eigval);
     // // arma::vec3 size = {axisLengths(0), axisLengths(1), axisLengths(2)};
     // // arma::vec3 reciprocalHalfAxisLengths = 1.0 / (size*0.5);
     // // arma::vec3 ellipseEigvals = reciprocalHalfAxisLengths % reciprocalHalfAxisLengths;
-
+    //
     // arma::vec3 ellipseEigvals = 1.0 / (chiSquareVal*eigval);
     //
     // arma::mat33 rot = eigvec;
     // arma::mat33 scale = arma::diagmat(ellipseEigvals);
     // arma::mat33 ellipseMat = rot * scale * rot.t();
+    //
+    // std::cout << "ellipseMat 1: " << ellipseMat << std::endl;
+    // std::cout << "ellipseMat 2: " << (cov*chiSquareVal).i() << std::endl;
     //
     // return Ellipse::zRangeForXY(xy, centre, ellipseMat);
 
