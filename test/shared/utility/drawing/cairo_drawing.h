@@ -17,6 +17,8 @@ namespace drawing {
     using nump::math::RotatedRectangle;
     using ::utility::math::geometry::Ellipse;
 
+    void cairoTransformToLocal(cairo_t *cr, Transform2D trans);
+
     arma::vec2 deviceToUser(cairo_t *cr, arma::vec2 pt);
     arma::vec2 deviceToUserDistance(cairo_t *cr, arma::vec2 vec);
     void cairoMoveTo(cairo_t *cr, arma::vec2 pos);

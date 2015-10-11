@@ -86,7 +86,9 @@ namespace drawing {
     }
 
     void drawCircle(cairo_t *cr, nump::math::Circle circle) {
+        cairo_move_to(cr, circle.centre(0) - circle.radius, circle.centre(1));
         cairo_arc(cr, circle.centre(0), circle.centre(1), circle.radius, -M_PI, M_PI);
+        cairo_close_path(cr);
     }
 
     void drawRobot(cairo_t *cr, arma::vec2 pos, double size) {
@@ -541,11 +543,11 @@ namespace drawing {
 
         cairo_scale(cr, size(0), size(1));
 
-        cairo_arc(cr, 0, 0, 0.5, -M_PI, M_PI); // diameter 1
+        drawCircle(cr, {{0.0, 0.0}, 0.5});
 
         cairo_restore(cr);
 
-        cairo_stroke(cr);
+        // cairo_stroke(cr);
 
         return true;
     }

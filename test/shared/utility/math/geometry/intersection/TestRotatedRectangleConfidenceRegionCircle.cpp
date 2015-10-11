@@ -30,7 +30,7 @@ namespace intersection {
     using ::nump::math::Circle;
     using nump::math::Transform2D;
 
-    bool testConfidenceRegion(const RotatedRectangle& rect, const arma::mat33& posHeadingCov, double conf, Circle& circle) {
+    bool testConfidenceRegion(const RotatedRectangle& rect, const arma::mat33& posHeadingCov, double conf, const Circle& circle) {
 
         Ellipse ellipse = utility::math::distributions::confidenceRegion(rect.transform.head(2), posHeadingCov.submat(0,0,1,1), 0.95, 3);
 

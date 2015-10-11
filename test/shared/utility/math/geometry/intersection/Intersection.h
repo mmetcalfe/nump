@@ -18,7 +18,8 @@ namespace intersection {
 
     bool test(const Circle& circle, const RotatedRectangle& rect);
     bool test(const Circle& circle, const Ellipse& ellipse);
-    bool testConfidenceRegion(const RotatedRectangle& rect, const arma::mat33& posHeadingCov, double conf, Circle& circle);
+    bool testConfidenceRegion(const RotatedRectangle& rect, const arma::mat33& posHeadingCov, double conf, const Circle& circle);
+    bool testConfidenceRegion(const Circle& circle, const arma::mat22& posCov, double conf, const RotatedRectangle& rect);
 
 }
 }

@@ -22,6 +22,93 @@ using nump::math::Transform2D;
 using nump::math::RotatedRectangle;
 using nump::math::Circle;
 
+void robotCircleConfidenceRegionIntersectionTests(cairo_t *cr) {
+
+    // Transform2D robot = {0.5, 0.5, 0.5};
+    // arma::vec2 footprintSize = {0.12, 0.17};
+    // RotatedRectangle robotFootprint = {robot, footprintSize};
+
+    Circle circle = {{0.5, 0.5}, 0.15};
+    double vxy = -0.00125;
+    arma::mat22 circleCov = {
+            { 0.0025, vxy },
+            { vxy, 0.001 },
+    };
+
+    arma::vec eigvals;
+    arma::mat22 eigvecs;
+    arma::eig_sym(eigvals, eigvecs, circleCov);
+    if (eigvals(0) <= 0 || eigvals(1) <= 0) {
+        std::cerr << "Matrix is not a valid covariance matrix." << std::endl << eigvals << std::endl;
+        return;
+    }
+
+    int numTrials = 10000;
+    for (int i = 0; i < numTrials; i++) {
+        cairo_set_line_width(cr, 0.002);
+        arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
+        // arma::vec randCircle = arma::randu(3);
+        // double rad = 0.01 + randCircle(2)*randCircle(2)*0.2;
+        // double rad = 0.01 + randCircle(2)*0.15;
+        // double rad = 0.1;
+        // Circle circle = {randCircle.rows(0, 1) - arma::vec2({0.5, 0.5}), rad};
+
+        // cairo_save(cr);
+        // utility::drawing::cairoTransformToLocal(cr, robot);
+
+        // utility::drawing::drawCircle(cr, circle);
+        // Ellipse confEllipse = utility::math::distributions::confidenceRegion(circle.centre, circleCov, 0.95, 2);
+        // utility::drawing::drawEllipse(cr, confEllipse);
+
+        arma::vec rvec = arma::randu(3);
+        Transform2D robot = { rvec(0), rvec(1), (rvec(2) * 2 - 1) * M_PI };
+
+        arma::vec2 footprintSize = {0.12, 0.17};
+        RotatedRectangle robotFootprint = {robot, footprintSize};
+        utility::drawing::drawRotatedRectangle(cr, robotFootprint);
+
+        bool intersects = utility::math::geometry::intersection::testConfidenceRegion(circle, circleCov, 0.95, robotFootprint);
+        if (intersects) {
+            utility::drawing::cairoSetSourceRGBAlpha(cr, col, 0.05);
+            cairo_stroke(cr);
+        } else {
+            utility::drawing::cairoSetSourceRGBAlpha(cr, col, 0.7);
+            cairo_fill(cr);
+        }
+        // cairo_restore(cr);
+    }
+
+    // Draw full confidence footprint of circle:
+    Ellipse confEllipse = utility::math::distributions::confidenceRegion(circle.centre, circleCov, 0.95, 2);
+
+    int numSamples = 50;
+    cairo_push_group(cr);
+    utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
+    cairo_set_line_width(cr, 0.005);
+    for (int i = 0; i < numSamples; i++) {
+        double t = i / double(numSamples);
+        double lx = 0.5 * confEllipse.size(0) * std::cos(2*arma::datum::pi*t);
+        double ly = 0.5 * confEllipse.size(1) * std::sin(2*arma::datum::pi*t);
+        Transform2D gp = confEllipse.transform.localToWorld({lx, ly, 0});
+
+        utility::drawing::drawCircle(cr, {gp.xy(), circle.radius});
+    }
+    utility::drawing::drawEllipse(cr, confEllipse);
+    cairo_fill(cr);
+    cairo_pop_group_to_source(cr);
+    cairo_paint_with_alpha(cr, 0.5);
+
+    // Draw footprint and confidence ellipse:
+    utility::drawing::cairoSetSourceRGB(cr, {0.7,0.7,0.7});
+    cairo_set_line_width(cr, 0.005);
+    // utility::drawing::drawRotatedRectangle(cr, robotFootprint);
+    utility::drawing::drawCircle(cr, circle);
+    utility::drawing::drawEllipse(cr, confEllipse);
+    utility::drawing::drawEllipse(cr, {confEllipse.transform, confEllipse.size + 2*arma::vec2({circle.radius, circle.radius})});
+    cairo_stroke(cr);
+
+    std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
+}
 
 void drawRobotConfidenceFootprint(cairo_t *cr, arma::vec2 footprintSize, Transform2D state, arma::mat33 stateCov) {
     arma::vec2 confIntervalX = utility::math::distributions::confidenceRegion(state(0), stateCov(0, 0), 0.95, 3);
@@ -36,7 +123,7 @@ void drawRobotConfidenceFootprint(cairo_t *cr, arma::vec2 footprintSize, Transfo
     double ignoreRadius = arma::min(confEllipseXY.size/2) + arma::min(halfFP) - arma::norm(halfFP);
 
     cairo_push_group(cr);
-    double ss = 0.01;
+    double ss = 0.03;
     for (double sx = confIntervalX(0); sx < confIntervalX(1); sx += ss) {
         for (double sy = confIntervalY(0); sy < confIntervalY(1); sy += ss) {
 
@@ -112,7 +199,7 @@ void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
     RotatedRectangle robotFootprint = {state, footprintSize};
     Ellipse confEllipseXY = utility::math::distributions::confidenceRegion(state.head(2), stateCov.submat(0,0,1,1), 0.95, 3);
 
-    int numTrials = 10000;
+    int numTrials = 1000;
     for (int i = 0; i < numTrials; i++) {
         arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
         arma::vec randCircle = arma::randu(3);
@@ -160,7 +247,7 @@ void circleEllipseIntersectionTests(cairo_t *cr) {
     };
     Ellipse confEllipse = utility::math::distributions::confidenceRegion(state, stateCov * 0.5, 0.95);
 
-    int numTrials = 5000;
+    int numTrials = 1000;
     for (int i = 0; i < numTrials; i++) {
         arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
 
@@ -410,16 +497,20 @@ void intersectionTests() {
     cairo_scale(cr, surfaceDimensions(0), surfaceDimensions(1));
 
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
+    robotCircleConfidenceRegionIntersectionTests(cr);
+    cairo_show_page(cr);
+
+    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
     circleRobotConfidenceRegionIntersectionTests(cr);
     cairo_show_page(cr);
 
-    // cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
-    // confidenceEllipseTests(cr);
-    // cairo_show_page(cr);
-    //
-    // cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
-    // circleEllipseIntersectionTests(cr);
-    // cairo_show_page(cr);
+    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
+    confidenceEllipseTests(cr);
+    cairo_show_page(cr);
+
+    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
+    circleEllipseIntersectionTests(cr);
+    cairo_show_page(cr);
 
     std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
 
