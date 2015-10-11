@@ -150,6 +150,7 @@ namespace drawing {
         cairo_save(cr);
 
         drawRotatedRectangle(cr, {trans, footprintSize});
+        cairo_fill(cr);
         drawRobot(cr, trans, size);
 
         cairo_restore(cr);
@@ -337,9 +338,11 @@ namespace drawing {
             cairoSetSourceRGBAlpha(cr, colt, alpha);
             drawRobot(cr, xt, size * 0.2);
             drawErrorEllipse(cr, xt.head(2), fullCov.submat(0,0,1,1), 0.95);
+            cairo_stroke(cr);
 
             cairoSetSourceRGBAlpha(cr, colt * 0.5, alpha);
             drawErrorEllipse(cr, xt.head(2), nt->stateCov.submat(0,0,1,1), 0.95);
+            cairo_stroke(cr);
         });
 
         cairoSetSourceRGBAlpha(cr, colSuccess, 1);
@@ -428,10 +431,11 @@ namespace drawing {
             cairo_set_line_width(cr, lwNormal);
             drawRobot(cr, state, r, rrbt.scenario.footprintSize);
 
+            cairo_set_line_width(cr, lwNormal);
             for (auto& bn : node->value.beliefNodes) {
-                cairo_set_line_width(cr, lwNormal);
                 drawErrorEllipse(cr, state.head(2), arma::mat(bn->stateCov + bn->stateDistribCov).submat(0,0,1,1), 0.95);
             }
+            cairo_stroke(cr);
 
             cairoSetSourceRGBAlpha(cr, colText, 1);
             showText(cr, state.rows(0, 1), r*0.2, node->value.beliefNodes.size());
@@ -475,6 +479,7 @@ namespace drawing {
 
                     cairo_set_line_width(cr, lwHighlight);
                     drawErrorEllipse(cr, n->containingNode.lock()->value.state.head(2), arma::mat(n->stateCov + n->stateDistribCov).submat(0,0,1,1), 0.95);
+                    cairo_stroke(cr);
                     n = n->parent;
                     ++depth;
                     if (depth > rrbt.graph.nodes.size()) {
@@ -502,12 +507,23 @@ namespace drawing {
         drawRobot(cr, rrbt.scenario.goalState, r);
 
         // Draw obstacles:
+        cairo_push_group(cr);
+        cairoSetSourceRGB(cr, colRegion);
         for (auto& reg : rrbt.scenario.measurementRegions) {
-            fillCircle(cr, reg, colRegion, 0.3);
+            drawCircle(cr, reg);
         }
+        cairo_fill(cr);
+        cairo_pop_group_to_source(cr);
+        cairo_paint_with_alpha(cr, 0.3);
+
+        cairo_push_group(cr);
+        cairoSetSourceRGB(cr, colObstacle);
         for (auto& obs : rrbt.scenario.obstacles) {
-            fillCircle(cr, obs, colObstacle, 0.3);
+            drawCircle(cr, obs);
         }
+        cairo_fill(cr);
+        cairo_pop_group_to_source(cr);
+        cairo_paint_with_alpha(cr, 0.3);
 
         cairo_restore(cr);
     }

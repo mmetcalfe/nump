@@ -11,11 +11,11 @@
 
 int main() {
     // Run the tests:
-    // covarianceComparisonTests();
-    // trajectoryTests();
+    covarianceComparisonTests();
+    trajectoryTests();
     intersectionTests();
-    // propogateTests();
-    return 0;
+    propogateTests();
+    std::cout << "Completed all tests." << std::endl;
 
     auto scenario_dir = "scenarios";
 
@@ -42,6 +42,8 @@ int main() {
             scenario.execute(curr_scenario_name);
         }
     }
+
+    std::cout << "Completed all scenarios." << std::endl;
 
     return 0;
 }
