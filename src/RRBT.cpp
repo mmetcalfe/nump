@@ -212,10 +212,10 @@ namespace nump {
         // \bar{}  -->  b
         // e.g. \bar{Σ}_{t}  -->  Σbt
 
-        RRBT::StateCovT Σp = belief->stateCov;
-        RRBT::StateCovT Λp = belief->stateDistribCov;
+        RobotModel::MotionCov Σp = belief->stateCov;
+        RobotModel::MotionCov Λp = belief->stateDistribCov;
 
-        RRBT::StateCovT Σt, Λt; // declare ouptuts
+        RobotModel::MotionCov Σt, Λt; // declare ouptuts
 
         // Iterate over trajectory:
         // TODO: Make trajectory iteration efficient.
@@ -240,21 +240,21 @@ namespace nump {
             RobotModel::MotionMatrix At = RobotModel::driftMatrix(timeStep, xTraj);
             RobotModel::MotionMatrix Bt = RobotModel::controlMatrix(timeStep, xTraj);
             RobotModel::MotionMatrix Kt = RobotModel::regulatorMatrix(timeStep);
-            RobotModel::MeasurementMatrix Ct = RobotModel::measurementMatrix(timeStep, xTraj);
+            RobotModel::MeasurementMatrix Ct = RobotModel::measurementMatrix(timeStep, xTraj, measurementRegions);
             RobotModel::MotionCov Qt = RobotModel::motionNoiseCovariance(timeStep, xTraj);
             RobotModel::MeasurementCov Rt = RobotModel::measurementNoiseCovariance(timeStep, xTraj, measurementRegions);
 
             // Step 1 - Covariance prediction (equations 21, 33):
             // Kalman filter process step:
-            RRBT::StateCovT Σbt = At*Σp*At.t() + Qt; // (equation 17)
+            RobotModel::MotionCov Σbt = At*Σp*At.t() + Qt; // (equation 17)
 
             // Kalman filter measurement update:
-            RRBT::StateCovT St = Ct*Σbt*Ct.t() + Rt; // (equation 18)
-            RRBT::StateCovT Lt = Σbt*Ct.t()*St.i(); // (equation 19)
+            RobotModel::MeasurementCov St = Ct*Σbt*Ct.t() + Rt; // (equation 18)
+            RobotModel::KalmanGainMatrix Lt = Σbt*Ct.t()*St.i(); // (equation 19)
             Σt = Σbt - Lt*Ct*Σbt; // (equation 21)
 
             // Distribution over state estimates:
-            RRBT::StateCovT Ak = (At - Bt*Kt); // A_{K}
+            RobotModel::MotionMatrix Ak = (At - Bt*Kt); // A_{K}
             Λt = Ak*Λp*Ak.t() + Lt*Ct*Σbt; // (equation 33)
 
 
@@ -262,7 +262,7 @@ namespace nump {
             // x_t ~ N(\check{x}, Λ_{t} + Σ_{t})
             // i.e. x_t ~ N(xTraj, xTrajCov)
             // (where x_t is the true state)
-            RRBT::StateCovT xTrajCov = Σt + Λt;
+            RobotModel::MotionMatrix xTrajCov = Σt + Λt;
 
             // Step 2 - Cost expectation evaluation (equation 11):
             // TODO: Work out how to evaluate expected path cost.
@@ -331,10 +331,13 @@ namespace nump {
         // return sizeA(0)*sizeA(1) < sizeB(0)*sizeB(1);
 
         // TODO: Enhance covariace comparision to include heading uncertainty.
-        return utility::math::distributions::confidenceRegionArea(covA.submat(0,0,1,1), 0.95) < utility::math::distributions::confidenceRegionArea(covB.submat(0,0,1,1), 0.95);
+
+        double areaA = utility::math::distributions::confidenceRegionArea(covA.submat(0,0,1,1), 0.95);
+        double areaB = utility::math::distributions::confidenceRegionArea(covB.submat(0,0,1,1), 0.95);
+        return areaA < areaB;
     }
 
-    bool RRBT::BeliefNode::dominates(BeliefNodePtr belief, double tolerance) {
+    bool RRBT::BeliefNode::dominates(BeliefNodePtr belief, double tolerance, double costTolerance) {
         // Calculate tolerance matrix:
         RRBT::StateCovT eps;
         eps.eye();
@@ -351,8 +354,9 @@ namespace nump {
         // std::cout << __LINE__ << ":     stateDistribCovDom: " << stateDistribCovDom << std::endl;
 
         // TODO: Document tolerance.
-        double costTolerance = tolerance == 0 ? 0 : 0.01;
-        bool costDom = cost < belief->cost * (1 + costTolerance);
+        double effectiveCostTolerance = tolerance == 0 ? 0 : costTolerance;
+        // bool costDom = cost < belief->cost * (1 + costTolerance);
+        bool costDom = cost < belief->cost + effectiveCostTolerance;
         // std::cout << __LINE__ << ":     costDom: " << costDom << std::endl;
 
         return stateCovDom && stateDistribCovDom && costDom;
@@ -363,7 +367,7 @@ namespace nump {
 
         // If n is dominated by any nodes in v.N, return failure.
         for (auto& cmpBelief : beliefNodes) {
-            if (cmpBelief->dominates(belief, scenario.rrbtAppendRejectCovThreshold)) {
+            if (cmpBelief->dominates(belief, scenario.rrbtAppendRejectCovThreshold, scenario.rrbtAppendRejectCostThreshold)) {
                 return false;
             }
         }
@@ -374,7 +378,7 @@ namespace nump {
         beliefNodes.erase(std::remove_if(
                 beliefNodes.begin(),
                 beliefNodes.end(),
-                [belief](BeliefNodePtr n) {
+                [belief,this](BeliefNodePtr n) {
                     return belief->dominates(n);
                 }),
                 beliefNodes.end());

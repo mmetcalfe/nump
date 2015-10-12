@@ -100,7 +100,7 @@ Ellipse confidenceRegion(arma::vec2 mean, arma::mat22 cov, double conf, int dof)
     // std::cout << __FILE__ << ", " << __LINE__ << ": eigvals: " << eigval.t() << std::endl;
     // std::cout << __FILE__ << ", " << __LINE__ << ": eigvec: " << eigvec.t() << std::endl;
 
-    if (eigval(0) < 0 || eigval(1) < 0) {
+    if (eigval(0) < 0 || eigval(1) < 0 || !eigval.is_finite()) {
         std::cerr << __FILE__ << ", " << __LINE__ << " - " << __func__ << ": "
         << "Eigenvalues of covariance matrix must not be negative, but"
         << " eigval = "
@@ -122,7 +122,20 @@ Ellipse confidenceRegion(arma::vec2 mean, arma::mat22 cov, double conf, int dof)
 }
 
 double confidenceRegionArea(arma::mat22 cov, double conf, int dof) {
-    arma::vec2 eigval = eigvals_2d(cov);
+//    arma::vec2 eigval = eigvals_2d(cov);
+    arma::vec2 eigval;  // eigenvalues are stored in ascending order.
+    arma::mat22 eigvec;
+    arma::eig_sym(eigval, eigvec, cov, "std");
+
+    if (eigval(0) < 0 || eigval(1) < 0 || !eigval.is_finite()) {
+        std::cerr << __FILE__ << ", " << __LINE__ << " - " << __func__ << ": "
+        << "Eigenvalues of covariance matrix must not be negative, but"
+        << " eigval = "
+        << eigval.t()
+        << std::endl;
+        assert(false);
+    }
+
     double chiSquareVal = cChiSquare(conf, dof);
     // double chiSquareVal = 5.991; // for 95% confidence interval
     arma::vec halfAxisLengths = arma::sqrt(chiSquareVal*eigval);

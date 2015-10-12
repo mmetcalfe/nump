@@ -20,8 +20,9 @@ namespace nump {
 
         typedef arma::mat33 MotionMatrix;
         typedef arma::mat33 MotionCov;
-        typedef arma::mat33 MeasurementMatrix;
-        typedef arma::mat33 MeasurementCov;
+        typedef arma::mat::fixed<2, 3> MeasurementMatrix;
+        typedef arma::mat22 MeasurementCov;
+        typedef arma::mat::fixed<3, 2> KalmanGainMatrix;
 
         /*
          * Note: Sensor and movement error model is:
@@ -42,7 +43,7 @@ namespace nump {
         static MotionMatrix regulatorMatrix(double Δt);
 
         /// The C matrix in RRBT's propagate function.
-        static MeasurementMatrix measurementMatrix(double Δt, const State& state);
+        static MeasurementMatrix measurementMatrix(double Δt, const State& state, const std::vector<nump::math::Circle>& measurementRegions);
 
         /// The Q matrix in RRBT's propagate function.
         static MotionCov motionNoiseCovariance(double Δt, const State& state);

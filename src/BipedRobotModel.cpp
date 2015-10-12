@@ -14,6 +14,8 @@
 namespace nump {
     typedef BipedRobotModel::State StateT;
 
+    using nump::math::Circle;
+
     /// The A matrix in RRBT's propagate function.
     BipedRobotModel::MotionMatrix BipedRobotModel::driftMatrix(double Δt, const StateT& state) {
         BipedRobotModel::MotionMatrix At;
@@ -37,13 +39,6 @@ namespace nump {
         return Kt;
     }
 
-    /// The C matrix in RRBT's propagate function.
-    BipedRobotModel::MeasurementMatrix BipedRobotModel::measurementMatrix(double Δt, const StateT& state) {
-        BipedRobotModel::MeasurementMatrix Kt;
-        Kt.eye();
-        return Kt;
-    }
-
     /// The Q matrix in RRBT's propagate function.
     BipedRobotModel::MotionCov BipedRobotModel::motionNoiseCovariance(double Δt, const StateT& state) {
         BipedRobotModel::MotionCov Qt;
@@ -53,23 +48,60 @@ namespace nump {
         return Qt;
     }
 
-    bool anyContain(const std::vector<nump::math::Circle>& regions, const StateT& pos) {
+    std::unique_ptr<Circle> firstContaining(const std::vector<Circle>& regions, const StateT& pos) {
         for (auto &reg : regions) {
             if (reg.contains(pos.position.head(2))) {
-                return true;
+                return std::make_unique<Circle>(reg);;
             }
         }
 
-        return false;
+        return nullptr;
+    }
+
+    /// The C matrix in RRBT's propagate function.
+    BipedRobotModel::MeasurementMatrix BipedRobotModel::measurementMatrix(double Δt, const StateT& state, const std::vector<Circle>& measurementRegions) {
+        // The Jacobion of the measurement model.
+        // (See H^i_t on page 207 of Sebastian Thrun's Probabilistic Robotics book)
+
+        auto landmark = firstContaining(measurementRegions, state);
+
+        if (landmark == nullptr) {
+            BipedRobotModel::MeasurementMatrix Ct;
+            Ct.eye();
+            return Ct;
+        }
+
+        arma::vec2 mu = state.position.xy();
+        arma::vec2 loc = landmark->centre;
+
+        double dist = arma::norm(mu - loc);
+        double lx = loc(0);
+        double ly = loc(1);
+        double sx = mu(0);
+        double sy = mu(1);
+
+        BipedRobotModel::MeasurementMatrix Ct;
+        Ct.zeros();
+
+        Ct(0, 0) = -(lx - sx) / dist;
+        Ct(0, 1) = -(ly - sy) / dist;
+        Ct(1, 0) =  (ly - sy) / (dist*dist);
+        Ct(1, 1) = -(lx - sx) / (dist*dist);
+
+        Ct(1, 2) = -1;
+
+        // Ct.eye(); // TODO: Remove test code.
+
+        return Ct;
     }
 
     /// The R matrix in RRBT's propagate function.
-    BipedRobotModel::MeasurementCov BipedRobotModel::measurementNoiseCovariance(double Δt, const StateT& state, const std::vector<nump::math::Circle>& measurementRegions) {
+    BipedRobotModel::MeasurementCov BipedRobotModel::measurementNoiseCovariance(double Δt, const StateT& state, const std::vector<Circle>& measurementRegions) {
         BipedRobotModel::MeasurementCov Rt;
         Rt.eye();
         Rt(0,0) = 1e7;
         Rt(1,1) = 1e7;
-        if (anyContain(measurementRegions, state)) {
+        if (firstContaining(measurementRegions, state) != nullptr) {
             Rt(0,0) = 0.0001;
             Rt(1,1) = 0.0001;
         }

@@ -176,6 +176,7 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
     int pointNum = 0;
     auto rrbtTree = nump::RRBT::fromSearchScenario(cfg_, cr,
          [&](const nump::RRBT& rrbt, const nump::RRBT::StateT newState, bool extended) {
+             // Make printed output wrap into columns:
              if (sampleNum % 50 == 0) {
                  std::cout << std::endl;
              }

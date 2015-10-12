@@ -65,7 +65,7 @@ namespace nump {
                 containingNode = _containingNode;
             }
 
-            bool dominates(BeliefNodePtr belief, double tolerance = 0);
+            bool dominates(BeliefNodePtr belief, double tolerance = 0, double costTolerance = 0);
         };
         struct Vertex {
             StateT state; // x
