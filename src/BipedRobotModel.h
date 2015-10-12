@@ -48,7 +48,7 @@ namespace nump {
         static MotionCov motionNoiseCovariance(double Δt, const State& state);
 
         /// The R matrix in RRBT's propagate function.
-        static MeasurementCov measurementNoiseCovariance(double Δt, const State& state);
+        static MeasurementCov measurementNoiseCovariance(double Δt, const State& state, const std::vector<nump::math::Circle>& measurementRegions);
     };
 }
 

@@ -14,6 +14,69 @@
 namespace nump {
     typedef BipedRobotModel::State StateT;
 
+    /// The A matrix in RRBT's propagate function.
+    BipedRobotModel::MotionMatrix BipedRobotModel::driftMatrix(double Δt, const StateT& state) {
+        BipedRobotModel::MotionMatrix At;
+        At.eye();
+        return At;
+    }
+
+    /// The B matrix in RRBT's propagate function.
+    BipedRobotModel::MotionMatrix BipedRobotModel::controlMatrix(double Δt, const StateT& state) {
+        BipedRobotModel::MotionMatrix Bt;
+        Bt.eye();
+        return Bt;
+    }
+
+    /// The K matrix in RRBT's propagate function.
+    BipedRobotModel::MotionMatrix BipedRobotModel::regulatorMatrix(double Δt) {
+        BipedRobotModel::MotionMatrix Kt;
+        Kt.eye();
+        Kt(0,0) = 0.5;
+        Kt(1,1) = 0.5;
+        return Kt;
+    }
+
+    /// The C matrix in RRBT's propagate function.
+    BipedRobotModel::MeasurementMatrix BipedRobotModel::measurementMatrix(double Δt, const StateT& state) {
+        BipedRobotModel::MeasurementMatrix Kt;
+        Kt.eye();
+        return Kt;
+    }
+
+    /// The Q matrix in RRBT's propagate function.
+    BipedRobotModel::MotionCov BipedRobotModel::motionNoiseCovariance(double Δt, const StateT& state) {
+        BipedRobotModel::MotionCov Qt;
+        Qt.eye();
+        Qt(0,0) = 0.00002;
+        Qt(1,1) = 0.00002;
+        return Qt;
+    }
+
+    bool anyContain(const std::vector<nump::math::Circle>& regions, const StateT& pos) {
+        for (auto &reg : regions) {
+            if (reg.contains(pos.position.head(2))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// The R matrix in RRBT's propagate function.
+    BipedRobotModel::MeasurementCov BipedRobotModel::measurementNoiseCovariance(double Δt, const StateT& state, const std::vector<nump::math::Circle>& measurementRegions) {
+        BipedRobotModel::MeasurementCov Rt;
+        Rt.eye();
+        Rt(0,0) = 1e7;
+        Rt(1,1) = 1e7;
+        if (anyContain(measurementRegions, state)) {
+            Rt(0,0) = 0.0001;
+            Rt(1,1) = 0.0001;
+        }
+        return Rt;
+    }
+
+
     namespace robotmodel {
         Transform2D walkBetweenFar(const Transform2D& currentState, const Transform2D& targetState) {
             auto diff = arma::vec2(targetState.xy() - currentState.xy());

@@ -122,15 +122,6 @@ namespace nump {
         return steer(from, to);
     }
 
-    bool anyContain(const std::vector<nump::math::Circle>& regions, StateT pos) {
-        for (auto &reg : regions) {
-            if (reg.contains(pos.position.head(2))) {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
 //    RRBT RRBT::fromRRBT(cairo_t *cr, StateT init, StateCovT initCov, StateT goal, int n,
 //                        std::vector<nump::math::Circle> obstacles,
@@ -229,18 +220,12 @@ namespace nump {
         // Iterate over trajectory:
         // TODO: Make trajectory iteration efficient.
         // TODO: Determine how to change matrices per timestep so that timesteps do not have to equal in time.
+        double timeStep = 0.01;
         int numSteps = traj.t / 0.01; // 100
         for (int i = 0; i <= numSteps; i++) {
             double t = (i / double(numSteps)) * traj.t;
 
-            RRBT::StateT xTraj = traj(t);
-
-            // Inputs: Qt, Rt, Σp, Λp.
-
-            // TODO: Determine At, Bt, Ct, and Kt by linearising the robot's dynamics at the current point.
-            RRBT::StateCovT At, Bt, Ct, Kt, Qt, Rt;
-            // TODO: Have the trajectory use a model to determine Qt (the motion uncertainty).
-            // TODO: Use a sensor model to determine Ct and Rt.
+            RobotModel::State xTraj = traj(t);
 
             /*
              * Note: Sensor and movement error model is:
@@ -252,27 +237,12 @@ namespace nump {
              *
              */
 
-            At.eye();
-
-            Bt.eye();
-
-            Kt.eye();
-            Kt(0,0) = 0.5;
-            Kt(1,1) = 0.5;
-
-            Ct.eye();
-
-            Qt.eye();
-            Qt(0,0) = 0.00002;
-            Qt(1,1) = 0.00002;
-
-            Rt.eye();
-            Rt(0,0) = 1e7;
-            Rt(1,1) = 1e7;
-            if (anyContain(measurementRegions, xTraj)) {
-                Rt(0,0) = 0.0001;
-                Rt(1,1) = 0.0001;
-            }
+            RobotModel::MotionMatrix At = RobotModel::driftMatrix(timeStep, xTraj);
+            RobotModel::MotionMatrix Bt = RobotModel::controlMatrix(timeStep, xTraj);
+            RobotModel::MotionMatrix Kt = RobotModel::regulatorMatrix(timeStep);
+            RobotModel::MeasurementMatrix Ct = RobotModel::measurementMatrix(timeStep, xTraj);
+            RobotModel::MotionCov Qt = RobotModel::motionNoiseCovariance(timeStep, xTraj);
+            RobotModel::MeasurementCov Rt = RobotModel::measurementNoiseCovariance(timeStep, xTraj, measurementRegions);
 
             // Step 1 - Covariance prediction (equations 21, 33):
             // Kalman filter process step:
