@@ -93,27 +93,9 @@ namespace drawing {
 
     void drawRobot(cairo_t *cr, arma::vec2 pos, double size) {
         double radius = 1.5 * size*0.15;
-        double length = 1.5 * size*0.4;
-
         cairo_save(cr);
-
-//        cairoTransformToLocal(cr, trans);
-
-        double angle = std::acos(radius/length);
-        double tipX = length;
-        double baseX = radius * std::cos(angle);
-        double baseY = radius * std::sin(angle);
-
-//        cairoMoveTo(cr, {baseX, baseY});
-//        cairoLineTo(cr, {tipX, 0});
-//        cairoLineTo(cr, {baseX, -baseY});
         cairo_arc(cr, pos(0), pos(1), radius, -M_PI, M_PI);
-//        cairo_close_path(cr);
-
         cairo_fill(cr);
-//        cairo_set_line_width(cr, radius * 0.2);
-//        cairo_stroke(cr);
-
         cairo_restore(cr);
     }
 
@@ -122,7 +104,6 @@ namespace drawing {
         double length = 1.5 * size*0.4;
 
         cairo_save(cr);
-
         cairoTransformToLocal(cr, trans);
 
         double angle = std::acos(radius/length);
@@ -137,8 +118,6 @@ namespace drawing {
         cairo_close_path(cr);
 
         cairo_fill(cr);
-//        cairo_set_line_width(cr, radius * 0.2);
-//        cairo_stroke(cr);
 
         cairo_restore(cr);
     }
@@ -154,6 +133,13 @@ namespace drawing {
         drawRobot(cr, trans, size);
 
         cairo_restore(cr);
+    }
+
+    void drawRobot(cairo_t *cr, nump::BipedRobotModel::State state, double size) {
+        drawRobot(cr, state.position, size);
+    }
+    void drawRobot(cairo_t *cr, nump::BipedRobotModel::State state, double size, arma::vec2 footprintSize) {
+        drawRobot(cr, state.position, size, footprintSize);
     }
 
     void drawTree(cairo_t *cr, const nump::SearchTree::TreeT& tree, double r) {
@@ -293,7 +279,7 @@ namespace drawing {
         double size = 0.1;
         double alphaNormal = 0.05;
 
-        const nump::SearchTree::TrajT& traj = edge.value;
+        const nump::RRBT::TrajT& traj = edge.value;
         nump::RRBT::BeliefNodePtr n1 = nullptr;
         for (auto nChild : edge.child.lock()->value.beliefNodes) {
             if (nChild->parent == nullptr) {
@@ -337,11 +323,11 @@ namespace drawing {
 
             cairoSetSourceRGBAlpha(cr, colt, alpha);
             drawRobot(cr, xt, size * 0.2);
-            drawErrorEllipse(cr, xt.head(2), fullCov.submat(0,0,1,1), 0.95);
+            drawErrorEllipse(cr, xt, fullCov, 0.95);
             cairo_stroke(cr);
 
             cairoSetSourceRGBAlpha(cr, colt * 0.5, alpha);
-            drawErrorEllipse(cr, xt.head(2), nt->stateCov.submat(0,0,1,1), 0.95);
+            drawErrorEllipse(cr, xt, nt->stateCov, 0.95);
             cairo_stroke(cr);
         });
 
@@ -377,8 +363,8 @@ namespace drawing {
         cairo_set_line_width(cr, lwNormal);
         for (auto& edge : rrbt.graph.edges) {
             cairoSetSourceRGBAlpha(cr, colLine, alphaNormal);
-            cairoMoveTo(cr, edge.parent.lock()->value.state.rows(0,1));
-            cairoLineTo(cr, edge.child.lock()->value.state.rows(0,1));
+            cairoMoveTo(cr, edge.parent.lock()->value.state.position.head(2));
+            cairoLineTo(cr, edge.child.lock()->value.state.position.head(2));
             cairo_stroke(cr);
 
             drawEdgeRRBT(cr, edge, rrbt.scenario);
@@ -433,19 +419,19 @@ namespace drawing {
 
             cairo_set_line_width(cr, lwNormal);
             for (auto& bn : node->value.beliefNodes) {
-                drawErrorEllipse(cr, state.head(2), arma::mat(bn->stateCov + bn->stateDistribCov).submat(0,0,1,1), 0.95);
+                drawErrorEllipse(cr, state, bn->stateCov + bn->stateDistribCov, 0.95);
             }
             cairo_stroke(cr);
 
             cairoSetSourceRGBAlpha(cr, colText, 1);
-            showText(cr, state.rows(0, 1), r*0.2, node->value.beliefNodes.size());
+            showText(cr, state.position.head(2), r*0.2, node->value.beliefNodes.size());
         }
 
         // TODO: Extract a method for drawBestPath. Make it draw key states, actual trajectories, and all/most confidence ellipses, and angle uncertainty.
         {
             // Draw optimal path:
-            nump::RRBT::NodeT vNearest = rrbt.nearest(rrbt.scenario.goalState);
-            nump::RRBT::TrajT eNearestRand = rrbt.connect(vNearest->value.state, rrbt.scenario.goalState);
+            nump::RRBT::NodeT vNearest = rrbt.nearest({rrbt.scenario.goalState});
+            nump::RRBT::TrajT eNearestRand = rrbt.connect(vNearest->value.state, {rrbt.scenario.goalState});
 
             // If eNearest can not be traversed by any belief node in vNearest without
             // violating the chance constraint, then return failure.
@@ -460,7 +446,7 @@ namespace drawing {
             }
 
             if (nBest != nullptr) {
-                auto vRand = rrbt.graph.makeNode(nump::RRBT::Vertex {rrbt.scenario.goalState, {}});
+                auto vRand = rrbt.graph.makeNode(nump::RRBT::Vertex {{rrbt.scenario.goalState}, {}});
                 nBest->containingNode = vRand; // Set containing vertex of the belief node.
                 //  drawEdgeRRBT(cr, eNearestRand, rrbt.obstacles, rrbt.measurementRegions);
 
@@ -473,12 +459,12 @@ namespace drawing {
                     //                       std::cout << "b";
                         break;
                     }
-                    cairoMoveTo(cr, n->containingNode.lock()->value.state.head(2));
-                    cairoLineTo(cr, n->parent->containingNode.lock()->value.state.head(2));
+                    cairoMoveTo(cr, n->containingNode.lock()->value.state.position.head(2));
+                    cairoLineTo(cr, n->parent->containingNode.lock()->value.state.position.head(2));
                     cairo_stroke(cr);
 
                     cairo_set_line_width(cr, lwHighlight);
-                    drawErrorEllipse(cr, n->containingNode.lock()->value.state.head(2), arma::mat(n->stateCov + n->stateDistribCov).submat(0,0,1,1), 0.95);
+                    drawErrorEllipse(cr, n->containingNode.lock()->value.state, n->stateCov + n->stateDistribCov, 0.95);
                     cairo_stroke(cr);
                     n = n->parent;
                     ++depth;
@@ -530,6 +516,11 @@ namespace drawing {
 
     bool drawErrorEllipse(cairo_t *cr, const arma::vec2& mean, const arma::mat22& cov, double confidence) {
         auto ellipse = utility::math::distributions::confidenceRegion(mean, cov, confidence);
+        return drawEllipse(cr, ellipse);
+    }
+
+    bool drawErrorEllipse(cairo_t *cr, const nump::BipedRobotModel::State& mean, const nump::BipedRobotModel::MotionCov& cov, double confidence) {
+        auto ellipse = utility::math::distributions::confidenceRegion(mean.position.head(2), cov.submat(0,0,1,1), confidence, arma::size(mean.position)(0));
         return drawEllipse(cr, ellipse);
     }
 

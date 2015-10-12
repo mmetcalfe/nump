@@ -44,10 +44,10 @@ namespace nump {
 
         double dist = arma::norm(localTarget.xy());
 
-//        double farDist = 0.6;
-//        double nearDist = 0.2;
-//        double blend = std::max(0.0, std::min(1.0, (dist - nearDist) / (farDist - nearDist)));
-//        return blend * walkBetweenFar(x1, x2) + (1 - blend) * walkBetweenNear(x1, x2);
+    //    double farDist = 0.3;
+    //    double nearDist = 0.1;
+    //    double blend = std::max(0.0, std::min(1.0, (dist - nearDist) / (farDist - nearDist)));
+    //    return blend * walkBetweenFar(x1, x2) + (1 - blend) * walkBetweenNear(x1, x2);
 
 //        if (dist > 0.2) {
         if (dist > 0.2 && std::abs(targetAngle) < M_PI*0.25) { // TODO: Choose walkBetweenFar as long as it satisfies the topological property.

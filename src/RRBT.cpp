@@ -11,6 +11,7 @@
 #include "shared/utility/math/geometry/Ellipse.h"
 #include "shared/utility/math/geometry/intersection/Intersection.h"
 #include "shared/utility/math/distributions.h"
+#include "BipedRobotModel.h"
 
 using utility::math::geometry::Ellipse;
 
@@ -48,7 +49,7 @@ namespace nump {
     inline double RRBT::distance(StateT a, StateT b) {
 //        return arma::norm(a - b);
 //        return J(steer(a, b)); // TODO: Implement a faster, valid, distance metric.
-        return arma::norm(a.rows(0,1) - b.rows(0,1));
+        return arma::norm(a.position.rows(0,1) - b.position.rows(0,1));
     }
 
     NodeT RRBT::nearest(StateT state) const {
@@ -101,7 +102,7 @@ namespace nump {
             double t = i / double(numSteps);
             StateT x = s(t*s.t);
 
-            arma::vec2 pos = {x(0), x(1)};
+            arma::vec2 pos = {x.position(0), x.position(1)};
 
             for (auto &obs : scenario.obstacles) {
                 if (obs.contains(pos)) {
@@ -123,7 +124,7 @@ namespace nump {
 
     bool anyContain(const std::vector<nump::math::Circle>& regions, StateT pos) {
         for (auto &reg : regions) {
-            if (reg.contains(pos.head(2))) {
+            if (reg.contains(pos.position.head(2))) {
                 return true;
             }
         }
@@ -166,7 +167,7 @@ namespace nump {
 
     bool satisfiesChanceConstraintPointFootprint(RRBT::StateT mean, RRBT::StateCovT cov,
                                    const std::vector<nump::math::Circle>& obstacles) {
-        Ellipse confEllipse = utility::math::distributions::confidenceRegion(mean.head(2), cov.submat(0,0,1,1), 0.95);
+        Ellipse confEllipse = utility::math::distributions::confidenceRegion(mean.position.head(2), cov.submat(0,0,1,1), 0.95);
         for (auto& obs : obstacles) {
             bool intersects = utility::math::geometry::intersection::test(obs, confEllipse);
 
@@ -181,7 +182,7 @@ namespace nump {
 
     bool satisfiesChanceConstraintTransform2D(Transform2D mean, arma::mat33 cov, arma::vec2 footprintSize,
                                    const std::vector<nump::math::Circle>& obstacles) {
-        Ellipse confEllipse = utility::math::distributions::confidenceRegion(mean.head(2), cov.submat(0,0,1,1), 0.95);
+        Ellipse confEllipse = utility::math::distributions::confidenceRegion(mean.head(2), cov.submat(0,0,1,1), 0.95, arma::size(mean)(0));
         for (auto& obs : obstacles) {
             bool intersects = utility::math::geometry::intersection::test(obs, confEllipse);
 
@@ -196,12 +197,12 @@ namespace nump {
 
     bool RRBT::satisfiesChanceConstraint(StateT state, StateCovT stateCov, arma::vec2 footprintSize,
                                          const std::vector<nump::math::Circle>& obstacles) {
-        arma::vec size = arma::vec(arma::size(state));
+        arma::vec size = arma::vec(arma::size(state.position));
         if (size(0) == 2) {
             // TODO: Enhance test to work for a polygonal robot footprint, rather than just a point robot.
             return satisfiesChanceConstraintPointFootprint(state, stateCov, obstacles);
         } else {
-            return satisfiesChanceConstraintTransform2D(state, stateCov, footprintSize, obstacles);
+            return satisfiesChanceConstraintTransform2D(state.position, stateCov, footprintSize, obstacles);
         }
     }
 

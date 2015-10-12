@@ -171,7 +171,6 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
 //    cairo_scale(cr, centeredFrac, centeredFrac);
 //    cairo_translate(cr, borderSize, borderSize);
 
-
    // Run RRBT:
     int sampleNum = 0;
     int pointNum = 0;

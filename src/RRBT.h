@@ -13,6 +13,7 @@
 #include "Graph.h"
 #include "Trajectory.h"
 #include "SearchScenario.h"
+#include "BipedRobotModel.h"
 
 namespace nump {
 
@@ -32,8 +33,10 @@ namespace nump {
 
         struct Vertex;
         struct BeliefNode;
-        typedef Transform2D StateT;
-        typedef arma::mat33 StateCovT;
+
+        typedef BipedRobotModel RobotModel;
+        typedef RobotModel::State StateT;
+        typedef RobotModel::MotionCov StateCovT;
 //        typedef arma::vec2 StateT;
 //        typedef arma::mat22 StateCovT;
         typedef Trajectory<StateT> TrajT;

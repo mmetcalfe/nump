@@ -66,8 +66,10 @@ void propogateTests() {
     }
 
     // Create initial state:
-//    arma::vec2 x1 = {0.5, 0.5}; //nump::SearchTree::TrajT::sample();
-    Transform2D x1 = {0.5, 0.5, 0}; //nump::SearchTree::TrajT::sample();
+//    arma::vec2 x1 = {0.5, 0.5}; //nump::RRBT::TrajT::sample();
+    // Transform2D x1 = {0.5, 0.5, 0}; //nump::RRBT::TrajT::sample();
+    nump::RRBT::StateT x1;
+    x1.position = {0.5, 0.5, 0}; //nump::RRBT::TrajT::sample();
 
     arma::vec2 footprintSize = {0.1, 0.15};
 
@@ -98,16 +100,16 @@ void propogateTests() {
 
         // Draw initial distribution:
         cairoSetSourceRGB(cr, colInitial);
-        drawRobot(cr, x1, size);
+        drawRobot(cr, x1.position, size);
         cairo_set_line_width(cr, lwHighlight);
-        drawErrorEllipse(cr, x1.head(2), arma::mat(n1->stateCov + n1->stateDistribCov).submat(0,0,1,1), 0.95);
+        drawErrorEllipse(cr, x1.position.head(2), arma::mat(n1->stateCov + n1->stateDistribCov).submat(0,0,1,1), 0.95);
 
         // Sample target state:
-        nump::SearchTree::StateT x2 = nump::SearchTree::TrajT::sample({1, 1});
+        nump::RRBT::StateT x2 = nump::RRBT::TrajT::sample({1, 1});
 //        x2(0) = 0.5 + 0.5 * x2(0);
 
         // Generate the trajectory:
-        nump::SearchTree::TrajT traj = nump::RRBT::connect(x1, x2);
+        nump::RRBT::TrajT traj = nump::RRBT::connect(x1, x2);
 
         // Perform belief propagation:
         auto n2 = nump::RRBT::propagate(traj, n1, footprintSize, obstacles, measurementRegions, [&](auto t, auto xt, auto nt) {
@@ -126,11 +128,11 @@ void propogateTests() {
             }
 
             cairoSetSourceRGBAlpha(cr, colt,alpha);
-            drawRobot(cr, xt, size * 0.2);
-            drawErrorEllipse(cr, xt.head(2), fullCov.submat(0,0,1,1), 0.95);
+            drawRobot(cr, xt.position, size * 0.2);
+            drawErrorEllipse(cr, xt.position.head(2), fullCov.submat(0,0,1,1), 0.95);
 
             cairoSetSourceRGBAlpha(cr, colt * 0.5, alpha);
-            drawErrorEllipse(cr, xt.head(2), nt->stateCov.submat(0,0,1,1), 0.95);
+            drawErrorEllipse(cr, xt.position.head(2), nt->stateCov.submat(0,0,1,1), 0.95);
         });
 
         cairo_set_line_width(cr, lwHighlight);
@@ -138,22 +140,23 @@ void propogateTests() {
         if (n2 == nullptr) {
             // Handle propogation failure:
             cairoSetSourceRGB(cr, colFailure);
-            drawRobot(cr, x2, size);
+            drawRobot(cr, x2.position, size);
         } else {
             // Draw resultant distribution:
             cairoSetSourceRGB(cr, colSuccess);
-            drawRobot(cr, x2, size);
+            drawRobot(cr, x2.position, size);
 
-            drawErrorEllipse(cr, x2.head(2), arma::mat(n2->stateCov + n2->stateDistribCov).submat(0,0,1,1), 0.95);
+            drawErrorEllipse(cr, x2.position.head(2), arma::mat(n2->stateCov + n2->stateDistribCov).submat(0,0,1,1), 0.95);
         }
 
         cairo_show_page(cr);
     }
 
+    std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
+
     // Clean up:
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
 
-    std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
     std::cout << "PropogateTests: END" << std::endl << std::endl;
 }

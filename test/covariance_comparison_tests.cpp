@@ -43,8 +43,8 @@ void covarianceComparisonTests() {
     for (int i = 0; i < numTrials; i++) {
         // Set the robot's state and uncertainty:
         nump::RRBT::StateT stateA, stateB;
-        stateA.head(2) = arma::vec({0.33, 0.5});
-        stateB.head(2) = arma::vec({0.66, 0.5});
+        stateA.position.head(2) = arma::vec({0.33, 0.5});
+        stateB.position.head(2) = arma::vec({0.66, 0.5});
 
         int matsize = 3;
         nump::RRBT::StateCovT normMatA = arma::randn(matsize, matsize);
@@ -54,8 +54,8 @@ void covarianceComparisonTests() {
 
         bool aLessThanB = nump::RRBT::compareCovariancesLT(stateCovA, stateCovB);
 
-        Ellipse ellipseA = utility::math::distributions::confidenceRegion(stateA.head(2), stateCovA.submat(0,0,1,1), 0.95);
-        Ellipse ellipseB = utility::math::distributions::confidenceRegion(stateB.head(2), stateCovB.submat(0,0,1,1), 0.95);
+        Ellipse ellipseA = utility::math::distributions::confidenceRegion(stateA.position.head(2), stateCovA.submat(0,0,1,1), 0.95);
+        Ellipse ellipseB = utility::math::distributions::confidenceRegion(stateB.position.head(2), stateCovB.submat(0,0,1,1), 0.95);
 
         cairo_set_line_width(cr, 0.02);
         if (aLessThanB) {
