@@ -10,6 +10,7 @@
 #include "shared/utility/drawing/cairo_drawing.h"
 #include "shared/utility/math/geometry/Ellipse.h"
 #include "shared/utility/math/geometry/intersection/Intersection.h"
+#include "shared/utility/math/angle.h"
 #include "shared/utility/math/distributions.h"
 #include "BipedRobotModel.h"
 
@@ -221,11 +222,20 @@ namespace nump {
         // TODO: Make trajectory iteration efficient.
         // TODO: Determine how to change matrices per timestep so that timesteps do not have to equal in time.
         double timeStep = 0.01;
-        int numSteps = traj.t / 0.01; // 100
+        int numSteps = traj.t / timeStep; // 100
         for (int i = 0; i <= numSteps; i++) {
             double t = (i / double(numSteps)) * traj.t;
 
             RobotModel::State xTraj = traj(t);
+
+            // Calculate control:
+            // TODO: Have the trajectory provide controls and positions:
+            RobotModel::State xPrev = traj(t - timeStep);
+            Transform2D velTraj = xTraj.position - xPrev.position;
+            double angleDiff = utility::math::angle::signedDifference(xTraj.position.angle(), xPrev.position.angle());
+            RobotModel::Control controlTraj = { arma::norm(velTraj.xy()), angleDiff };
+
+            std::cout << "controlTraj" << controlTraj.t() << std::endl;
 
             /*
              * Note: Sensor and movement error model is:
@@ -237,12 +247,12 @@ namespace nump {
              *
              */
 
-            RobotModel::MotionMatrix At = RobotModel::driftMatrix(timeStep, xTraj);
-            RobotModel::MotionMatrix Bt = RobotModel::controlMatrix(timeStep, xTraj);
-            RobotModel::MotionMatrix Kt = RobotModel::regulatorMatrix(timeStep);
-            RobotModel::MeasurementMatrix Ct = RobotModel::measurementMatrix(timeStep, xTraj, measurementRegions);
-            RobotModel::MotionCov Qt = RobotModel::motionNoiseCovariance(timeStep, xTraj);
+            RobotModel::MotionMatrix At = RobotModel::motionErrorJacobian(timeStep, xTraj, controlTraj);
+            RobotModel::ControlMatrix Bt = RobotModel::controlErrorJacobian(timeStep, xTraj, controlTraj);
+            RobotModel::MeasurementMatrix Ct = RobotModel::measurementErrorJacobian(timeStep, xTraj, measurementRegions);
+            RobotModel::MotionCov Qt = RobotModel::motionNoiseCovariance(timeStep, xTraj, controlTraj);
             RobotModel::MeasurementCov Rt = RobotModel::measurementNoiseCovariance(timeStep, xTraj, measurementRegions);
+            RobotModel::RegulatorMatrix Kt = RobotModel::regulatorMatrix(timeStep);
 
             // Step 1 - Covariance prediction (equations 21, 33):
             // Kalman filter process step:
@@ -256,6 +266,15 @@ namespace nump {
             // Distribution over state estimates:
             RobotModel::MotionMatrix Ak = (At - Bt*Kt); // A_{K}
             Λt = Ak*Λp*Ak.t() + Lt*Ct*Σbt; // (equation 33)
+
+            std::cout << "Bt: " << Bt << std::endl;
+            std::cout << "Kt: " << Kt << std::endl;
+            std::cout << "At: " << At << std::endl;
+            std::cout << "Bt*Kt: " << (Bt*Kt) << std::endl;
+            std::cout << "Ak: " << Ak << std::endl;
+            std::cout << "Ak*Λp*Ak.t(): " << Ak*Λp*Ak.t() << std::endl;
+            std::cout << "Lt*Ct*Σbt: " << Lt*Ct*Σbt << std::endl;
+            std::cout << "Λt: " << Λt << std::endl;
 
 
             // Distribution over trajectories (at current timestep):

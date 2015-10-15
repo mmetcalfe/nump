@@ -38,7 +38,10 @@ void propogateTests() {
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
 
     // Get random seed:
-    int seed = randomSeed();
+    // int seed = randomSeed();
+    int seed = 36957015;
+    arma::arma_rng::set_seed(seed);
+
     std::cout << "  SEED: " << seed << std::endl;
 
     double size = 0.1;
@@ -103,6 +106,7 @@ void propogateTests() {
         drawRobot(cr, x1.position, size);
         cairo_set_line_width(cr, lwHighlight);
         drawErrorEllipse(cr, x1.position.head(2), arma::mat(n1->stateCov + n1->stateDistribCov).submat(0,0,1,1), 0.95);
+        cairo_stroke(cr);
 
         // Sample target state:
         nump::RRBT::StateT x2 = nump::RRBT::TrajT::sample({1, 1});
@@ -130,9 +134,11 @@ void propogateTests() {
             cairoSetSourceRGBAlpha(cr, colt,alpha);
             drawRobot(cr, xt.position, size * 0.2);
             drawErrorEllipse(cr, xt.position.head(2), fullCov.submat(0,0,1,1), 0.95);
+            cairo_stroke(cr);
 
             cairoSetSourceRGBAlpha(cr, colt * 0.5, alpha);
             drawErrorEllipse(cr, xt.position.head(2), nt->stateCov.submat(0,0,1,1), 0.95);
+            cairo_stroke(cr);
         });
 
         cairo_set_line_width(cr, lwHighlight);
@@ -147,6 +153,7 @@ void propogateTests() {
             drawRobot(cr, x2.position, size);
 
             drawErrorEllipse(cr, x2.position.head(2), arma::mat(n2->stateCov + n2->stateDistribCov).submat(0,0,1,1), 0.95);
+            cairo_stroke(cr);
         }
 
         cairo_show_page(cr);

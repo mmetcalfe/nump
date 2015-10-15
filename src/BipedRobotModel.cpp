@@ -13,38 +13,97 @@
 
 namespace nump {
     typedef BipedRobotModel::State StateT;
+    typedef BipedRobotModel::Control ControlT;
 
     using nump::math::Circle;
 
     /// The A matrix in RRBT's propagate function.
-    BipedRobotModel::MotionMatrix BipedRobotModel::driftMatrix(double Δt, const StateT& state) {
+    BipedRobotModel::MotionMatrix BipedRobotModel::motionErrorJacobian(double Δt, const StateT& state, const ControlT& control) {
+        // The Jacobion of the error in the motion model.
+        // (See G_t on page 206 of Sebastian Thrun's Probabilistic Robotics book)
+
         BipedRobotModel::MotionMatrix At;
         At.eye();
+
+        double radius = control.v() / control.omega();
+        double mu = state.position.angle();
+        At(0, 2) = radius * (-std::cos(mu) + std::cos(mu + control.omega()*Δt));
+        At(1, 2) = radius * (-std::sin(mu) + std::sin(mu + control.omega()*Δt));
+
         return At;
     }
 
     /// The B matrix in RRBT's propagate function.
-    BipedRobotModel::MotionMatrix BipedRobotModel::controlMatrix(double Δt, const StateT& state) {
-        BipedRobotModel::MotionMatrix Bt;
-        Bt.eye();
+    BipedRobotModel::ControlMatrix BipedRobotModel::controlErrorJacobian(double Δt, const StateT& state, const ControlT& control) {
+
+        double ctw = std::cos(state.position.angle() + control.omega()*Δt);
+        double stw = std::sin(state.position.angle() + control.omega()*Δt);
+        double ct = std::cos(state.position.angle());
+        double st = std::sin(state.position.angle());
+        double vt = control.v();
+        double wt = control.omega();
+
+        // Note: This is the same as Vt.
+        BipedRobotModel::ControlMatrix Bt;
+        Bt.zeros();
+        Bt(0, 0) = (-st + stw)/wt;
+        Bt(1, 0) = ( ct - ctw)/wt;
+        Bt(0, 1) =  vt*(st - stw)/(wt*wt) + vt*ctw*Δt/wt;
+        Bt(1, 1) = -vt*(ct - ctw)/(wt*wt) + vt*stw*Δt/wt;
+        Bt(2, 0) = 0;
+        Bt(2, 1) = Δt;
+
         return Bt;
     }
 
     /// The K matrix in RRBT's propagate function.
-    BipedRobotModel::MotionMatrix BipedRobotModel::regulatorMatrix(double Δt) {
-        BipedRobotModel::MotionMatrix Kt;
-        Kt.eye();
-        Kt(0,0) = 0.5;
-        Kt(1,1) = 0.5;
+    BipedRobotModel::RegulatorMatrix BipedRobotModel::regulatorMatrix(double Δt) {
+        BipedRobotModel::RegulatorMatrix Kt;
+        Kt.zeros();
+
+        // TODO: Implement a reasonable regulator matrix.
+
+        Kt(0,0) = 0; //-Δt;
+        Kt(0,1) = 0; //-Δt;
+        Kt(1,2) = 0; //-Δt; // Negate angle error.
         return Kt;
     }
 
     /// The Q matrix in RRBT's propagate function.
-    BipedRobotModel::MotionCov BipedRobotModel::motionNoiseCovariance(double Δt, const StateT& state) {
-        BipedRobotModel::MotionCov Qt;
-        Qt.eye();
-        Qt(0,0) = 0.00002;
-        Qt(1,1) = 0.00002;
+    BipedRobotModel::MotionCov BipedRobotModel::motionNoiseCovariance(double Δt, const StateT& state, const ControlT& control) {
+        // The motion noise in control space mapped into state space.
+        // (See M_t and V_t on page 206 of Sebastian Thrun's Probabilistic Robotics book)
+
+        // Robot specific motion error parameters:
+        // (See (5.10) on page 127 of Sebastian Thrun's Probabilistic Robotics book)
+        // arma::vec4 alpha = { 10, 2, 2, 5 };
+        arma::vec4 alpha = { 200, 2, 2, 200 };
+
+        BipedRobotModel::ControlCov Mt;
+        Mt.zeros();
+        Mt(0,0) = arma::vec(alpha.head(2).t() * (control % control))(0); // α_0*v^2 + α_1*ω^2
+        Mt(1,1) = arma::vec(alpha.tail(2).t() * (control % control))(0); // α_2*v^2 + α_3*ω^2
+
+        std::cout << "Mt" << Mt << std::endl;
+
+
+        double ctw = std::cos(state.position.angle() + control.omega()*Δt);
+        double stw = std::sin(state.position.angle() + control.omega()*Δt);
+        double ct = std::cos(state.position.angle());
+        double st = std::sin(state.position.angle());
+        double vt = control.v();
+        double wt = control.omega();
+
+        BipedRobotModel::ControlMatrix Vt;
+        Vt.zeros();
+        Vt(0, 0) = (-st + stw)/wt;
+        Vt(1, 0) = ( ct - ctw)/wt;
+        Vt(0, 1) =  vt*(st - stw)/(wt*wt) + vt*ctw*Δt/wt;
+        Vt(1, 1) = -vt*(ct - ctw)/(wt*wt) + vt*stw*Δt/wt;
+        Vt(2, 0) = 0;
+        Vt(2, 1) = Δt;
+
+        BipedRobotModel::MotionCov Qt = Vt*Mt*Vt.t();
         return Qt;
     }
 
@@ -59,7 +118,7 @@ namespace nump {
     }
 
     /// The C matrix in RRBT's propagate function.
-    BipedRobotModel::MeasurementMatrix BipedRobotModel::measurementMatrix(double Δt, const StateT& state, const std::vector<Circle>& measurementRegions) {
+    BipedRobotModel::MeasurementMatrix BipedRobotModel::measurementErrorJacobian(double Δt, const StateT& state, const std::vector<Circle>& measurementRegions) {
         // The Jacobion of the measurement model.
         // (See H^i_t on page 207 of Sebastian Thrun's Probabilistic Robotics book)
 
