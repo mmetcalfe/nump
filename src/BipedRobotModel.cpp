@@ -7,9 +7,9 @@
 #include <vector>
 #include <armadillo>
 #include "math/geometry.h"
+#include "shared/utility/math/control/lqr.h"
 #include "shared/utility/math/angle.h"
 #include "Trajectory.h"
-
 
 namespace nump {
     typedef BipedRobotModel::State StateT;
@@ -57,16 +57,35 @@ namespace nump {
     }
 
     /// The K matrix in RRBT's propagate function.
-    BipedRobotModel::RegulatorMatrix BipedRobotModel::regulatorMatrix(double Δt) {
-        BipedRobotModel::RegulatorMatrix Kt;
-        Kt.zeros();
+    BipedRobotModel::RegulatorMatrix BipedRobotModel::regulatorMatrix(double Δt, const StateT& state, const ControlT& control) {
+        // BipedRobotModel::RegulatorMatrix Kt;
+        // Kt.zeros();
+        //
+        // // TODO: Implement a reasonable regulator matrix.
+        //
+        // double ct = std::cos(state.position.angle());
+        // double st = std::sin(state.position.angle());
+        //
+        // // double l = std::sqrt(ct*ct + st*st);
+        //
+        // Kt(0,0) = 0;
+        // Kt(0,1) = 0;
+        // Kt(1,2) = 0; //-Δt; // Negate angle error.
 
-        // TODO: Implement a reasonable regulator matrix.
 
-        Kt(0,0) = 0; //-Δt;
-        Kt(0,1) = 0; //-Δt;
-        Kt(1,2) = 0; //-Δt; // Negate angle error.
-        return Kt;
+        MotionMatrix At = motionErrorJacobian(Δt, state, control);
+        ControlMatrix Bt = controlErrorJacobian(Δt, state, control);
+
+        MotionCov Qt;
+        Qt.eye();
+        ControlCov Rt;
+        Rt.eye();
+        Qt *= 10;
+        Rt *= 0.01;
+
+        RegulatorMatrix Kt = utility::math::control::LQR<stateSize, controlSize>::lqrValueIterationSolution(At, Bt, Qt, Rt, 10);
+
+        return -Kt;
     }
 
     /// The Q matrix in RRBT's propagate function.

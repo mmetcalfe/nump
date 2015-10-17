@@ -86,7 +86,7 @@ void propogateTests() {
 //    n1->stateDistribCov = arma::diagmat(arma::vec({0.0, 0.0}));
     n1->cost = 0;
 
-    int numTrials = 10;
+    int numTrials = 20;
     for (int i = 0; i < numTrials; i++) {
         arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
 

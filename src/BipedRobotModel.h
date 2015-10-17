@@ -64,7 +64,7 @@ namespace nump {
         static ControlMatrix controlErrorJacobian(double Δt, const State& state, const Control& control);
 
         /// The K matrix in RRBT's propagate function.
-        static RegulatorMatrix regulatorMatrix(double Δt);
+        static RegulatorMatrix regulatorMatrix(double Δt, const State& state, const Control& control);
 
         /// The C matrix in RRBT's propagate function.
         static MeasurementMatrix measurementErrorJacobian(double Δt, const State& state, const std::vector<nump::math::Circle>& measurementRegions);

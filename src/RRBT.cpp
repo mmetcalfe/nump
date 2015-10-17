@@ -252,7 +252,7 @@ namespace nump {
             RobotModel::MeasurementMatrix Ct = RobotModel::measurementErrorJacobian(timeStep, xTraj, measurementRegions);
             RobotModel::MotionCov Qt = RobotModel::motionNoiseCovariance(timeStep, xTraj, controlTraj);
             RobotModel::MeasurementCov Rt = RobotModel::measurementNoiseCovariance(timeStep, xTraj, measurementRegions);
-            RobotModel::RegulatorMatrix Kt = RobotModel::regulatorMatrix(timeStep);
+            RobotModel::RegulatorMatrix Kt = RobotModel::regulatorMatrix(timeStep, xTraj, controlTraj);
 
             // Step 1 - Covariance prediction (equations 21, 33):
             // Kalman filter process step:
@@ -351,6 +351,8 @@ namespace nump {
 
         // TODO: Enhance covariace comparision to include heading uncertainty.
 
+        // TODO: Consider the method from http://math.stackexchange.com/a/669115
+        // where X >= Y <==> all eigenvalues of X - Y are >= 0
         double areaA = utility::math::distributions::confidenceRegionArea(covA.submat(0,0,1,1), 0.95);
         double areaB = utility::math::distributions::confidenceRegionArea(covB.submat(0,0,1,1), 0.95);
         return areaA < areaB;
