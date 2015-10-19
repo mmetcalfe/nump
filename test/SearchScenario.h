@@ -48,6 +48,18 @@ namespace numptest {
             StateCovT initialCovariance;
             StateT goalState;
 
+            // Ball approach search config:
+            Circle ball = {{0, 0}, 1};
+            double targetAngle; // The direction in which to kick the ball.
+            double targetAngleRange; // The range of acceptable kick angles around the target angle.
+
+            struct KickBox {
+                double kickExtent; // The distance the front of the foot travels during a kick.
+                double footWidth; // The width of the robot's foot.
+                double footSep; // The distance between the robots feet.
+                double footFrontX; // The x coordinate of the front of the robot's feet before beginning a kick.
+            } kbConfig;
+
             std::vector<Circle> obstacles;
             std::vector<Circle> measurementRegions;
         } cfg_;

@@ -8,6 +8,7 @@
 #include <math.h>
 #include <armadillo>
 #include "nump.h"
+#include "BipedRobotModel.h"
 #include "shared/utility/drawing/cairo_drawing.h"
 #include "shared/utility/math/geometry/Ellipse.h"
 #include "shared/utility/math/distributions.h"
@@ -23,55 +24,6 @@ using nump::math::Transform2D;
 using nump::math::RotatedRectangle;
 using nump::math::Circle;
 
-struct KickBoxConfig {
-    double kickExtent;
-    double footWidth;
-    double footSep;
-    double footFrontX;
-};
-
-bool canKickBall(RotatedRectangle robotFootprint, Circle ball, const KickBoxConfig& kbConfig) {
-    Circle localBall = {robotFootprint.transform.worldToLocal({ball.centre,0}).xy(), ball.radius};
-
-    if (localBall.centre(0) < kbConfig.footFrontX + ball.radius) {
-        return false;
-    }
-
-    if (localBall.centre(0) > kbConfig.footFrontX + kbConfig.kickExtent + ball.radius) {
-        return false;
-    }
-
-    if (std::abs(localBall.centre(1)) < kbConfig.footSep*0.5) {
-        return false;
-    }
-
-    if (std::abs(localBall.centre(1)) > kbConfig.footSep*0.5 + kbConfig.footWidth) {
-        return false;
-    }
-
-    return true;
-}
-
-bool canKickBallAtTarget(RotatedRectangle robotFootprint, Circle ball, const KickBoxConfig& kbConfig, double targetAngle, double validAngleRange) {
-    if (!canKickBall(robotFootprint, ball, kbConfig)) {
-        return false;
-    }
-
-    double minAngleRange = utility::math::angle::normalizeAngle(targetAngle - validAngleRange*0.5);
-    double maxAngleRange = utility::math::angle::normalizeAngle(targetAngle + validAngleRange*0.5);
-    double angle = utility::math::angle::normalizeAngle(robotFootprint.transform.angle());
-
-    if (utility::math::angle::signedDifference(angle, minAngleRange) < 0) {
-        return false;
-    }
-    if (utility::math::angle::signedDifference(angle, maxAngleRange) > 0) {
-        return false;
-    }
-
-    return true;
-}
-
-
 void kickBoxTests(cairo_t *cr) {
 
     Circle ball = {{0.5, 0.5}, 0.065};
@@ -80,7 +32,7 @@ void kickBoxTests(cairo_t *cr) {
     arma::vec2 footprintSize = {0.12, 0.17};
 
     double footWidth = 0.07;
-    KickBoxConfig kbConfig = {
+    numptest::SearchScenario::Config::KickBox kbConfig = {
         0.1, // kickExtent
         footWidth, // footWidth
         footprintSize(1) - 2*footWidth, // footSep
@@ -96,12 +48,15 @@ void kickBoxTests(cairo_t *cr) {
         Transform2D robot = { rvec(0), rvec(1), (rvec(2) * 2 - 1) * M_PI };
         RotatedRectangle robotFootprint = {robot, footprintSize};
 
-        utility::drawing::drawRotatedRectangle(cr, robotFootprint);
-        if (!canKickBallAtTarget(robotFootprint, ball, kbConfig, targetAngle, targetAngleRange)) {
+        if (!nump::BipedRobotModel::canKickBallAtTarget(robotFootprint, ball, kbConfig, targetAngle, targetAngleRange)) {
+            utility::drawing::drawRotatedRectangle(cr, robotFootprint);
             utility::drawing::cairoSetSourceRGBAlpha(cr, col, 0.05);
             cairo_stroke(cr);
         } else {
             utility::drawing::cairoSetSourceRGBAlpha(cr, col, 0.7);
+
+            // Draw kickboxes and robot footprints:
+            utility::drawing::drawRotatedRectangle(cr, robotFootprint);
             cairo_fill(cr);
 
             cairo_save(cr);
@@ -114,6 +69,9 @@ void kickBoxTests(cairo_t *cr) {
                 utility::drawing::drawRotatedRectangle(cr, {{kbX, -kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}});
                 cairo_stroke(cr);
             cairo_restore(cr);
+
+            // utility::drawing::drawCircle(cr, {robot.xy(), 0.005});
+            // cairo_fill(cr);
         }
     }
 

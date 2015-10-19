@@ -50,6 +50,8 @@ namespace nump {
 
         std::vector<double> iterationTimes;
 
+        std::vector<std::weak_ptr<GraphT::Node>> goalVertices;
+
         struct BeliefNode { // n \in v.N
             StateCovT stateCov; // Σ
             StateCovT stateDistribCov; // Λ

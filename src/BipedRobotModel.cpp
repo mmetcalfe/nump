@@ -155,6 +155,46 @@ namespace nump {
         return Rt;
     }
 
+    bool BipedRobotModel::canKickBall(RotatedRectangle robotFootprint, Circle ball, const numptest::SearchScenario::Config::KickBox& kbConfig) {
+        Circle localBall = {robotFootprint.transform.worldToLocal({ball.centre,0}).xy(), ball.radius};
+
+        if (localBall.centre(0) < kbConfig.footFrontX + ball.radius) {
+            return false;
+        }
+
+        if (localBall.centre(0) > kbConfig.footFrontX + kbConfig.kickExtent + ball.radius) {
+            return false;
+        }
+
+        if (std::abs(localBall.centre(1)) < kbConfig.footSep*0.5) {
+            return false;
+        }
+
+        if (std::abs(localBall.centre(1)) > kbConfig.footSep*0.5 + kbConfig.footWidth) {
+            return false;
+        }
+
+        return true;
+    }
+
+    bool BipedRobotModel::canKickBallAtTarget(RotatedRectangle robotFootprint, Circle ball, const numptest::SearchScenario::Config::KickBox& kbConfig, double targetAngle, double validAngleRange) {
+        if (!canKickBall(robotFootprint, ball, kbConfig)) {
+            return false;
+        }
+
+        double minAngleRange = utility::math::angle::normalizeAngle(targetAngle - validAngleRange*0.5);
+        double maxAngleRange = utility::math::angle::normalizeAngle(targetAngle + validAngleRange*0.5);
+        double angle = utility::math::angle::normalizeAngle(robotFootprint.transform.angle());
+
+        if (utility::math::angle::signedDifference(angle, minAngleRange) < 0) {
+            return false;
+        }
+        if (utility::math::angle::signedDifference(angle, maxAngleRange) > 0) {
+            return false;
+        }
+
+        return true;
+    }
 
     namespace robotmodel {
         Transform2D walkBetweenFar(const Transform2D& currentState, const Transform2D& targetState) {

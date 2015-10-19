@@ -434,6 +434,16 @@ namespace nump {
         nRand->containingNode = vRand; // Set containing vertex of the belief node.
         graph.nodes.push_back(vRand);
 
+        // If the new node is a goal node, add it to the set of goal nodes:
+        if (RobotModel::canKickBallAtTarget(
+                {vRand->value.state.position, scenario.footprintSize},
+                scenario.ball,
+                scenario.kbConfig,
+                scenario.targetAngle,
+                scenario.targetAngleRange)) {
+            goalVertices.push_back(vRand);
+        }
+
         TrajT eRandNearest = connect(vRand->value.state, vNearest->value.state);
 
         // Add eNearestRand and eRandNearest to the edge set.

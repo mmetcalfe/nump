@@ -3,6 +3,7 @@
 //
 
 #include "math/geometry.h"
+#include "SearchScenario.h"
 #include <armadillo>
 
 #ifndef NUMP_ROBOT_MODEL_H
@@ -11,6 +12,8 @@
 namespace nump {
 
     using nump::math::Transform2D;
+    using nump::math::RotatedRectangle;
+    using nump::math::Circle;
 
     struct BipedRobotModel {
         struct State {
@@ -29,6 +32,9 @@ namespace nump {
             inline double omega() const { return at(1); }
             inline double& omega() { return at(1); }
         };
+
+        static bool canKickBall(RotatedRectangle robotFootprint, Circle ball, const numptest::SearchScenario::Config::KickBox& kbConfig);
+        static bool canKickBallAtTarget(RotatedRectangle robotFootprint, Circle ball, const numptest::SearchScenario::Config::KickBox& kbConfig, double targetAngle, double validAngleRange);
 
     private: // These types are just for clarity:
         static constexpr int stateSize = 3;

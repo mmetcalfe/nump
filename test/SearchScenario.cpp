@@ -82,6 +82,17 @@ Circle shapeFromYaml(const YAML::Node& yaml) {
     exit(1);
 }
 
+numptest::SearchScenario::Config::KickBox kickBoxConfigFromYaml(const YAML::Node& yaml) {
+    numptest::SearchScenario::Config::KickBox kickBoxConfig;
+
+    kickBoxConfig.kickExtent = yaml["kick_extent"].as<double>();
+    kickBoxConfig.footWidth = yaml["foot_width"].as<double>();
+    kickBoxConfig.footSep = yaml["foot_sep"].as<double>();
+    kickBoxConfig.footFrontX = yaml["foot_front_x"].as<double>();
+
+    return kickBoxConfig;
+}
+
 numptest::SearchScenario numptest::SearchScenario::fromFile(const std::string &file_path) {
 
     YAML::Node scenarioYaml = YAML::LoadFile(file_path);
@@ -133,6 +144,12 @@ numptest::SearchScenario numptest::SearchScenario::fromFile(const std::string &f
     for (const auto& obsYaml : scenarioYaml["measurement_regions"]) {
         scenario.cfg_.measurementRegions.push_back(shapeFromYaml(obsYaml));
     }
+
+    // Load ball approach config:
+    scenario.cfg_.ball = shapeFromYaml(scenarioYaml["ball"]);
+    scenario.cfg_.targetAngle = scenarioYaml["target_angle"].as<double>();
+    scenario.cfg_.targetAngleRange = scenarioYaml["target_angle_range"].as<double>();
+    scenario.cfg_.kbConfig = kickBoxConfigFromYaml(scenarioYaml["kickboxes"]);
 
     return scenario;
 }
