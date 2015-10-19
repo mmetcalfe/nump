@@ -71,15 +71,14 @@ namespace nump {
     }
 
     template <>
-    arma::vec2 Trajectory<arma::vec2>::operator() (double t) const {
+    arma::vec2 Trajectory<arma::vec2>::operator() (double t, double timeStep) const {
         arma::vec2 diff = arma::normalise(xGoal - xInit);
 
         return xInit + diff * t;
     }
 
     template <>
-    Transform2D Trajectory<Transform2D>::operator() (double t) const {
-        double timeStep = 0.01;
+    Transform2D Trajectory<Transform2D>::operator() (double t, double timeStep) const {
         Transform2D pos = xInit;
 
         for (double currTime = 0; currTime <= t; currTime += timeStep) {

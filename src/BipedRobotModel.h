@@ -64,13 +64,13 @@ namespace nump {
         static ControlMatrix controlErrorJacobian(double Δt, const State& state, const Control& control);
 
         /// The K matrix in RRBT's propagate function.
-        static RegulatorMatrix regulatorMatrix(double Δt, const State& state, const Control& control);
+        static RegulatorMatrix regulatorMatrix(double Δt, const MotionMatrix& At, const ControlMatrix& Bt);
 
         /// The C matrix in RRBT's propagate function.
         static MeasurementMatrix measurementErrorJacobian(double Δt, const State& state, const std::vector<nump::math::Circle>& measurementRegions);
 
         /// The Q matrix in RRBT's propagate function.
-        static MotionCov motionNoiseCovariance(double Δt, const State& state, const Control& control);
+        static MotionCov motionNoiseCovariance(double Δt, const State& state, const Control& control, const ControlMatrix& Bt);
 
         /// The R matrix in RRBT's propagate function.
         static MeasurementCov measurementNoiseCovariance(double Δt, const State& state, const std::vector<nump::math::Circle>& measurementRegions);

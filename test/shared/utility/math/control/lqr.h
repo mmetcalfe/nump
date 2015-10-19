@@ -32,10 +32,10 @@ namespace control {
         typedef arma::mat::fixed<controlSize, controlSize> MatControl2Control;
 
         static MatState2Control lqrValueIterationSolution(
-            MatState2State A,
-            MatControl2State B,
-            MatState2State Q,
-            MatControl2Control R,
+            const MatState2State& A,
+            const MatControl2State& B,
+            const MatState2State& Q,
+            const MatControl2Control& R,
             int numIterations
         ) {
             MatState2State P;
@@ -44,9 +44,15 @@ namespace control {
             // Set P_0 = 0:
             P.zeros();
 
+            MatState2State ABK = A + B*K;
+            MatState2State ABKt = ABK.t();
+
             for (int i = 1; i <= numIterations; i++) {
-                K = -(R + B.t()*P*B).i()*B.t()*P*A;
-                P = Q + K.t()*R*K + (A + B*K).t()*P*(A + B*K);
+                // K = -(R + B.t()*P*B).i()*B.t()*P*A;
+                // P = Q + K.t()*R*K + (A + B*K).t()*P*(A + B*K);
+                MatState2Control BtP = B.t()*P;
+                K = -(R + BtP*B).i()*BtP*A;
+                P = Q + K.t()*R*K + ABKt*P*ABK;
             }
 
             // Note: x.t()*P*x is now the cost-to-go function for an i-step horizon.

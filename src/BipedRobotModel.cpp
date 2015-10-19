@@ -57,25 +57,7 @@ namespace nump {
     }
 
     /// The K matrix in RRBT's propagate function.
-    BipedRobotModel::RegulatorMatrix BipedRobotModel::regulatorMatrix(double Δt, const StateT& state, const ControlT& control) {
-        // BipedRobotModel::RegulatorMatrix Kt;
-        // Kt.zeros();
-        //
-        // // TODO: Implement a reasonable regulator matrix.
-        //
-        // double ct = std::cos(state.position.angle());
-        // double st = std::sin(state.position.angle());
-        //
-        // // double l = std::sqrt(ct*ct + st*st);
-        //
-        // Kt(0,0) = 0;
-        // Kt(0,1) = 0;
-        // Kt(1,2) = 0; //-Δt; // Negate angle error.
-
-
-        MotionMatrix At = motionErrorJacobian(Δt, state, control);
-        ControlMatrix Bt = controlErrorJacobian(Δt, state, control);
-
+    BipedRobotModel::RegulatorMatrix BipedRobotModel::regulatorMatrix(double Δt, const MotionMatrix& At, const ControlMatrix& Bt) {
         MotionCov Qt;
         Qt.eye();
         ControlCov Rt;
@@ -83,46 +65,33 @@ namespace nump {
         Qt *= 10;
         Rt *= 0.01;
 
-        RegulatorMatrix Kt = utility::math::control::LQR<stateSize, controlSize>::lqrValueIterationSolution(At, Bt, Qt, Rt, 10);
+        int numIterations = 3;
+        RegulatorMatrix Kt = utility::math::control::LQR<stateSize, controlSize>::lqrValueIterationSolution(At, Bt, Qt, Rt, numIterations);
 
         return -Kt;
     }
 
     /// The Q matrix in RRBT's propagate function.
-    BipedRobotModel::MotionCov BipedRobotModel::motionNoiseCovariance(double Δt, const StateT& state, const ControlT& control) {
+    BipedRobotModel::MotionCov BipedRobotModel::motionNoiseCovariance(double Δt, const StateT& state, const ControlT& control, const ControlMatrix& Bt) {
         // The motion noise in control space mapped into state space.
         // (See M_t and V_t on page 206 of Sebastian Thrun's Probabilistic Robotics book)
 
         // Robot specific motion error parameters:
         // (See (5.10) on page 127 of Sebastian Thrun's Probabilistic Robotics book)
+        arma::mat22 alpha = {
+            {0.1, 0.01},
+            {0.01, 0.1}
+        };
+        ControlT controlSquared = control % control;
+        BipedRobotModel::ControlCov Mt = arma::diagmat(alpha*controlSquared);
+
         // arma::vec4 alpha = { 10, 2, 2, 5 };
-        arma::vec4 alpha = { 200, 2, 2, 200 };
+        // Mt.zeros();
+        // Mt(0,0) = arma::vec(alpha.head(2).t() * controlSquared)(0); // α_0*v^2 + α_1*ω^2
+        // Mt(1,1) = arma::vec(alpha.tail(2).t() * controlSquared)(0); // α_2*v^2 + α_3*ω^2
 
-        BipedRobotModel::ControlCov Mt;
-        Mt.zeros();
-        Mt(0,0) = arma::vec(alpha.head(2).t() * (control % control))(0); // α_0*v^2 + α_1*ω^2
-        Mt(1,1) = arma::vec(alpha.tail(2).t() * (control % control))(0); // α_2*v^2 + α_3*ω^2
-
-        std::cout << "Mt" << Mt << std::endl;
-
-
-        double ctw = std::cos(state.position.angle() + control.omega()*Δt);
-        double stw = std::sin(state.position.angle() + control.omega()*Δt);
-        double ct = std::cos(state.position.angle());
-        double st = std::sin(state.position.angle());
-        double vt = control.v();
-        double wt = control.omega();
-
-        BipedRobotModel::ControlMatrix Vt;
-        Vt.zeros();
-        Vt(0, 0) = (-st + stw)/wt;
-        Vt(1, 0) = ( ct - ctw)/wt;
-        Vt(0, 1) =  vt*(st - stw)/(wt*wt) + vt*ctw*Δt/wt;
-        Vt(1, 1) = -vt*(ct - ctw)/(wt*wt) + vt*stw*Δt/wt;
-        Vt(2, 0) = 0;
-        Vt(2, 1) = Δt;
-
-        BipedRobotModel::MotionCov Qt = Vt*Mt*Vt.t();
+        // BipedRobotModel::MotionCov Qt = Vt*Mt*Vt.t();
+        BipedRobotModel::MotionCov Qt = Bt*Mt*Bt.t();
         return Qt;
     }
 
@@ -253,8 +222,7 @@ namespace nump {
     }
 
     template <>
-    StateT Trajectory<StateT>::operator() (double t) const {
-        double timeStep = 0.01;
+    StateT Trajectory<StateT>::operator() (double t, double timeStep) const {
         Transform2D pos = xInit.position;
 
         for (double currTime = 0; currTime <= t; currTime += timeStep) {
@@ -299,5 +267,62 @@ namespace nump {
         }
 
         return traj;
+    }
+
+    // struct TrajectoryWalker {
+    //     StateT xCurrent;
+    //     StateT xNext;
+    //     double t = 0;
+    //     double finishTime = 0;
+
+        // Modifies the trajectory to advance its initial state by a single step of t seconds.
+        template <>
+        StateT Trajectory<StateT>::TrajectoryWalker::getNext(const StateT& current) const {
+            Transform2D pos = current.position;
+            pos = pos.localToWorld(robotmodel::walkBetween(pos, xGoal.position) * timeStep);
+            return StateT { pos };
+        }
+        template <>
+        void Trajectory<StateT>::TrajectoryWalker::stepBy() {
+            xCurrent = xNext;
+            xNext = getNext(xCurrent);
+            t += timeStep;
+        }
+        template <>
+        arma::vec2 Trajectory<StateT>::TrajectoryWalker::currentControl() {
+            Transform2D velTraj = xNext.position - xCurrent.position;
+            double angleDiff = utility::math::angle::signedDifference(xNext.position.angle(), xCurrent.position.angle());
+            ControlT controlTraj = {
+                arma::norm(velTraj.xy()) / timeStep,
+                angleDiff / timeStep
+            };
+
+            return controlTraj;
+        }
+        template <>
+        StateT Trajectory<StateT>::TrajectoryWalker::currentState() {
+            return xCurrent;
+        }
+        template <>
+        double Trajectory<StateT>::TrajectoryWalker::currentTime() {
+            return t;
+        }
+        template <>
+        bool Trajectory<StateT>::TrajectoryWalker::isFinished() {
+            return t >= finishTime - timeStep*0.5;
+        }
+
+    template <>
+    Trajectory<StateT>::TrajectoryWalker Trajectory<StateT>::walk(double timeStep) const {
+        Trajectory<StateT>::TrajectoryWalker walker;
+
+        walker.finishTime = t;
+        walker.t = 0;
+        walker.timeStep = timeStep;
+        walker.xCurrent = xInit;
+        walker.xGoal = xGoal;
+        walker.xNext = walker.getNext(xInit);
+
+        return walker;
     }
 }

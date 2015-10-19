@@ -221,23 +221,16 @@ namespace nump {
         // Iterate over trajectory:
         // TODO: Make trajectory iteration efficient.
         // TODO: Determine how to change matrices per timestep so that timesteps do not have to equal in time.
-        double timeStep = 0.01;
-        int numSteps = traj.t / timeStep; // 100
-        for (int i = 0; i <= numSteps; i++) {
-            double t = (i / double(numSteps)) * traj.t;
+        double timeStep = 0.02;
+        for (auto walker = traj.walk(timeStep); !walker.isFinished(); ) {
+            // double t = (i / double(numSteps)) * traj.t;
+            // RobotModel::State xTraj = traj(t);
 
-            RobotModel::State xTraj = traj(t);
+            walker.stepBy();
+            RobotModel::State xTraj = walker.currentState();
+            RobotModel::Control controlTraj = walker.currentControl();
 
-            // Calculate control:
-            // TODO: Have the trajectory provide controls and positions:
-            RobotModel::State xPrev = traj(t - timeStep);
-            Transform2D velTraj = xTraj.position - xPrev.position;
-            double angleDiff = utility::math::angle::signedDifference(xTraj.position.angle(), xPrev.position.angle());
-            RobotModel::Control controlTraj = { arma::norm(velTraj.xy()), angleDiff };
-
-            std::cout << "controlTraj" << controlTraj.t() << std::endl;
-
-            /*
+            /*/
              * Note: Sensor and movement error model is:
              *
              *     x~t = At*x~p + Bt*u~p + wt,    wt ~ N(0, Qt)
@@ -245,14 +238,15 @@ namespace nump {
              *
              * (where \tilde{x}  -->  x~)
              *
-             */
+            /*/
 
+            // TODO: Fix redundant calculation between these matrixes:
             RobotModel::MotionMatrix At = RobotModel::motionErrorJacobian(timeStep, xTraj, controlTraj);
             RobotModel::ControlMatrix Bt = RobotModel::controlErrorJacobian(timeStep, xTraj, controlTraj);
             RobotModel::MeasurementMatrix Ct = RobotModel::measurementErrorJacobian(timeStep, xTraj, measurementRegions);
-            RobotModel::MotionCov Qt = RobotModel::motionNoiseCovariance(timeStep, xTraj, controlTraj);
+            RobotModel::MotionCov Qt = RobotModel::motionNoiseCovariance(timeStep, xTraj, controlTraj, Bt);
             RobotModel::MeasurementCov Rt = RobotModel::measurementNoiseCovariance(timeStep, xTraj, measurementRegions);
-            RobotModel::RegulatorMatrix Kt = RobotModel::regulatorMatrix(timeStep, xTraj, controlTraj);
+            RobotModel::RegulatorMatrix Kt = RobotModel::regulatorMatrix(timeStep, At, Bt);
 
             // Step 1 - Covariance prediction (equations 21, 33):
             // Kalman filter process step:
@@ -267,17 +261,18 @@ namespace nump {
             RobotModel::MotionMatrix Ak = (At - Bt*Kt); // A_{K}
             Λt = Ak*Λp*Ak.t() + Lt*Ct*Σbt; // (equation 33)
 
-            std::cout << "Bt: " << Bt << std::endl;
-            std::cout << "Kt: " << Kt << std::endl;
-            std::cout << "At: " << At << std::endl;
-            std::cout << "Bt*Kt: " << (Bt*Kt) << std::endl;
-            std::cout << "Ak: " << Ak << std::endl;
-            std::cout << "Ak*Λp*Ak.t(): " << Ak*Λp*Ak.t() << std::endl;
-            std::cout << "Lt*Ct*Σbt: " << Lt*Ct*Σbt << std::endl;
-            std::cout << "Λt: " << Λt << std::endl;
+            // std::cout << "controlTraj" << controlTraj.t() << std::endl;
+            // std::cout << "Bt: " << Bt << std::endl;
+            // std::cout << "Kt: " << Kt << std::endl;
+            // std::cout << "At: " << At << std::endl;
+            // std::cout << "Bt*Kt: " << (Bt*Kt) << std::endl;
+            // std::cout << "Ak: " << Ak << std::endl;
+            // std::cout << "Ak*Λp*Ak.t(): " << Ak*Λp*Ak.t() << std::endl;
+            // std::cout << "Lt*Ct*Σbt: " << Lt*Ct*Σbt << std::endl;
+            // std::cout << "Λt: " << Λt << std::endl;
 
 
-            // Distribution over trajectories (at current timestep):
+            // Distribution over trajectories (at current time step):
             // x_t ~ N(\check{x}, Λ_{t} + Σ_{t})
             // i.e. x_t ~ N(xTraj, xTrajCov)
             // (where x_t is the true state)
@@ -294,7 +289,7 @@ namespace nump {
                 dbgBelief->stateCov = Σt;
                 dbgBelief->stateDistribCov = Λt;
                 dbgBelief->cost = belief->cost; // + J(traj); // TODO: Implement cost function for partial trajectories.
-                callback(t, xTraj, dbgBelief);
+                callback(walker.currentTime(), xTraj, dbgBelief);
             }
 
 
@@ -322,18 +317,18 @@ namespace nump {
         return newBelief;
     }
 
-//    bool is_positive_definite(const RRBT::StateCovT& X) {
-//        arma::vec eigval = arma::eig_sym(X);
-//        // std::cout << __LINE__ << "  eigval: " << eigval << std::endl;
-//
-//        for (int i = 0; i < eigval.n_elem; i++) {
-//            if (eigval(i) <= 0) {
-//                return false;
-//            }
-//        }
-//
-//        return true;
-//    }
+   bool is_positive_definite(const RRBT::StateCovT& X) {
+       arma::vec eigval = arma::eig_sym(X);
+       // std::cout << __LINE__ << "  eigval: " << eigval << std::endl;
+
+       for (int i = 0; i < eigval.n_elem; i++) {
+           if (eigval(i) <= 0) {
+               return false;
+           }
+       }
+
+       return true;
+   }
 
     // TODO: Check covariance comparison.
     bool RRBT::compareCovariancesLT(const RRBT::StateCovT& covA, const RRBT::StateCovT& covB) {
@@ -351,8 +346,8 @@ namespace nump {
 
         // TODO: Enhance covariace comparision to include heading uncertainty.
 
-        // TODO: Consider the method from http://math.stackexchange.com/a/669115
-        // where X >= Y <==> all eigenvalues of X - Y are >= 0
+        // // TODO: Consider the method from http://math.stackexchange.com/a/669115
+        // // where X >= Y <==> all eigenvalues of X - Y are >= 0
         double areaA = utility::math::distributions::confidenceRegionArea(covA.submat(0,0,1,1), 0.95);
         double areaB = utility::math::distributions::confidenceRegionArea(covB.submat(0,0,1,1), 0.95);
         return areaA < areaB;

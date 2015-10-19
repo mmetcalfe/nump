@@ -41,7 +41,27 @@ namespace nump {
 //                , u(u)
                 , t(t) {
         }
-        StateT operator() (double t) const;
+        StateT operator() (double t, double timeStep = 0.01) const;
+
+        struct TrajectoryWalker {
+            StateT xCurrent;
+            StateT xNext;
+            StateT xGoal;
+            double t = 0;
+            double finishTime = 0;
+            double timeStep = 0;
+
+            // Modifies the trajectory to advance its initial state by a single step of t seconds.
+            void stepBy();
+            arma::vec2 currentControl();
+            StateT currentState();
+            double currentTime();
+            bool isFinished();
+
+            StateT getNext(const StateT& current) const;
+        };
+
+        TrajectoryWalker walk(double timeStep) const;
     };
 }
 
