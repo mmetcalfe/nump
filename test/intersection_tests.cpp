@@ -11,6 +11,7 @@
 #include "shared/utility/drawing/cairo_drawing.h"
 #include "shared/utility/math/geometry/Ellipse.h"
 #include "shared/utility/math/distributions.h"
+#include "shared/utility/math/angle.h"
 #include "shared/utility/math/geometry/intersection/Intersection.h"
 #include "tests.h"
 
@@ -21,6 +22,117 @@ using utility::drawing::fillCircle;
 using nump::math::Transform2D;
 using nump::math::RotatedRectangle;
 using nump::math::Circle;
+
+struct KickBoxConfig {
+    double kickExtent;
+    double footWidth;
+    double footSep;
+    double footFrontX;
+};
+
+bool canKickBall(RotatedRectangle robotFootprint, Circle ball, const KickBoxConfig& kbConfig) {
+    Circle localBall = {robotFootprint.transform.worldToLocal({ball.centre,0}).xy(), ball.radius};
+
+    if (localBall.centre(0) < kbConfig.footFrontX + ball.radius) {
+        return false;
+    }
+
+    if (localBall.centre(0) > kbConfig.footFrontX + kbConfig.kickExtent + ball.radius) {
+        return false;
+    }
+
+    if (std::abs(localBall.centre(1)) < kbConfig.footSep*0.5) {
+        return false;
+    }
+
+    if (std::abs(localBall.centre(1)) > kbConfig.footSep*0.5 + kbConfig.footWidth) {
+        return false;
+    }
+
+    return true;
+}
+
+bool canKickBallAtTarget(RotatedRectangle robotFootprint, Circle ball, const KickBoxConfig& kbConfig, double targetAngle, double validAngleRange) {
+    if (!canKickBall(robotFootprint, ball, kbConfig)) {
+        return false;
+    }
+
+    double minAngleRange = utility::math::angle::normalizeAngle(targetAngle - validAngleRange*0.5);
+    double maxAngleRange = utility::math::angle::normalizeAngle(targetAngle + validAngleRange*0.5);
+    double angle = utility::math::angle::normalizeAngle(robotFootprint.transform.angle());
+
+    if (utility::math::angle::signedDifference(angle, minAngleRange) < 0) {
+        return false;
+    }
+    if (utility::math::angle::signedDifference(angle, maxAngleRange) > 0) {
+        return false;
+    }
+
+    return true;
+}
+
+
+void kickBoxTests(cairo_t *cr) {
+
+    Circle ball = {{0.5, 0.5}, 0.065};
+    double targetAngle = 2;
+    double targetAngleRange = arma::datum::pi/3;
+    arma::vec2 footprintSize = {0.12, 0.17};
+
+    double footWidth = 0.07;
+    KickBoxConfig kbConfig = {
+        0.1, // kickExtent
+        footWidth, // footWidth
+        footprintSize(1) - 2*footWidth, // footSep
+        0.06, // footFrontX
+    };
+
+    int numTrials = 10000;
+    for (int i = 0; i < numTrials; i++) {
+        cairo_set_line_width(cr, 0.002);
+        arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
+
+        arma::vec rvec = arma::randu(3);
+        Transform2D robot = { rvec(0), rvec(1), (rvec(2) * 2 - 1) * M_PI };
+        RotatedRectangle robotFootprint = {robot, footprintSize};
+
+        utility::drawing::drawRotatedRectangle(cr, robotFootprint);
+        if (!canKickBallAtTarget(robotFootprint, ball, kbConfig, targetAngle, targetAngleRange)) {
+            utility::drawing::cairoSetSourceRGBAlpha(cr, col, 0.05);
+            cairo_stroke(cr);
+        } else {
+            utility::drawing::cairoSetSourceRGBAlpha(cr, col, 0.7);
+            cairo_fill(cr);
+
+            cairo_save(cr);
+                cairo_set_line_width(cr, 0.01);
+                utility::drawing::cairoTransformToLocal(cr, robot);
+
+                double kbX = kbConfig.footFrontX+ball.radius+kbConfig.kickExtent*0.5;
+                double kbY = kbConfig.footSep*0.5 + kbConfig.footWidth*0.5;
+                utility::drawing::drawRotatedRectangle(cr, {{kbX, kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}});
+                utility::drawing::drawRotatedRectangle(cr, {{kbX, -kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}});
+                cairo_stroke(cr);
+            cairo_restore(cr);
+        }
+    }
+
+    // Draw footprint and confidence ellipse:
+    utility::drawing::cairoSetSourceRGB(cr, {0,0,0});
+    cairo_set_line_width(cr, 0.005);
+    utility::drawing::drawCircle(cr, ball);
+    cairo_stroke(cr);
+
+    arma::vec2 target = {std::cos(targetAngle), std::sin(targetAngle)};
+    arma::vec2 minTarget = {std::cos(targetAngle-0.5*targetAngleRange), std::sin(targetAngle-0.5*targetAngleRange)};
+    arma::vec2 maxTarget = {std::cos(targetAngle+0.5*targetAngleRange), std::sin(targetAngle+0.5*targetAngleRange)};
+    utility::drawing::drawLine(cr, ball.centre, ball.centre+target);
+    utility::drawing::drawLine(cr, ball.centre, ball.centre+minTarget);
+    utility::drawing::drawLine(cr, ball.centre, ball.centre+maxTarget);
+    cairo_stroke(cr);
+
+    std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
+}
 
 void robotCircleConfidenceRegionIntersectionTests(cairo_t *cr) {
 
@@ -495,6 +607,10 @@ void intersectionTests() {
     cairo_surface_t *surface = cairo_pdf_surface_create("intersectionTests.pdf", surfaceDimensions(0), surfaceDimensions(1));
     cairo_t *cr = cairo_create(surface);
     cairo_scale(cr, surfaceDimensions(0), surfaceDimensions(1));
+
+    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
+    kickBoxTests(cr);
+    cairo_show_page(cr);
 
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
     robotCircleConfidenceRegionIntersectionTests(cr);
