@@ -11,6 +11,8 @@
 #include "math/geometry.h"
 #include "Tree.h"
 #include "Trajectory.h"
+#include "SearchScenario.h"
+#include "BipedRobotModel.h"
 
 namespace nump {
 
@@ -21,7 +23,11 @@ namespace nump {
         cairo_t *cairo = nullptr;
 
         struct SearchNode;
-        typedef Transform2D StateT;
+
+        typedef BipedRobotModel RobotModel;
+        typedef RobotModel::State StateT;
+
+        // typedef Transform2D StateT;
 //        typedef arma::vec2 StateT;
         typedef Trajectory<StateT> TrajT;
         typedef Tree<SearchNode> TreeT;
@@ -33,18 +39,20 @@ namespace nump {
         };
 
         TreeT tree;
-        std::vector<nump::math::Circle> obstacles;
+        numptest::SearchScenario::Config scenario;
 
+        // std::vector<nump::math::Circle> obstacles;
 
         //        typedef std::shared_ptr<nump::Tree<SearchNode>::Node> NodeT;
         typedef std::shared_ptr<TreeT::Node> NodeT;
 
 
     private:
-        StateT init;
-        StateT goal;
+        // StateT init;
+        // StateT goal;
 
-        SearchTree(StateT init, StateT goal);
+        // SearchTree(StateT init, StateT goal);
+        SearchTree(const numptest::SearchScenario::Config& scenario);
 
     public:
 
@@ -62,19 +70,21 @@ namespace nump {
         static double J(TrajT s);
 
         // Class and member functions:
-        static SearchTree fromRRT(cairo_t *cr, StateT init, StateT goal, int n,
-                                  std::vector<nump::math::Circle> obstacles);
+        // static SearchTree fromRRT(cairo_t *cr, StateT init, StateT goal, int n,
+        //                           std::vector<nump::math::Circle> obstacles);
 
-        static SearchTree fromRRTs(cairo_t *cr, StateT init, StateT goal, int n,
-                                   std::vector<nump::math::Circle> obstacles,
-                                   std::function<void(const SearchTree &, StateT, bool)> callback = [](
-                                           const SearchTree &, StateT, bool) { });
+        static SearchTree fromRRTs(
+            const numptest::SearchScenario::Config& scenario,
+            cairo_t *cr = nullptr,
+            // StateT init, StateT goal, int n, std::vector<nump::math::Circle> obstacles,
+            std::function<void(const SearchTree&, StateT, bool)> callback = [](auto a, auto b, auto c){}
+       );
 
         static inline double cost(SearchNode node);
 
-        StateT initialState() const;
-
-        StateT goalState() const;
+        // StateT initialState() const;
+        //
+        // StateT goalState() const;
 
         NodeT nearest(StateT state) const;
 

@@ -150,8 +150,8 @@ namespace drawing {
                 continue;
             }
 
-            arma::vec2 pos = node->value.state;
-            arma::vec2 parent = tree.parent(node)->value.state;
+            arma::vec2 pos = node->value.state.position.xy();
+            arma::vec2 parent = tree.parent(node)->value.state.position.xy();
 
             cairoMoveTo(cr, pos);
             cairoLineTo(cr, parent);
@@ -163,7 +163,7 @@ namespace drawing {
 
         // Draw vertices:
         for (auto& node : tree.nodes) {
-            arma::vec2 pos = node->value.state;
+            arma::vec2 pos = node->value.state.position.xy();
 
             double hr = tree.depth(node) / (double)tree.height();
             fillCircle(cr, pos, r, {hr, hr, 1 - hr});
@@ -176,13 +176,13 @@ namespace drawing {
         cairo_set_line_cap(cr,CAIRO_LINE_CAP_ROUND);
         cairo_set_line_join(cr,CAIRO_LINE_JOIN_ROUND);
 
-        cairoMoveTo(cr, traj(0).rows(0,1));
+        cairoMoveTo(cr, traj(0).position.rows(0,1));
         for (int i = 1; i < numCurvePoints; i++) {
             double t = (i / double(numCurvePoints)) * traj.t;
             nump::SearchTree::StateT posT = traj(t);
-            cairoLineTo(cr, posT.rows(0,1));
+            cairoLineTo(cr, posT.position.rows(0,1));
         }
-        cairoLineTo(cr, traj(traj.t).rows(0,1));
+        cairoLineTo(cr, traj(traj.t).position.rows(0,1));
 
         cairo_stroke(cr);
 
@@ -194,7 +194,7 @@ namespace drawing {
 
         drawRobot(cr, traj(0), size);
 
-        cairoMoveTo(cr, traj(0).rows(0,1));
+        cairoMoveTo(cr, traj(0).position.rows(0,1));
         for (int i = 1; i < numCurvePoints; i++) {
             double t = (i / double(numCurvePoints)) * traj.t;
             drawRobot(cr, traj(t), size);
@@ -211,13 +211,13 @@ namespace drawing {
 
         double r = 0.04; //deviceToUserDistance(cr, {2, 0})(0);
         cairo_set_source_rgb(cr, 1, 0.5, 0.5);
-        drawRobot(cr, searchTree.initialState(), r);
+        drawRobot(cr, searchTree.scenario.initialState, r);
 
         cairo_set_source_rgb(cr, 0.5, 1, 0.5);
-        drawRobot(cr, searchTree.goalState(), r);
+        drawRobot(cr, searchTree.scenario.goalState, r);
 
         // Draw obstacles:
-        for (auto& obs : searchTree.obstacles) {
+        for (auto& obs : searchTree.scenario.obstacles) {
             fillCircle(cr, obs, {0, 0, 0}, 0.3);
         }
 
@@ -249,20 +249,20 @@ namespace drawing {
             drawRobot(cr, state, r);
 
             cairo_set_source_rgb(cr, 0.7, 0.7, 0.7);
-            showText(cr, state.rows(0, 1), r*0.15, node->value.cost);
+            showText(cr, state.position.rows(0, 1), r*0.15, node->value.cost);
         }
 
-        // Draw optimal path:
-        auto goalNode = searchTree.createValidNodeForState(searchTree.goalState());
-        if (goalNode) {
-            cairoSetSourceRGBAlpha(cr, {0, 0.7, 0}, 0.8);
-            auto zNearby = searchTree.nearVertices(goalNode, tree.nodes.size());
-            searchTree.optimiseParent(goalNode, zNearby);
-            for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
-                drawRobot(cr, pathNode->value.state, r);
-                drawNodeTrajectoryPoints(cr, pathNode->value.traj, r * 0.5);
-            }
-        }
+//        // Draw optimal path:
+//        auto goalNode = searchTree.createValidNodeForState(searchTree.scenario.initialState);
+//        if (goalNode) {
+//            cairoSetSourceRGBAlpha(cr, {0, 0.7, 0}, 0.8);
+//            auto zNearby = searchTree.nearVertices(goalNode, tree.nodes.size());
+//            searchTree.optimiseParent(goalNode, zNearby);
+//            for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
+//                drawRobot(cr, pathNode->value.state, r);
+//                drawNodeTrajectoryPoints(cr, pathNode->value.traj, r * 0.5);
+//            }
+//        }
 
         cairo_restore(cr);
     }

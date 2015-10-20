@@ -21,23 +21,32 @@ namespace nump {
     typedef SearchTree::NodeT NodeT;
     typedef SearchTree::TrajT TrajT;
 
-    SearchTree::SearchTree(StateT init, StateT goal)
-            : tree(SearchNode {init, 0, TrajT()}), init(init), goal(goal) {
+    // SearchTree::SearchTree(StateT init, StateT goal)
+    //         : tree(SearchNode {init, 0, TrajT()}), init(init), goal(goal) {
+    // }
+
+    SearchTree::SearchTree(const numptest::SearchScenario::Config& config)
+            : scenario(config), tree(SearchNode {config.initialState, 0, TrajT()}) {
+        // auto& initNode = graph.nodes.front();
+        // auto belief = std::make_shared<BeliefNode>(initNode);
+        // belief->stateCov = config.initialCovariance;
+        // initNode->value.beliefNodes.push_back(belief);
+        // initialBelief = belief;
     }
 
 
-    StateT SearchTree::initialState() const {
-        return init;
-    }
-
-    StateT SearchTree::goalState() const {
-        return goal;
-    }
+    // StateT SearchTree::initialState() const {
+    //     return init;
+    // }
+    //
+    // StateT SearchTree::goalState() const {
+    //     return goal;
+    // }
 
     inline double SearchTree::distance(StateT a, StateT b) {
 //        return arma::norm(a - b);
 //        return J(steer(a, b)); // TODO: Implement a faster, valid, distance metric.
-        return arma::norm(a.rows(0,1) - b.rows(0,1));
+        return arma::norm(a.position.rows(0,1) - b.position.rows(0,1));
     }
 
     NodeT SearchTree::nearest(StateT state) const {
@@ -111,19 +120,23 @@ namespace nump {
         return near;
     }
 
-    bool SearchTree::obstacleFree(TrajT s) const {
-        int numSteps = 100;
-        for (int i = 0; i <= numSteps; i++) {
-            double t = i / double(numSteps);
-            StateT x = s(t*s.t);
+    bool SearchTree::obstacleFree(TrajT traj) const {
+        // int numSteps = 100;
+        // for (int i = 0; i <= numSteps; i++) {
+        double timeStep = 0.02;
+        for (auto walker = traj.walk(timeStep); !walker.isFinished(); ) {
+            // double t = i / double(numSteps);
+            // StateT x = s(t*s.t);
 
-            arma::vec2 pos = {x(0), x(1)};
+            walker.stepBy();
+            RobotModel::State xTraj = walker.currentState();
+
 ////            fillCircle(cairo, {x(0), x(1)}, 0.001, {1, 1, 1}, 1);
 //            cairo_set_source_rgba(cairo, 0, 0, 0, 0.5);
 //            utility::drawing::drawRobot(cairo, x, 0.01);
 
-            for (auto &obs : obstacles) {
-                if (obs.contains(pos)) {
+            for (auto &obs : scenario.obstacles) {
+                if (obs.contains(xTraj.position.xy())) {
 //                    fillCircle(cairo, pos, 0.003, {0, 1, 1}, 1);
 
                     return false;
@@ -148,20 +161,20 @@ namespace nump {
 //                    addNodeRRT(T, xInit, K, eta)
 //            return T
 //        template <class StateT>
-    SearchTree SearchTree::fromRRT(cairo_t *cr, StateT init, StateT goal, int n, std::vector<nump::math::Circle> obstacles) {
-        auto tree = SearchTree(init, goal);
-
-        tree.cairo = cr; // TODO: Fix this.
-
-        tree.obstacles = obstacles;
-
-        for (int i = 0; i < n; i++) {
-            StateT zRand = TrajT::sample({1, 1});
-            tree.extendRRT(zRand);
-        }
-
-        return tree;
-    }
+    // SearchTree SearchTree::fromRRT(cairo_t *cr, StateT init, StateT goal, int n, std::vector<nump::math::Circle> obstacles) {
+    //     auto tree = SearchTree(init, goal);
+    //
+    //     tree.cairo = cr; // TODO: Fix this.
+    //
+    //     tree.obstacles = obstacles;
+    //
+    //     for (int i = 0; i < n; i++) {
+    //         StateT zRand = TrajT::sample({1, 1});
+    //         tree.extendRRT(zRand);
+    //     }
+    //
+    //     return tree;
+    // }
 
 
     void SearchTree::setParent(NodeT node, NodeT parent, TrajT edgeTraj, double nodeCost) const {
@@ -193,17 +206,19 @@ namespace nump {
         return true;
     }
 
-    SearchTree SearchTree::fromRRTs(cairo_t *cr, StateT init, StateT goal, int n, std::vector<nump::math::Circle> obstacles,
-                                    std::function<void(const SearchTree &, StateT, bool)> callback) {
-        auto tree = SearchTree(init, goal);
-
+    // SearchTree SearchTree::fromRRTs(cairo_t *cr, StateT init, StateT goal, int n, std::vector<nump::math::Circle> obstacles,
+    //                                 std::function<void(const SearchTree &, StateT, bool)> callback) {
+    SearchTree SearchTree::fromRRTs(
+        const numptest::SearchScenario::Config& scenario,
+        cairo_t *cr,
+        // StateT init, StateT goal, int n, std::vector<nump::math::Circle> obstacles,
+        std::function<void(const SearchTree&, StateT, bool)> callback) {
+        // auto tree = SearchTree(config.initialState, config.goalState);
+        auto tree = SearchTree(scenario);
         tree.cairo = cr; // TODO: Fix this.
 
-        tree.obstacles = obstacles;
-
-
-        for (int i = 0; i < n; i++) {
-            StateT zRand = TrajT::sample({1, 1});
+        for (int i = 0; i < scenario.numSamples; i++) {
+            StateT zRand = TrajT::sample(scenario.mapSize);
             bool extended = tree.extendRRTs(cr, zRand);
 
             callback(tree, zRand, extended);

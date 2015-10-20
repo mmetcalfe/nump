@@ -164,6 +164,98 @@ void writeDataFile(std::string fname, const std::vector<double>& values) {
     fs.close();
 }
 
+void numptest::SearchScenario::performRRBTSearch(cairo_t* cr, const std::string& scenario_prefix) {
+    // Run RRBT:
+     int sampleNum = 0;
+     int pointNum = 0;
+     auto rrbtTree = nump::RRBT::fromSearchScenario(cfg_, cr,
+          [&](const nump::RRBT& rrbt, const nump::RRBT::StateT newState, bool extended) {
+              // Make printed output wrap into columns:
+              if (sampleNum % 50 == 0) {
+                  std::cout << std::endl;
+              }
+              sampleNum++;
+
+              if (!extended) {
+                  std::cout << "c" << std::flush;
+                  return;
+              }
+
+              pointNum++;
+
+              if (pointNum % cfg_.drawPeriod == 0) {
+                  cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
+                  drawRRBT(cr, rrbt);
+                  cairo_show_page(cr);
+                  std::cout << "d" << std::flush;
+                  return;
+              } else {
+                  std::cout << "." << std::flush;
+              }
+          });
+     std::cout << std::endl << "#" << std::endl;
+
+     std::cout << "Num nodes: " << rrbtTree.graph.nodes.size() << std::endl;
+     std::cout << "Num edges: " << rrbtTree.graph.edges.size() << std::endl;
+     int beliefNodeCount = 0;
+     for (auto& node : rrbtTree.graph.nodes) {
+        beliefNodeCount += node->value.beliefNodes.size();
+     }
+     std::cout << "Num belief nodes: " << beliefNodeCount << std::endl;
+
+     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
+     drawRRBT(cr, rrbtTree);
+     cairo_show_page(cr);
+
+     writeDataFile(scenario_prefix + "_iteration_times.dat", rrbtTree.iterationTimes);
+}
+
+void numptest::SearchScenario::performRRTsSearch(cairo_t* cr, const std::string& scenario_prefix) {
+    // Run RRBT:
+     int sampleNum = 0;
+     int pointNum = 0;
+     auto rrtsTree = nump::SearchTree::fromRRTs(cfg_, cr,
+          [&](const nump::SearchTree& rrts, const nump::SearchTree::StateT newState, bool extended) {
+              // Make printed output wrap into columns:
+              if (sampleNum % 50 == 0) {
+                  std::cout << std::endl;
+              }
+              sampleNum++;
+
+              if (!extended) {
+                  std::cout << "c" << std::flush;
+                  return;
+              }
+
+              pointNum++;
+
+              if (pointNum % cfg_.drawPeriod == 0) {
+                  cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
+                  drawSearchTree(cr, rrts);
+                  cairo_show_page(cr);
+                  std::cout << "d" << std::flush;
+                  return;
+              } else {
+                  std::cout << "." << std::flush;
+              }
+          });
+     std::cout << std::endl << "#" << std::endl;
+
+    //  std::cout << "Num nodes: " << rrtsTree.graph.nodes.size() << std::endl;
+    //  std::cout << "Num edges: " << rrtsTree.graph.edges.size() << std::endl;
+    //  int beliefNodeCount = 0;
+    //  for (auto& node : rrtsTree.graph.nodes) {
+    //     beliefNodeCount += node->value.beliefNodes.size();
+    //  }
+    //  std::cout << "Num belief nodes: " << beliefNodeCount << std::endl;
+
+     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
+     drawSearchTree(cr, rrtsTree);
+     cairo_show_page(cr);
+
+    //  writeDataFile(scenario_prefix + "_iteration_times.dat", rrtsTree.iterationTimes);
+}
+
 void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
     arma::arma_rng::set_seed(cfg_.seed);
     std::cout << "SEED: " << cfg_.seed << std::endl;
@@ -188,51 +280,10 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
 //    cairo_scale(cr, centeredFrac, centeredFrac);
 //    cairo_translate(cr, borderSize, borderSize);
 
-   // Run RRBT:
-    int sampleNum = 0;
-    int pointNum = 0;
-    auto rrbtTree = nump::RRBT::fromSearchScenario(cfg_, cr,
-         [&](const nump::RRBT& rrbt, const nump::RRBT::StateT newState, bool extended) {
-             // Make printed output wrap into columns:
-             if (sampleNum % 50 == 0) {
-                 std::cout << std::endl;
-             }
-             sampleNum++;
-
-             if (!extended) {
-                 std::cout << "c" << std::flush;
-                 return;
-             }
-
-             pointNum++;
-
-             if (pointNum % cfg_.drawPeriod == 0) {
-                 cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
-                 drawRRBT(cr, rrbt);
-                 cairo_show_page(cr);
-                 std::cout << "d" << std::flush;
-                 return;
-             } else {
-                 std::cout << "." << std::flush;
-             }
-         });
-    std::cout << std::endl << "#" << std::endl;
-
-    std::cout << "Num nodes: " << rrbtTree.graph.nodes.size() << std::endl;
-    std::cout << "Num edges: " << rrbtTree.graph.edges.size() << std::endl;
-    int beliefNodeCount = 0;
-    for (auto& node : rrbtTree.graph.nodes) {
-       beliefNodeCount += node->value.beliefNodes.size();
-    }
-    std::cout << "Num belief nodes: " << beliefNodeCount << std::endl;
-
-    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
-    drawRRBT(cr, rrbtTree);
-    cairo_show_page(cr);
+    performRRBTSearch(cr, scenario_prefix);
+    performRRTsSearch(cr, scenario_prefix);
 
     std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
-
-    writeDataFile(scenario_prefix + "_iteration_times.dat", rrbtTree.iterationTimes);
 
     // Clean up:
     cairo_destroy(cr);

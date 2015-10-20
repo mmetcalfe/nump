@@ -99,7 +99,7 @@ namespace nump {
         static RRBT fromSearchScenario(
                 const numptest::SearchScenario::Config& scenario,
                 cairo_t *cr = nullptr,
-                std::function<void(const RRBT &, StateT, bool)> callback = [](auto a, auto b, auto c){}
+                std::function<void(const RRBT&, StateT, bool)> callback = [](auto a, auto b, auto c){}
         );
 
 

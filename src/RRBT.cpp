@@ -132,7 +132,6 @@ namespace nump {
             cairo_t *cr,
             std::function<void(const RRBT &, StateT, bool)> callback) {
 
-
         // Set initial state and covariance, set stateDistribCov to 0, and cost to 0.
 //        auto tree = RRBT(scenario.init, scenario.initCov, scenario.goal);
         auto tree = RRBT(scenario);

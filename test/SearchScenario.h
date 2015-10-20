@@ -6,6 +6,7 @@
 #define NUMP_SEARCHSCENARIO_H
 
 #include <armadillo>
+#include <cairo/cairo.h>
 #include "math/geometry.h"
 
 namespace numptest {
@@ -64,6 +65,8 @@ namespace numptest {
             std::vector<Circle> measurementRegions;
         } cfg_;
 
+        void performRRBTSearch(cairo_t* cr, const std::string& scenario_prefix);
+        void performRRTsSearch(cairo_t* cr, const std::string& scenario_prefix);
         void execute(const std::string& scenario_prefix);
 
         static SearchScenario fromFile(const std::string& file_path);
