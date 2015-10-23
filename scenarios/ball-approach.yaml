@@ -1,8 +1,8 @@
 # Search settings:
 # seed: 615357 # RANDOM, or an integer.
-seed: 6153 # Finds, then loses feasible solution.
-# seed: RANDOM # RANDOM, or an integer.
-num_samples: 10
+# seed: 6153 # Finds, then loses feasible solution.
+seed: RANDOM # RANDOM, or an integer.
+num_samples: 50
 
 rrbt_append_reject_cov_threshold: 0.01
 rrbt_append_reject_cost_threshold: 0.001

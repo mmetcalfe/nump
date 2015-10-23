@@ -173,6 +173,9 @@ std::vector<double> confidenceEllipsoidZRangeForXY(arma::vec2 xy, arma::vec3 cen
     return Ellipse::zRangeForXY(xy, centre, (cov*chiSquareVal).i());
 }
 
+double dnorm(arma::mat22 cov, arma::vec2 pos) {
+    return 0;
+}
 
 }
 }

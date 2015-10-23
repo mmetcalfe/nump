@@ -21,6 +21,8 @@ namespace distributions {
     double confidenceRegionArea(arma::mat22 cov, double conf, int dof = 2);
 
     std::vector<double> confidenceEllipsoidZRangeForXY(arma::vec2 xy, arma::vec3 centre, arma::mat33 cov, double conf);
+
+    double dnorm(arma::mat22 cov, arma::vec2 pos);
 }
 }
 }

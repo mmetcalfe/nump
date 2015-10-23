@@ -20,7 +20,7 @@ namespace geometry {
         arma::mat22 scale = arma::diagmat(eigvals);
         arma::mat22 ellipseMat = rot * scale * rot.t();
 
-        std::cout << ellipseMat << std::endl;
+        // std::cout << ellipseMat << std::endl;
 
         double a = ellipseMat(0, 0);
         double b = ellipseMat(0, 1);

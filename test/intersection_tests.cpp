@@ -24,6 +24,143 @@ using nump::math::Transform2D;
 using nump::math::RotatedRectangle;
 using nump::math::Circle;
 
+double gaussianQuadrature(std::function<double(arma::vec2)> func, RotatedRectangle rect, int order) {
+    return 0;
+}
+
+void drawKickBoxes(cairo_t *cr, Transform2D robot, const numptest::SearchScenario::Config::KickBox& kbConfig, double ballRadius) {
+    cairo_save(cr);
+        utility::drawing::cairoTransformToLocal(cr, robot);
+
+        double kbX = kbConfig.footFrontX+ballRadius+kbConfig.kickExtent*0.5;
+        double kbY = kbConfig.footSep*0.5 + kbConfig.footWidth*0.5;
+        utility::drawing::drawRotatedRectangle(cr, {{kbX, kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}});
+        utility::drawing::drawRotatedRectangle(cr, {{kbX, -kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}});
+    cairo_restore(cr);
+}
+
+std::vector<RotatedRectangle> getLocalKickBoxes(Transform2D robot, const numptest::SearchScenario::Config::KickBox& kbConfig, double ballRadius) {
+    double kbX = kbConfig.footFrontX+ballRadius+kbConfig.kickExtent*0.5;
+    double kbY = kbConfig.footSep*0.5 + kbConfig.footWidth*0.5;
+    RotatedRectangle left = {{kbX, kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}};
+    RotatedRectangle right = {{kbX, -kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}};
+    return {left, right};
+}
+
+arma::mat33 transformToLocalDistribution(Transform2D trans, arma::mat33 transCov, Transform2D pos) {
+    Transform2D diff = pos - trans;
+
+    double sinTheta = std::sin(trans.angle());
+    double cosTheta = std::cos(trans.angle());
+
+    arma::mat33 J; // Jacobian of trans.worldToLocal(pos) with respect to trans.
+    J(0,0) = -cosTheta;
+    J(0,1) = -sinTheta;
+    J(0,2) = -diff.x()*sinTheta + diff.y()*cosTheta;
+    J(1,0) =  sinTheta;
+    J(1,1) = -cosTheta;
+    J(1,2) = -diff.x()*cosTheta - diff.y()*sinTheta;
+    J(2,0) = 0;
+    J(2,1) = 0;
+    J(2,2) = -1;
+
+    return J*transCov*J.t();
+}
+
+void kickProbabilityTests(cairo_t *cr) {
+
+    Transform2D robot = {0.333, 0.5, 0.5};
+    double vxy = 0.002;
+    double vxt = 0.004;
+    double vyt = 0.01;
+    // arma::mat33 stateCov = {
+    //         { 0.003, vxy, vxt},
+    //         { vxy, 0.007, vyt},
+    //         { vxt, vyt, 0.02}
+    // };
+    arma::mat33 stateCov = {
+            { 0.001, 0, 0},
+            { 0, 0.005, 0},
+            { 0, 0, 0.05}
+    };
+
+    Circle ball = {{0.5, 0.666}, 0.065};
+    double targetAngle = -1;
+    double targetAngleRange = arma::datum::pi/3;
+
+    arma::vec2 footprintSize = {0.12, 0.17};
+    RotatedRectangle robotFootprint = {robot, footprintSize};
+    Ellipse confEllipseXY = utility::math::distributions::confidenceRegion(robot.head(2), stateCov.submat(0,0,1,1), 0.95, 3);
+
+    double footWidth = 0.07;
+    numptest::SearchScenario::Config::KickBox kbConfig = {
+        0.1, // kickExtent
+        footWidth, // footWidth
+        footprintSize(1) - 2*footWidth, // footSep
+        0.06, // footFrontX
+    };
+
+    arma::vec3 globalCol = arma::normalise(arma::vec(arma::randu(3)));
+    arma::vec3 localCol = arma::normalise(arma::vec(arma::randu(3)));
+
+    // Draw footprint and confidence ellipse:
+    utility::drawing::cairoSetSourceRGB(cr, globalCol);
+    cairo_set_line_width(cr, 0.01);
+    drawKickBoxes(cr, robot, kbConfig, ball.radius);
+    utility::drawing::drawRotatedRectangle(cr, robotFootprint);
+    utility::drawing::drawEllipse(cr, confEllipseXY);
+    cairo_stroke(cr);
+
+    // Draw global ball:
+    cairo_set_line_width(cr, 0.01);
+    utility::drawing::drawCircle(cr, ball);
+
+    arma::vec2 target = {std::cos(targetAngle), std::sin(targetAngle)};
+    arma::vec2 minTarget = {std::cos(targetAngle-0.5*targetAngleRange), std::sin(targetAngle-0.5*targetAngleRange)};
+    arma::vec2 maxTarget = {std::cos(targetAngle+0.5*targetAngleRange), std::sin(targetAngle+0.5*targetAngleRange)};
+    utility::drawing::drawLine(cr, ball.centre, ball.centre+target);
+    utility::drawing::drawLine(cr, ball.centre, ball.centre+minTarget);
+    utility::drawing::drawLine(cr, ball.centre, ball.centre+maxTarget);
+    cairo_stroke(cr);
+
+    // Draw local ball and confidence:
+    utility::drawing::cairoSetSourceRGB(cr, localCol);
+    cairo_set_line_width(cr, 0.005);
+    cairo_save(cr);
+        utility::drawing::cairoTransformToLocal(cr, robot);
+
+        Transform2D globalBallTarget = {ball.centre, targetAngle};
+        Transform2D localBallTarget = robot.worldToLocal(globalBallTarget);
+        arma::mat33 localBallCov = transformToLocalDistribution(robot, stateCov, globalBallTarget);
+        Ellipse localConfEllipse = utility::math::distributions::confidenceRegion(localBallTarget.xy(), localBallCov.submat(0,0,1,1), 0.95, 3);
+
+        // auto kickBoxes = getLocalKickBoxes(robot, kbConfig, ball.radius);
+        // auto densityFunc = [localBallCov](auto x){return utility::math::distributions::dnorm(localBallCov, x); };
+        // double leftKickBoxProb = gaussianQuadrature(densityFunc, kickBoxes[0], 3);
+        // double rightKickBoxProb = gaussianQuadrature(densityFunc, kickBoxes[1], 3);
+        // double kickProb = leftKickBoxProb + rightKickBoxProb;
+        // std::cout << "leftKickBoxProb: " << leftKickBoxProb << std::endl;
+        // std::cout << "rightKickBoxProb: " << rightKickBoxProb << std::endl;
+        // std::cout << "kickProb: " << kickProb << std::endl;
+
+        utility::drawing::drawCircle(cr, {localBallTarget.xy(), ball.radius});
+        utility::drawing::drawEllipse(cr, localConfEllipse);
+        cairo_stroke(cr);
+
+        arma::vec2 localTarget = {std::cos(localBallTarget.angle()), std::sin(localBallTarget.angle())};
+        arma::vec2 localMinTarget = {std::cos(localBallTarget.angle()-0.5*targetAngleRange), std::sin(localBallTarget.angle()-0.5*targetAngleRange)};
+        arma::vec2 localMaxTarget = {std::cos(localBallTarget.angle()+0.5*targetAngleRange), std::sin(localBallTarget.angle()+0.5*targetAngleRange)};
+        utility::drawing::drawLine(cr, localBallTarget.xy(), localBallTarget.xy()+localTarget);
+        utility::drawing::drawLine(cr, localBallTarget.xy(), localBallTarget.xy()+localMinTarget);
+        utility::drawing::drawLine(cr, localBallTarget.xy(), localBallTarget.xy()+localMaxTarget);
+        cairo_stroke(cr);
+    cairo_restore(cr);
+
+
+
+    std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
+}
+
 void kickBoxTests(cairo_t *cr) {
 
     Circle ball = {{0.5, 0.5}, 0.065};
@@ -39,7 +176,7 @@ void kickBoxTests(cairo_t *cr) {
         0.06, // footFrontX
     };
 
-    int numTrials = 10000;
+    int numTrials = 500;
     for (int i = 0; i < numTrials; i++) {
         cairo_set_line_width(cr, 0.002);
         arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
@@ -59,16 +196,18 @@ void kickBoxTests(cairo_t *cr) {
             utility::drawing::drawRotatedRectangle(cr, robotFootprint);
             cairo_fill(cr);
 
-            cairo_save(cr);
-                cairo_set_line_width(cr, 0.01);
-                utility::drawing::cairoTransformToLocal(cr, robot);
-
-                double kbX = kbConfig.footFrontX+ball.radius+kbConfig.kickExtent*0.5;
-                double kbY = kbConfig.footSep*0.5 + kbConfig.footWidth*0.5;
-                utility::drawing::drawRotatedRectangle(cr, {{kbX, kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}});
-                utility::drawing::drawRotatedRectangle(cr, {{kbX, -kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}});
-                cairo_stroke(cr);
-            cairo_restore(cr);
+            cairo_set_line_width(cr, 0.01);
+            drawKickBoxes(cr, robot, kbConfig, ball.radius);
+            // cairo_save(cr);
+            //     cairo_set_line_width(cr, 0.01);
+            //     utility::drawing::cairoTransformToLocal(cr, robot);
+            //
+            //     double kbX = kbConfig.footFrontX+ball.radius+kbConfig.kickExtent*0.5;
+            //     double kbY = kbConfig.footSep*0.5 + kbConfig.footWidth*0.5;
+            //     utility::drawing::drawRotatedRectangle(cr, {{kbX, kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}});
+            //     utility::drawing::drawRotatedRectangle(cr, {{kbX, -kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}});
+            // cairo_restore(cr);
+            cairo_stroke(cr);
 
             // utility::drawing::drawCircle(cr, {robot.xy(), 0.005});
             // cairo_fill(cr);
@@ -98,7 +237,7 @@ void robotCircleConfidenceRegionIntersectionTests(cairo_t *cr) {
     // arma::vec2 footprintSize = {0.12, 0.17};
     // RotatedRectangle robotFootprint = {robot, footprintSize};
 
-    Circle circle = {{0.5, 0.5}, 0.15};
+    Circle circle = {{0.5, 0.5}, 0.07};
     double vxy = -0.00125;
     arma::mat22 circleCov = {
             { 0.0025, vxy },
@@ -113,7 +252,7 @@ void robotCircleConfidenceRegionIntersectionTests(cairo_t *cr) {
         return;
     }
 
-    int numTrials = 10000;
+    int numTrials = 0;
     for (int i = 0; i < numTrials; i++) {
         cairo_set_line_width(cr, 0.002);
         arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
@@ -169,10 +308,12 @@ void robotCircleConfidenceRegionIntersectionTests(cairo_t *cr) {
     cairo_paint_with_alpha(cr, 0.5);
 
     // Draw footprint and confidence ellipse:
-    utility::drawing::cairoSetSourceRGB(cr, {0.7,0.7,0.7});
-    cairo_set_line_width(cr, 0.005);
+    // utility::drawing::cairoSetSourceRGB(cr, {0.7,0.7,0.7});
+    utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
+    cairo_set_line_width(cr, 0.0025);
     // utility::drawing::drawRotatedRectangle(cr, robotFootprint);
     utility::drawing::drawCircle(cr, circle);
+    utility::drawing::drawCircle(cr, {circle.centre, 0.001});
     utility::drawing::drawEllipse(cr, confEllipse);
     utility::drawing::drawEllipse(cr, {confEllipse.transform, confEllipse.size + 2*arma::vec2({circle.radius, circle.radius})});
     cairo_stroke(cr);
@@ -186,8 +327,8 @@ void drawRobotConfidenceFootprint(cairo_t *cr, arma::vec2 footprintSize, Transfo
 
     Ellipse confEllipseXY = utility::math::distributions::confidenceRegion(state.head(2), stateCov.submat(0,0,1,1), 0.95, 3);
 
-    std::cout << arma::min(confEllipseXY.size)/2 << std::endl;
-    std::cout << arma::norm(footprintSize/2) << std::endl;
+    // std::cout << arma::min(confEllipseXY.size)/2 << std::endl;
+    // std::cout << arma::norm(footprintSize/2) << std::endl;
 
     arma::vec2 halfFP = footprintSize / 2;
     double ignoreRadius = arma::min(confEllipseXY.size/2) + arma::min(halfFP) - arma::norm(halfFP);
@@ -236,10 +377,10 @@ void drawRobotConfidenceFootprint(cairo_t *cr, arma::vec2 footprintSize, Transfo
     cairo_pop_group_to_source(cr);
     cairo_paint_with_alpha(cr, 0.5);
 
-    utility::drawing::cairoSetSourceRGB(cr, {0.8,0.8,0.8});
-
-    utility::drawing::drawRotatedRectangle(cr, {{state.xy(), 0}, {confIntervalX(1) - confIntervalX(0), confIntervalY(1) - confIntervalY(0)}});
-    cairo_stroke(cr);
+    // Draw ellipse AABB:
+    // utility::drawing::cairoSetSourceRGB(cr, {0.8,0.8,0.8});
+    // utility::drawing::drawRotatedRectangle(cr, {{state.xy(), 0}, {confIntervalX(1) - confIntervalX(0), confIntervalY(1) - confIntervalY(0)}});
+    // cairo_stroke(cr);
 }
 
 void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
@@ -269,7 +410,7 @@ void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
     RotatedRectangle robotFootprint = {state, footprintSize};
     Ellipse confEllipseXY = utility::math::distributions::confidenceRegion(state.head(2), stateCov.submat(0,0,1,1), 0.95, 3);
 
-    int numTrials = 1000;
+    int numTrials = 0;
     for (int i = 0; i < numTrials; i++) {
         arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
         arma::vec randCircle = arma::randu(3);
@@ -295,15 +436,18 @@ void circleRobotConfidenceRegionIntersectionTests(cairo_t *cr) {
     drawRobotConfidenceFootprint(cr, footprintSize, state, stateCov);
 
     // Draw footprint and confidence ellipse:
-    utility::drawing::cairoSetSourceRGB(cr, {0.8,0.8,0.8});
+    // utility::drawing::cairoSetSourceRGB(cr, {0.8,0.8,0.8});
+    utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
     cairo_set_line_width(cr, 0.005);
     utility::drawing::drawRotatedRectangle(cr, robotFootprint);
     cairo_stroke(cr);
-    utility::drawing::drawRotatedRectangle(cr, confEllipseXY);
-    cairo_stroke(cr);
-    utility::drawing::drawRotatedRectangle(cr, {confEllipseXY.transform, confEllipseXY.size/arma::datum::sqrt2});
-    cairo_stroke(cr);
     utility::drawing::drawEllipse(cr, confEllipseXY);
+    utility::drawing::drawCircle(cr, {state.xy(), 0.001});
+    cairo_stroke(cr);
+    // utility::drawing::drawRotatedRectangle(cr, confEllipseXY);
+    // cairo_stroke(cr);
+    // utility::drawing::drawRotatedRectangle(cr, {confEllipseXY.transform, confEllipseXY.size/arma::datum::sqrt2});
+    // cairo_stroke(cr);
 
     std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
 }
@@ -339,8 +483,8 @@ void circleEllipseIntersectionTests(cairo_t *cr) {
         }
     }
 
-    std::cout << "trans " << confEllipse.getTransform() << std::endl;
-    std::cout << "size " << confEllipse.getSize() << std::endl;
+    // std::cout << "trans " << confEllipse.getTransform() << std::endl;
+    // std::cout << "size " << confEllipse.getSize() << std::endl;
 
 
     // Draw confidence region of the robot:
@@ -565,6 +709,10 @@ void intersectionTests() {
     cairo_surface_t *surface = cairo_pdf_surface_create("intersectionTests.pdf", surfaceDimensions(0), surfaceDimensions(1));
     cairo_t *cr = cairo_create(surface);
     cairo_scale(cr, surfaceDimensions(0), surfaceDimensions(1));
+
+    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
+    kickProbabilityTests(cr);
+    cairo_show_page(cr);
 
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
     kickBoxTests(cr);
