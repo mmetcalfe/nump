@@ -23,6 +23,7 @@ using utility::drawing::fillCircle;
 using nump::math::Transform2D;
 using nump::math::RotatedRectangle;
 using nump::math::Circle;
+using nump::BipedRobotModel;
 
 std::vector<std::vector<double>> quadratureRoots = {
     {}, {}, // Make indexing easy.
@@ -77,40 +78,10 @@ double gaussianQuadrature(cairo_t* cr, std::function<double(arma::vec3)> func, R
 void drawKickBoxes(cairo_t *cr, Transform2D robot, const numptest::SearchScenario::Config::KickBox& kbConfig, double ballRadius) {
     cairo_save(cr);
         utility::drawing::cairoTransformToLocal(cr, robot);
-
-        double kbX = kbConfig.footFrontX+ballRadius+kbConfig.kickExtent*0.5;
-        double kbY = kbConfig.footSep*0.5 + kbConfig.footWidth*0.5;
-        utility::drawing::drawRotatedRectangle(cr, {{kbX, kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}});
-        utility::drawing::drawRotatedRectangle(cr, {{kbX, -kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}});
+        auto kickBoxes = BipedRobotModel::getLocalKickBoxes(robot, kbConfig, ballRadius);
+        utility::drawing::drawRotatedRectangle(cr, kickBoxes[0]);
+        utility::drawing::drawRotatedRectangle(cr, kickBoxes[1]);
     cairo_restore(cr);
-}
-
-std::vector<RotatedRectangle> getLocalKickBoxes(Transform2D robot, const numptest::SearchScenario::Config::KickBox& kbConfig, double ballRadius) {
-    double kbX = kbConfig.footFrontX+ballRadius+kbConfig.kickExtent*0.5;
-    double kbY = kbConfig.footSep*0.5 + kbConfig.footWidth*0.5;
-    RotatedRectangle left = {{kbX, -kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}};
-    RotatedRectangle right = {{kbX, kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}};
-    return {left, right};
-}
-
-arma::mat33 transformToLocalDistribution(Transform2D trans, arma::mat33 transCov, Transform2D pos) {
-    Transform2D diff = pos - trans;
-
-    double sinTheta = std::sin(trans.angle());
-    double cosTheta = std::cos(trans.angle());
-
-    arma::mat33 J; // Jacobian of trans.worldToLocal(pos) with respect to trans.
-    J(0,0) = -cosTheta;
-    J(0,1) = -sinTheta;
-    J(0,2) = -diff.x()*sinTheta + diff.y()*cosTheta;
-    J(1,0) =  sinTheta;
-    J(1,1) = -cosTheta;
-    J(1,2) = -diff.x()*cosTheta - diff.y()*sinTheta;
-    J(2,0) = 0;
-    J(2,1) = 0;
-    J(2,2) = -1;
-
-    return J*transCov*J.t();
 }
 
 void kickProbabilityTests(cairo_t *cr) {
@@ -122,7 +93,6 @@ void kickProbabilityTests(cairo_t *cr) {
     // };
     // Circle ball = {{0.5, 0.666}, 0.065};
 
-
     Transform2D robot = {0.333, 0.5, 0.5};
     double vxy = 0.002;
     double vxt = 0.004;
@@ -132,11 +102,6 @@ void kickProbabilityTests(cairo_t *cr) {
             { vxy, 0.007, vyt},
             { vxt, vyt, 0.02}
     };
-    // arma::mat33 stateCov = {
-    //         { 0.001, 0, 0},
-    //         { 0, 0.005, 0},
-    //         { 0, 0, 0.05}
-    // };
 
     Circle ball = {{0.5, 0.666}, 0.065};
     // double targetAngle = -1;
@@ -187,10 +152,10 @@ void kickProbabilityTests(cairo_t *cr) {
 
         Transform2D globalBallTarget = {ball.centre, targetAngle};
         Transform2D localBallTarget = robot.worldToLocal(globalBallTarget);
-        arma::mat33 localBallTargetCov = transformToLocalDistribution(robot, stateCov, globalBallTarget);
+        arma::mat33 localBallTargetCov = utility::math::distributions::transformToLocalDistribution(robot, stateCov, globalBallTarget);
         Ellipse localConfEllipse = utility::math::distributions::confidenceRegion(localBallTarget.xy(), localBallTargetCov.submat(0,0,1,1), 0.95, 3);
 
-        auto kickBoxes = getLocalKickBoxes(robot, kbConfig, ball.radius);
+        auto kickBoxes = BipedRobotModel::getLocalKickBoxes(robot, kbConfig, ball.radius);
 
         {
             int numSamples = 1000000;
@@ -259,6 +224,7 @@ void kickProbabilityTests(cairo_t *cr) {
         std::cout << "leftKickBoxProb: " << leftKickBoxProb << std::endl;
         std::cout << "rightKickBoxProb: " << rightKickBoxProb << std::endl;
         std::cout << "kickProb: " << kickProb << std::endl;
+        std::cout << "kickProb method: " << BipedRobotModel::kickSuccessProbability(robot, stateCov, kbConfig, ball, targetAngle, targetAngleRange) << std::endl;
         // std::cout << "targetAngleRange: " << targetAngleRange << std::endl;
         // std::cout << "kbWidth: " << kickBoxes[0].size(0) << std::endl;
         // std::cout << "kbHeight: " << kickBoxes[0].size(1) << std::endl;

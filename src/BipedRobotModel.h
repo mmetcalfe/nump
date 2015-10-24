@@ -16,6 +16,8 @@ namespace nump {
     using nump::math::Circle;
 
     struct BipedRobotModel {
+        typedef numptest::SearchScenario::Config::KickBox KickBox;
+        
         struct State {
             Transform2D position;
             // Transform2D velocity;
@@ -33,8 +35,19 @@ namespace nump {
             inline double& omega() { return at(1); }
         };
 
-        static bool canKickBall(RotatedRectangle robotFootprint, Circle ball, const numptest::SearchScenario::Config::KickBox& kbConfig);
-        static bool canKickBallAtTarget(RotatedRectangle robotFootprint, Circle ball, const numptest::SearchScenario::Config::KickBox& kbConfig, double targetAngle, double validAngleRange);
+        static bool canKickBall(RotatedRectangle robotFootprint, Circle ball, const KickBox& kbConfig);
+        static bool canKickBallAtTarget(RotatedRectangle robotFootprint, Circle ball, const KickBox& kbConfig, double targetAngle, double validAngleRange);
+
+        static std::vector<RotatedRectangle> getLocalKickBoxes(Transform2D robot, const KickBox& kbConfig, double ballRadius);
+
+        static double kickSuccessProbability(
+            Transform2D robot,
+            arma::mat33 stateCov,
+            const KickBox& kbConfig,
+            Circle ball,
+            double targetAngle,
+            double targetAngleRange
+        );
 
     private: // These types are just for clarity:
         static constexpr int stateSize = 3;

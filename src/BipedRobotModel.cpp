@@ -9,13 +9,17 @@
 #include "math/geometry.h"
 #include "shared/utility/math/control/lqr.h"
 #include "shared/utility/math/angle.h"
+#include "shared/utility/math/distributions.h"
+#include "shared/utility/math/quadrature.h"
 #include "Trajectory.h"
+
 
 namespace nump {
     typedef BipedRobotModel::State StateT;
     typedef BipedRobotModel::Control ControlT;
 
     using nump::math::Circle;
+    using nump::math::RotatedRectangle;
 
     /// The A matrix in RRBT's propagate function.
     BipedRobotModel::MotionMatrix BipedRobotModel::motionErrorJacobian(double Δt, const StateT& state, const ControlT& control) {
@@ -194,6 +198,39 @@ namespace nump {
         }
 
         return true;
+    }
+
+    std::vector<RotatedRectangle> BipedRobotModel::getLocalKickBoxes(Transform2D robot, const numptest::SearchScenario::Config::KickBox& kbConfig, double ballRadius) {
+        double kbX = kbConfig.footFrontX+ballRadius+kbConfig.kickExtent*0.5;
+        double kbY = kbConfig.footSep*0.5 + kbConfig.footWidth*0.5;
+        RotatedRectangle left = {{kbX, -kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}};
+        RotatedRectangle right = {{kbX, kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}};
+        return {left, right};
+    }
+
+    double BipedRobotModel::kickSuccessProbability(
+        Transform2D robot,
+        arma::mat33 stateCov,
+        const KickBox& kbConfig,
+        Circle ball,
+        double targetAngle,
+        double targetAngleRange
+    ) {
+        Transform2D globalBallTarget = {ball.centre, targetAngle};
+        Transform2D localBallTarget = robot.worldToLocal(globalBallTarget);
+
+        arma::mat33 localBallTargetCov = utility::math::distributions::transformToLocalDistribution(robot, stateCov, globalBallTarget);
+
+        auto kickBoxes = BipedRobotModel::getLocalKickBoxes(robot, kbConfig, ball.radius);
+        auto densityFunc = [=](auto x){ return utility::math::distributions::dnorm(localBallTarget, localBallTargetCov, x); };
+
+        int order = 4;
+        double leftKickBoxProb = utility::math::quadrature::integrateGaussQuad(densityFunc, kickBoxes[0], targetAngleRange, {order, order, order});
+        double rightKickBoxProb = utility::math::quadrature::integrateGaussQuad(densityFunc, kickBoxes[1], targetAngleRange, {order, order, order});
+
+        double kickProb = leftKickBoxProb + rightKickBoxProb;
+
+        return kickProb;
     }
 
     namespace robotmodel {

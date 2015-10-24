@@ -13,6 +13,7 @@ namespace math {
 namespace distributions {
 
     using geometry::Ellipse;
+    using nump::math::Transform2D;
 
     arma::vec2 confidenceRegion(double mean, double var, double conf, int dof = 1);
 
@@ -24,6 +25,8 @@ namespace distributions {
 
     double dnorm(arma::vec3 mean, arma::mat33 cov, arma::vec3 pos);
     arma::mat randn(int n_elem, arma::vec3 mean, arma::mat33 cov);
+
+    arma::mat33 transformToLocalDistribution(Transform2D trans, arma::mat33 transCov, Transform2D pos);
 }
 }
 }

@@ -193,6 +193,25 @@ arma::mat randn(int n_elem, arma::vec3 mean, arma::mat33 cov) {
     return arma::repmat(mean, 1, n_elem) + chol.t()*stdVals;
 }
 
+arma::mat33 transformToLocalDistribution(Transform2D trans, arma::mat33 transCov, Transform2D pos) {
+    Transform2D diff = pos - trans;
+
+    double sinTheta = std::sin(trans.angle());
+    double cosTheta = std::cos(trans.angle());
+
+    arma::mat33 J; // Jacobian of trans.worldToLocal(pos) with respect to trans.
+    J(0,0) = -cosTheta;
+    J(0,1) = -sinTheta;
+    J(0,2) = -diff.x()*sinTheta + diff.y()*cosTheta;
+    J(1,0) =  sinTheta;
+    J(1,1) = -cosTheta;
+    J(1,2) = -diff.x()*cosTheta - diff.y()*sinTheta;
+    J(2,0) = 0;
+    J(2,1) = 0;
+    J(2,2) = -1;
+
+    return J*transCov*J.t();
+}
 
 }
 }
