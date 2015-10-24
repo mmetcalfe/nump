@@ -73,6 +73,8 @@ namespace math {
         arma::vec2 getPosition()   const;
         double getRotation()       const;
         arma::vec2 getSize()       const;
+
+        bool contains(arma::vec2 pt) const;
     };
 
     namespace intersection {

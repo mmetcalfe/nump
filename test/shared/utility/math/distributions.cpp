@@ -173,9 +173,26 @@ std::vector<double> confidenceEllipsoidZRangeForXY(arma::vec2 xy, arma::vec3 cen
     return Ellipse::zRangeForXY(xy, centre, (cov*chiSquareVal).i());
 }
 
-double dnorm(arma::mat22 cov, arma::vec2 pos) {
-    return 0;
+double dnorm(arma::vec3 mean, arma::mat33 cov, arma::vec3 pos) {
+    double det = arma::det(cov);
+
+    double pi = arma::datum::pi;
+    double normaliser = std::sqrt(det*pi*pi*pi*8);
+
+    arma::vec3 diff = pos - mean;
+    arma::mat exponent = -0.5*diff.t()*cov.i()*diff;
+
+    return std::exp(exponent(0))/normaliser;
 }
+
+arma::mat randn(int n_elem, arma::vec3 mean, arma::mat33 cov) {
+    arma::mat stdVals = arma::randn(3, n_elem);
+
+    arma::mat33 chol = arma::chol(cov);
+
+    return arma::repmat(mean, 1, n_elem) + chol.t()*stdVals;
+}
+
 
 }
 }

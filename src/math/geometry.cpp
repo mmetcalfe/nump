@@ -101,6 +101,18 @@ namespace math {
         return size;
     }
 
+    bool RotatedRectangle::contains(arma::vec2 pt) const {
+        Transform2D local = transform.worldToLocal({pt, 0});
+        arma::vec2 absLocal = arma::abs(local.xy());
+
+        if (absLocal(0) > size(0)*0.5 || absLocal(1) > size(1)*0.5) {
+            return false;
+        }
+
+        return true;
+    }
+
+
     namespace intersection {
         bool test(const Circle& circle, const RotatedRectangle& rect) {
             /*

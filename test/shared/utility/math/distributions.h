@@ -22,7 +22,8 @@ namespace distributions {
 
     std::vector<double> confidenceEllipsoidZRangeForXY(arma::vec2 xy, arma::vec3 centre, arma::mat33 cov, double conf);
 
-    double dnorm(arma::mat22 cov, arma::vec2 pos);
+    double dnorm(arma::vec3 mean, arma::mat33 cov, arma::vec3 pos);
+    arma::mat randn(int n_elem, arma::vec3 mean, arma::mat33 cov);
 }
 }
 }
