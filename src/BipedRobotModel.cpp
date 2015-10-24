@@ -17,6 +17,7 @@
 namespace nump {
     typedef BipedRobotModel::State StateT;
     typedef BipedRobotModel::Control ControlT;
+    typedef numptest::SearchScenario::Config::KickBox KickBox;
 
     using nump::math::Circle;
     using nump::math::RotatedRectangle;
@@ -159,7 +160,7 @@ namespace nump {
         return Rt;
     }
 
-    bool BipedRobotModel::canKickBall(RotatedRectangle robotFootprint, Circle ball, const numptest::SearchScenario::Config::KickBox& kbConfig) {
+    bool BipedRobotModel::canKickBall(RotatedRectangle robotFootprint, Circle ball, const KickBox& kbConfig) {
         Circle localBall = {robotFootprint.transform.worldToLocal({ball.centre,0}).xy(), ball.radius};
 
         if (localBall.centre(0) < kbConfig.footFrontX + ball.radius) {
@@ -181,7 +182,7 @@ namespace nump {
         return true;
     }
 
-    bool BipedRobotModel::canKickBallAtTarget(RotatedRectangle robotFootprint, Circle ball, const numptest::SearchScenario::Config::KickBox& kbConfig, double targetAngle, double validAngleRange) {
+    bool BipedRobotModel::canKickBallAtTarget(RotatedRectangle robotFootprint, Circle ball, const KickBox& kbConfig, double targetAngle, double validAngleRange) {
         if (!canKickBall(robotFootprint, ball, kbConfig)) {
             return false;
         }
@@ -200,7 +201,38 @@ namespace nump {
         return true;
     }
 
-    std::vector<RotatedRectangle> BipedRobotModel::getLocalKickBoxes(Transform2D robot, const numptest::SearchScenario::Config::KickBox& kbConfig, double ballRadius) {
+    bool BipedRobotModel::canAlmostKickBallAtTarget(RotatedRectangle robotFootprint, Circle ball, const KickBox& kbConfig, double targetAngle, double validAngleRange) {
+        // TODO: Rewrite to call canKickBall and pass a tolerance.
+        Circle localBall = {robotFootprint.transform.worldToLocal({ball.centre,0}).xy(), ball.radius};
+
+        if (localBall.centre(0) < kbConfig.footFrontX + ball.radius) {
+            return false;
+        }
+
+        if (localBall.centre(0) > kbConfig.footFrontX + kbConfig.kickExtent + ball.radius) {
+            return false;
+        }
+
+        if (std::abs(localBall.centre(1)) > kbConfig.footSep*0.5 + kbConfig.footWidth) {
+            return false;
+        }
+
+        double minAngleRange = utility::math::angle::normalizeAngle(targetAngle - validAngleRange*0.5);
+        double maxAngleRange = utility::math::angle::normalizeAngle(targetAngle + validAngleRange*0.5);
+        double angle = utility::math::angle::normalizeAngle(robotFootprint.transform.angle());
+
+        if (utility::math::angle::signedDifference(angle, minAngleRange) < 0) {
+            return false;
+        }
+        if (utility::math::angle::signedDifference(angle, maxAngleRange) > 0) {
+            return false;
+        }
+
+        return true;
+    }
+
+
+    std::vector<RotatedRectangle> BipedRobotModel::getLocalKickBoxes(Transform2D robot, const KickBox& kbConfig, double ballRadius) {
         double kbX = kbConfig.footFrontX+ballRadius+kbConfig.kickExtent*0.5;
         double kbY = kbConfig.footSep*0.5 + kbConfig.footWidth*0.5;
         RotatedRectangle left = {{kbX, -kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}};

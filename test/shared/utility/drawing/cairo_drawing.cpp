@@ -336,6 +336,47 @@ namespace drawing {
     }
 
 
+    void drawPath(cairo_t *cr, const nump::RRBT& rrbt, std::shared_ptr<nump::RRBT::BeliefNode> goalNode) {
+        arma::vec3 colObstacle = {0.0, 0.0, 0.0};
+        arma::vec3 colRegion = {0.5, 0.5, 1};
+        arma::vec3 colInitial = {0.5, 0.5, 0.5};
+        arma::vec3 colProgress = {0.5, 0.5, 0.5};
+        arma::vec3 colSuccess = {0.5, 0.9, 0.5};
+        arma::vec3 colFailure = {0.9, 0.5, 0.5};
+        arma::vec3 colNode = {0.5, 0.5, 0.5};
+        arma::vec3 colLine = {0.0, 0.0, 0.0};
+        arma::vec3 colText = {0.0, 0.0, 1.0};
+        double alphaNormal = 0.05;
+        double lwHighlight = 0.01;
+        double lwNormal = 0.005;
+
+        if (goalNode == nullptr) {
+            return;
+        }
+
+        auto n = goalNode;
+        int depth = 0;
+        while (n != rrbt.initialBelief) {
+
+            if (!n->containingNode.lock()) {
+                break;
+            }
+
+            cairoMoveTo(cr, n->containingNode.lock()->value.state.position.head(2));
+            cairoLineTo(cr, n->parent->containingNode.lock()->value.state.position.head(2));
+            cairo_stroke(cr);
+
+            cairo_set_line_width(cr, lwHighlight);
+            drawErrorEllipse(cr, n->containingNode.lock()->value.state, n->stateCov + n->stateDistribCov, 0.95);
+            cairo_stroke(cr);
+            n = n->parent;
+            ++depth;
+            if (depth > rrbt.graph.nodes.size()) {
+                break;
+            }
+        }
+    }
+
     void drawBestPaths(cairo_t *cr, const nump::RRBT& rrbt) {
         arma::vec3 colObstacle = {0.0, 0.0, 0.0};
         arma::vec3 colRegion = {0.5, 0.5, 1};
@@ -360,29 +401,12 @@ namespace drawing {
             drawRobot(cr, goalVertex->value.state, r);
 
             for (auto goalNode : goalVertex->value.beliefNodes) {
-                auto n = goalNode;
-                int depth = 0;
-                while (n != rrbt.initialBelief) {
-
-                    if (!n->containingNode.lock()) {
-                        break;
-                    }
-
-                    cairoMoveTo(cr, n->containingNode.lock()->value.state.position.head(2));
-                    cairoLineTo(cr, n->parent->containingNode.lock()->value.state.position.head(2));
-                    cairo_stroke(cr);
-
-                    cairo_set_line_width(cr, lwHighlight);
-                    drawErrorEllipse(cr, n->containingNode.lock()->value.state, n->stateCov + n->stateDistribCov, 0.95);
-                    cairo_stroke(cr);
-                    n = n->parent;
-                    ++depth;
-                    if (depth > rrbt.graph.nodes.size()) {
-                        break;
-                    }
-                }
+                drawPath(cr, rrbt, goalNode);
             }
         }
+
+        cairoSetSourceRGBAlpha(cr, {0.8, 0, 0.8}, 0.8);
+        drawPath(cr, rrbt, rrbt.findBestGoalStateWithSuccessThreshold());
     }
 
     void drawRRBT(cairo_t *cr, const nump::RRBT& rrbt) {

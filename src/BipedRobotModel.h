@@ -17,7 +17,7 @@ namespace nump {
 
     struct BipedRobotModel {
         typedef numptest::SearchScenario::Config::KickBox KickBox;
-        
+
         struct State {
             Transform2D position;
             // Transform2D velocity;
@@ -37,6 +37,7 @@ namespace nump {
 
         static bool canKickBall(RotatedRectangle robotFootprint, Circle ball, const KickBox& kbConfig);
         static bool canKickBallAtTarget(RotatedRectangle robotFootprint, Circle ball, const KickBox& kbConfig, double targetAngle, double validAngleRange);
+        static bool canAlmostKickBallAtTarget(RotatedRectangle robotFootprint, Circle ball, const KickBox& kbConfig, double targetAngle, double validAngleRange);
 
         static std::vector<RotatedRectangle> getLocalKickBoxes(Transform2D robot, const KickBox& kbConfig, double ballRadius);
 

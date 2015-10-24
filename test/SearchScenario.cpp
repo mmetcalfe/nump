@@ -149,6 +149,7 @@ numptest::SearchScenario numptest::SearchScenario::fromFile(const std::string &f
     scenario.cfg_.ball = shapeFromYaml(scenarioYaml["ball"]);
     scenario.cfg_.targetAngle = scenarioYaml["target_angle"].as<double>();
     scenario.cfg_.targetAngleRange = scenarioYaml["target_angle_range"].as<double>();
+    scenario.cfg_.minKickProbability = scenarioYaml["min_kick_probability"].as<double>();
     scenario.cfg_.kbConfig = kickBoxConfigFromYaml(scenarioYaml["kickboxes"]);
 
     return scenario;
@@ -281,7 +282,7 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
 //    cairo_translate(cr, borderSize, borderSize);
 
     performRRBTSearch(cr, scenario_prefix);
-    performRRTsSearch(cr, scenario_prefix);
+    // performRRTsSearch(cr, scenario_prefix);
 
     std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
 

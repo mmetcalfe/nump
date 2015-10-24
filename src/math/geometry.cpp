@@ -73,6 +73,12 @@ namespace math {
         };
     }
 
+    Transform2D Transform2D::lookAt(const arma::vec2 from, arma::vec2 to) {
+       arma::vec2 vecHeading = to - from;
+       double angle = utility::math::angle::vectorToBearing(vecHeading);
+       return {from, angle};
+    }
+
     double Transform2D::x() const { return at(0); }
     double& Transform2D::x() { return at(0); }
     double Transform2D::y() const { return at(1); }

@@ -54,6 +54,8 @@ namespace numptest {
             double targetAngle; // The direction in which to kick the ball.
             double targetAngleRange; // The range of acceptable kick angles around the target angle.
 
+            double minKickProbability; // The minimum acceptable probability of a successful kick in the resulting goal state.
+
             struct KickBox {
                 double kickExtent; // The distance the front of the foot travels during a kick.
                 double footWidth; // The width of the robot's foot.

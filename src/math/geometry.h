@@ -27,11 +27,8 @@ namespace math {
 
         Transform2D(const arma::vec2 xy_, double angle_);
 
-//        static Transform2D lookAt(const arma::vec2 from, arma::vec2 to) {
-//            arma::vec2 vecHeading = to - from;
-//            double angle = vectorToBearing(vecHeading);
-//            return {from, angle};
-//        }
+       static Transform2D lookAt(const arma::vec2 from, arma::vec2 to);
+
         Transform2D localToWorld(const Transform2D& reference) const;
         Transform2D worldToLocal(const Transform2D& reference) const;
 

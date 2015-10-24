@@ -141,9 +141,17 @@ namespace nump {
             arma::wall_clock timer;
             timer.tic();
 
-            StateT xRand = TrajT::sample(scenario.mapSize);
-            bool extended = tree.extendRRBT(cr, xRand);
+            // // Random sampling:
+            // StateT xRand = TrajT::sample(scenario.mapSize);
 
+            // Grid sampling:
+            int sqrtNum = int(std::sqrt(scenario.numSamples));
+            double ix = i % sqrtNum;
+            double iy = i / sqrtNum;
+            arma::vec2 samplePos = (arma::vec2({iy, ix}) / sqrtNum) % scenario.mapSize;
+            StateT xRand = { Transform2D::lookAt(samplePos, scenario.ball.centre) };
+
+            bool extended = tree.extendRRBT(cr, xRand);
 
             double seconds = timer.toc();
             if (extended) {
@@ -434,7 +442,7 @@ namespace nump {
         graph.nodes.push_back(vRand);
 
         // If the new node is a goal node, add it to the set of goal nodes:
-        if (RobotModel::canKickBallAtTarget(
+        if (RobotModel::canAlmostKickBallAtTarget(
                 {vRand->value.state.position, scenario.footprintSize},
                 scenario.ball,
                 scenario.kbConfig,
@@ -530,6 +538,43 @@ namespace nump {
         }
 
         return true;
+    }
+
+
+    std::shared_ptr<BeliefNode> RRBT::findBestGoalStateWithSuccessThreshold() const {
+        std::shared_ptr<BeliefNode> bestNode = nullptr;
+        double bestCost = arma::datum::inf;
+        double bestProb = 0;
+
+        for (auto weakGoalVertex : goalVertices) {
+            auto goalVertex = weakGoalVertex.lock();
+            const auto& state = goalVertex->value.state;
+
+            for (auto goalNode : goalVertex->value.beliefNodes) {
+                double prob = RobotModel::kickSuccessProbability(
+                    state.position,
+                    goalNode->stateCov + goalNode->stateDistribCov,
+                    scenario.kbConfig,
+                    scenario.ball,
+                    scenario.targetAngle,
+                    scenario.targetAngleRange
+                );
+
+                std::cout << "prob: " << prob << std::endl;
+
+                if (prob < scenario.minKickProbability) {
+                    continue;
+                } else if (goalNode->cost < bestCost) {
+                    bestNode = goalNode;
+                    bestCost = goalNode->cost;
+                    bestProb = prob;
+                }
+            }
+        }
+
+        std::cout << "bestProb: " << bestProb << std::endl;
+
+        return bestNode;
     }
 
 }
