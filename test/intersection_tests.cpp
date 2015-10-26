@@ -64,8 +64,8 @@ double gaussianQuadrature(cairo_t* cr, std::function<double(arma::vec3)> func, R
 
                 sum += ci*ck*cj*f;
 
-                utility::drawing::drawCircle(cr, {{x, y}, 0.01});
-                cairo_stroke(cr);
+                utility::drawing::drawCircle(cr, {{x, y}, 0.007});
+                cairo_fill(cr);
             }
         }
     }
@@ -85,25 +85,25 @@ void drawKickBoxes(cairo_t *cr, Transform2D robot, const numptest::SearchScenari
 }
 
 void kickProbabilityTests(cairo_t *cr) {
+    Transform2D robot = {0.333, 0.5, 0.5};
+    arma::mat33 stateCov = {
+            { 0.0005, 0, 0},
+            { 0, 0.005, 0},
+            { 0, 0, 0.2}
+    };
+    Circle ball = {{0.5, 0.666}, 0.065};
+
     // Transform2D robot = {0.333, 0.5, 0.5};
+    // double vxy = 0.002;
+    // double vxt = 0.004;
+    // double vyt = 0.01;
     // arma::mat33 stateCov = {
-    //         { 0.001, 0, 0},
-    //         { 0, 0.005, 0},
-    //         { 0, 0, 0.05}
+    //         { 0.003, vxy, vxt},
+    //         { vxy, 0.007, vyt},
+    //         { vxt, vyt, 0.02}
     // };
     // Circle ball = {{0.5, 0.666}, 0.065};
 
-    Transform2D robot = {0.333, 0.5, 0.5};
-    double vxy = 0.002;
-    double vxt = 0.004;
-    double vyt = 0.01;
-    arma::mat33 stateCov = {
-            { 0.003, vxy, vxt},
-            { vxy, 0.007, vyt},
-            { vxt, vyt, 0.02}
-    };
-
-    Circle ball = {{0.5, 0.666}, 0.065};
     // double targetAngle = -1;
     double targetAngle = 0;
     double targetAngleRange = arma::datum::pi/3;
@@ -120,99 +120,108 @@ void kickProbabilityTests(cairo_t *cr) {
         0.06, // footFrontX
     };
 
-    arma::vec3 globalCol = arma::normalise(arma::vec(arma::randu(3)));
-    arma::vec3 localCol = arma::normalise(arma::vec(arma::randu(3)));
-    arma::vec3 quadCol = arma::normalise(arma::vec(arma::randu(3)));
+    // Diagram settings:
+    arma::vec3 globalCol = {0.122,0.427,0.482}; //arma::normalise(arma::vec(arma::randu(3)));
+    arma::vec3 localCol = {235/255.0, 129/255.0, 27/255.0};// arma::normalise(arma::vec(arma::randu(3)));
+    arma::vec3 quadCol = {0.922,0.2,0.106}; //arma::normalise(arma::vec(arma::randu(3)));
+    arma::vec3 sampleCol = {0.7, 0.7, 0.7}; //arma::normalise(arma::vec(arma::randu(3)));
+    arma::vec3 successCol = {0.0, 0.0, 0.0}; //arma::normalise(arma::vec(arma::randu(3)));
+    int maxSamplesToDraw = 4000;
+    double lwGlobal = 0.015;
+    double lwLocal = 0.005;
+    double sampleDrawSize = 0.01;
+
+    // Draw samples:
+    Transform2D globalBallTarget = {ball.centre, targetAngle};
+    Transform2D localBallTarget = robot.worldToLocal(globalBallTarget);
+    arma::mat33 localBallTargetCov = utility::math::distributions::transformToLocalDistribution(robot, stateCov, globalBallTarget);
+    Ellipse localConfEllipse = utility::math::distributions::confidenceRegion(localBallTarget.xy(), localBallTargetCov.submat(0,0,1,1), 0.95, 3);
+
+    auto kickBoxes = BipedRobotModel::getLocalKickBoxes(robot, kbConfig, ball.radius);
+
+    {
+        cairo_save(cr);
+        utility::drawing::cairoTransformToLocal(cr, robot);
+        int numSamples = 1000000;
+        int numLocalSamples = numSamples;
+        int numHitsLeftLocal = 0;
+        int numHitsRightLocal = 0;
+        arma::mat localSamples = utility::math::distributions::randn(numLocalSamples, localBallTarget, localBallTargetCov);
+        for (int i = 0; i < arma::size(localSamples)(1); i++) {
+            utility::drawing::cairoSetSourceRGB(cr, sampleCol);
+            Transform2D pt = localSamples.col(i);
+            if (std::abs(pt.angle()) < 0.5*targetAngleRange) {
+                if (kickBoxes[0].contains(pt.xy())) {
+                    utility::drawing::cairoSetSourceRGB(cr, successCol);
+                    numHitsLeftLocal += 1;
+                } else if (kickBoxes[1].contains(pt.xy())) {
+                    utility::drawing::cairoSetSourceRGB(cr, successCol);
+                    numHitsRightLocal += 1;
+                }
+            }
+            // utility::drawing::drawRobot(cr, pt, lwGlobal);
+            // // cairo_fill(cr);
+        }
+        std::cout << "approxLeftKickBoxProbLocal: " << numHitsLeftLocal/double(numLocalSamples) << std::endl;
+        std::cout << "approxRightKickBoxProbLocal: " << numHitsRightLocal/double(numLocalSamples) << std::endl;
+        std::cout << "approxKickBoxProbLocal: " << (numHitsRightLocal + numHitsLeftLocal)/double(numLocalSamples) << std::endl;
+
+        int numGlobalSamples = numSamples;
+        int numHitsLeftGlobal = 0;
+        int numHitsRightGlobal = 0;
+        arma::mat globalSamples = utility::math::distributions::randn(numGlobalSamples, robot, stateCov);
+        for (int i = 0; i < arma::size(globalSamples)(1); i++) {
+            utility::drawing::cairoSetSourceRGB(cr, sampleCol);
+            Transform2D sampleRobot = globalSamples.col(i);
+            // Transform2D localSampleRobot = robot.worldToLocal(sampleRobot);
+            Transform2D pt = sampleRobot.worldToLocal(globalBallTarget); // sampleRobotLocalBallTarget
+            if (std::abs(pt.angle()) < 0.5*targetAngleRange) {
+                if (kickBoxes[0].contains(pt.xy())) {
+                    utility::drawing::cairoSetSourceRGB(cr, successCol);
+                    numHitsLeftGlobal += 1;
+                } else if (kickBoxes[1].contains(pt.xy())) {
+                    utility::drawing::cairoSetSourceRGB(cr, successCol);
+                    numHitsRightGlobal += 1;
+                }
+            }
+
+            if (i < maxSamplesToDraw) {
+                utility::drawing::drawRobot(cr, pt, sampleDrawSize);
+                // utility::drawing::drawRobot(cr, localSampleRobot, 0.01);
+                // // cairo_fill(cr);
+            }
+        }
+        std::cout << "approxLeftKickBoxProbGlobal: " << numHitsLeftGlobal/double(numGlobalSamples) << std::endl;
+        std::cout << "approxRightKickBoxProbGlobal: " << numHitsRightGlobal/double(numGlobalSamples) << std::endl;
+        std::cout << "approxKickBoxProbGlobal: " << (numHitsRightGlobal + numHitsLeftGlobal)/double(numGlobalSamples) << std::endl;
+        cairo_restore(cr);
+    }
 
     // Draw footprint and confidence ellipse:
     utility::drawing::cairoSetSourceRGB(cr, globalCol);
-    cairo_set_line_width(cr, 0.01);
+    cairo_set_line_width(cr, lwGlobal);
     drawKickBoxes(cr, robot, kbConfig, ball.radius);
     utility::drawing::drawRotatedRectangle(cr, robotFootprint);
     utility::drawing::drawEllipse(cr, confEllipseXY);
     cairo_stroke(cr);
 
     // Draw global ball:
-    cairo_set_line_width(cr, 0.01);
+    cairo_set_line_width(cr, lwGlobal);
     utility::drawing::drawCircle(cr, ball);
 
     arma::vec2 target = {std::cos(targetAngle), std::sin(targetAngle)};
     arma::vec2 minTarget = {std::cos(targetAngle-0.5*targetAngleRange), std::sin(targetAngle-0.5*targetAngleRange)};
     arma::vec2 maxTarget = {std::cos(targetAngle+0.5*targetAngleRange), std::sin(targetAngle+0.5*targetAngleRange)};
-    utility::drawing::drawLine(cr, ball.centre, ball.centre+target);
+    // utility::drawing::drawLine(cr, ball.centre, ball.centre+target);
     utility::drawing::drawLine(cr, ball.centre, ball.centre+minTarget);
     utility::drawing::drawLine(cr, ball.centre, ball.centre+maxTarget);
     cairo_stroke(cr);
 
     // Draw local ball and confidence:
     utility::drawing::cairoSetSourceRGB(cr, localCol);
-    cairo_set_line_width(cr, 0.005);
+    cairo_set_line_width(cr, lwLocal);
     cairo_save(cr);
         utility::drawing::cairoTransformToLocal(cr, robot);
-
-        Transform2D globalBallTarget = {ball.centre, targetAngle};
-        Transform2D localBallTarget = robot.worldToLocal(globalBallTarget);
-        arma::mat33 localBallTargetCov = utility::math::distributions::transformToLocalDistribution(robot, stateCov, globalBallTarget);
-        Ellipse localConfEllipse = utility::math::distributions::confidenceRegion(localBallTarget.xy(), localBallTargetCov.submat(0,0,1,1), 0.95, 3);
-
-        auto kickBoxes = BipedRobotModel::getLocalKickBoxes(robot, kbConfig, ball.radius);
-
-        {
-            int numSamples = 1000000;
-            cairo_save(cr);
-            int numLocalSamples = numSamples;
-            int numHitsLeftLocal = 0;
-            int numHitsRightLocal = 0;
-            arma::mat localSamples = utility::math::distributions::randn(numLocalSamples, localBallTarget, localBallTargetCov);
-            for (int i = 0; i < arma::size(localSamples)(1); i++) {
-                utility::drawing::cairoSetSourceRGB(cr, {0, 0, 0});
-                Transform2D pt = localSamples.col(i);
-                if (std::abs(pt.angle()) < 0.5*targetAngleRange) {
-                    if (kickBoxes[0].contains(pt.xy())) {
-                        utility::drawing::cairoSetSourceRGB(cr, {1, 0, 0});
-                        numHitsLeftLocal += 1;
-                    } else if (kickBoxes[1].contains(pt.xy())) {
-                        utility::drawing::cairoSetSourceRGB(cr, {1, 0, 0});
-                        numHitsRightLocal += 1;
-                    }
-                }
-                // utility::drawing::drawRobot(cr, pt, 0.01);
-                // // cairo_fill(cr);
-            }
-            std::cout << "approxLeftKickBoxProbLocal: " << numHitsLeftLocal/double(numLocalSamples) << std::endl;
-            std::cout << "approxRightKickBoxProbLocal: " << numHitsRightLocal/double(numLocalSamples) << std::endl;
-            std::cout << "approxKickBoxProbLocal: " << (numHitsRightLocal + numHitsLeftLocal)/double(numLocalSamples) << std::endl;
-
-            int numGlobalSamples = numSamples;
-            int numHitsLeftGlobal = 0;
-            int numHitsRightGlobal = 0;
-            arma::mat globalSamples = utility::math::distributions::randn(numGlobalSamples, robot, stateCov);
-            for (int i = 0; i < arma::size(globalSamples)(1); i++) {
-                utility::drawing::cairoSetSourceRGB(cr, {0, 0, 0});
-                Transform2D sampleRobot = globalSamples.col(i);
-                // Transform2D localSampleRobot = robot.worldToLocal(sampleRobot);
-                Transform2D pt = sampleRobot.worldToLocal(globalBallTarget); // sampleRobotLocalBallTarget
-                if (std::abs(pt.angle()) < 0.5*targetAngleRange) {
-                    if (kickBoxes[0].contains(pt.xy())) {
-                        utility::drawing::cairoSetSourceRGB(cr, {1, 0, 0});
-                        numHitsLeftGlobal += 1;
-                    } else if (kickBoxes[1].contains(pt.xy())) {
-                        utility::drawing::cairoSetSourceRGB(cr, {1, 0, 0});
-                        numHitsRightGlobal += 1;
-                    }
-                }
-
-                if (i < 10000) {
-                    utility::drawing::drawRobot(cr, pt, 0.01);
-                    // utility::drawing::drawRobot(cr, localSampleRobot, 0.01);
-                    // // cairo_fill(cr);
-                }
-            }
-            std::cout << "approxLeftKickBoxProbGlobal: " << numHitsLeftGlobal/double(numGlobalSamples) << std::endl;
-            std::cout << "approxRightKickBoxProbGlobal: " << numHitsRightGlobal/double(numGlobalSamples) << std::endl;
-            std::cout << "approxKickBoxProbGlobal: " << (numHitsRightGlobal + numHitsLeftGlobal)/double(numGlobalSamples) << std::endl;
-            cairo_restore(cr);
-        }
 
         auto densityFunc = [=](auto x){ return utility::math::distributions::dnorm(localBallTarget, localBallTargetCov, x); };
         // auto densityFunc = [=](auto x){ return 1; }; //utility::math::distributions::dnorm(localBallTarget, localBallTargetCov, x); };
@@ -233,6 +242,7 @@ void kickProbabilityTests(cairo_t *cr) {
         utility::drawing::cairoSetSourceRGB(cr, localCol);
         utility::drawing::drawCircle(cr, {localBallTarget.xy(), ball.radius});
         utility::drawing::drawEllipse(cr, localConfEllipse);
+        utility::drawing::drawRotatedRectangle(cr, {{0,0,0}, robotFootprint.size});
         utility::drawing::drawRotatedRectangle(cr, kickBoxes[0]);
         utility::drawing::drawRotatedRectangle(cr, kickBoxes[1]);
         cairo_stroke(cr);
@@ -240,13 +250,11 @@ void kickProbabilityTests(cairo_t *cr) {
         arma::vec2 localTarget = {std::cos(localBallTarget.angle()), std::sin(localBallTarget.angle())};
         arma::vec2 localMinTarget = {std::cos(localBallTarget.angle()-0.5*targetAngleRange), std::sin(localBallTarget.angle()-0.5*targetAngleRange)};
         arma::vec2 localMaxTarget = {std::cos(localBallTarget.angle()+0.5*targetAngleRange), std::sin(localBallTarget.angle()+0.5*targetAngleRange)};
-        utility::drawing::drawLine(cr, localBallTarget.xy(), localBallTarget.xy()+localTarget);
+        // utility::drawing::drawLine(cr, localBallTarget.xy(), localBallTarget.xy()+localTarget);
         utility::drawing::drawLine(cr, localBallTarget.xy(), localBallTarget.xy()+localMinTarget);
         utility::drawing::drawLine(cr, localBallTarget.xy(), localBallTarget.xy()+localMaxTarget);
         cairo_stroke(cr);
     cairo_restore(cr);
-
-
 
     std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
 }

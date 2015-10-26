@@ -11,11 +11,11 @@
 #include "shared/utility/drawing/cairo_drawing.h"
 #include "shared/utility/math/geometry/Ellipse.h"
 #include "shared/utility/math/geometry/intersection/Intersection.h"
+#include "shared/utility/math/angle.h"
 #include "tests.h"
 
 using utility::math::geometry::Ellipse;
-using utility::drawing::drawSearchTree;
-using utility::drawing::drawRRBT;
+// using utility::drawing::drawRRBT;
 using utility::drawing::fillCircle;
 using nump::math::Transform2D;
 using nump::math::Circle;
@@ -39,20 +39,40 @@ void trajectoryTests() {
 
     double size = 0.2;
 
-    nump::SearchTree::StateT x1 = {{0.5, 0.5, 1.5*M_PI}}; //nump::SearchTree::TrajT::sample();
-//    arma::vec2 x1 = {0.5, 0.5}; //nump::SearchTree::TrajT::sample();
+    nump::RRBT::StateT x1 = {{0.5, 0.5, 1.5*M_PI}}; //nump::RRBT::TrajT::sample();
+//    arma::vec2 x1 = {0.5, 0.5}; //nump::RRBT::TrajT::sample();
 
     utility::drawing::cairoSetSourceRGB(cr, {0.5, 0.5, 0.5});
     utility::drawing::drawRobot(cr, x1.position, size);
 
-    int numTrials = 10;
+    int numTrials = 12;
     int numSteps = 200;
     for (int i = 0; i < numTrials; i++) {
+        double t = i / double(numTrials);
         arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
 
-//        Transform2D x1 = nump::SearchTree::TrajT::sample();
-        nump::SearchTree::StateT x2 = nump::SearchTree::TrajT::sample({1, 1});
-        nump::SearchTree::TrajT x = nump::SearchTree::steer(x1, x2);
+//        Transform2D x1 = nump::RRBT::TrajT::sample();
+        // nump::RRBT::StateT x2 = nump::RRBT::TrajT::sample({1, 1});
+        nump::RRBT::StateT x2;
+        arma::vec2 dirVec = utility::math::angle::bearingToUnitVector(2*arma::datum::pi*t);
+        double targetHeading = 0;
+        double targetDist = 0.4;
+        switch (i % 3) {
+            case 1:
+                targetDist *= 1;
+                targetHeading = 0;
+                break;
+            case 2:
+                targetDist *= 0.9;
+                targetHeading = arma::datum::pi*0.25;
+                break;
+            default:
+                targetDist *= 0.8;
+                targetHeading = arma::datum::pi*0.5;
+                break;
+        }
+        x2.position = x1.position + Transform2D({targetDist*dirVec, targetHeading});
+        nump::RRBT::TrajT x = nump::RRBT::steer(x1, x2);
 
 
 //        utility::drawing::cairoSetSourceRGB(cr, col * 0.5);
@@ -78,7 +98,7 @@ void trajectoryTests() {
 
         double timeStep = size*0.25;
         for (double t = 0; t < x.t; t += timeStep) {
-            nump::SearchTree::StateT pos = x(t);
+            nump::RRBT::StateT pos = x(t);
 
             utility::drawing::cairoSetSourceRGBAlpha(cr, pathCol, 0.5);
             utility::drawing::drawRobot(cr, pos.position, size * 0.2);

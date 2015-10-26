@@ -272,12 +272,14 @@ namespace nump {
             double wcAngle = utility::math::angle::signedDifference(dir, currentState.angle());
             int angleSign = (wcAngle < 0) ? -1 : 1;
 
+            double walk_far_translation_speed = 1;
             double walk_far_rotation_speed = 5;
+
             double rotationSpeed = angleSign * walk_far_rotation_speed;
+            double forwardSpeed = std::cos(wcAngle) * walk_far_translation_speed;
 
-
-            return {std::max(0.0, std::cos(wcAngle)), 0, rotationSpeed};
-        //        return {1, 0, rotationSpeed};
+            return {std::max(0.0, forwardSpeed), 0, rotationSpeed};
+            //    return {1, 0, rotationSpeed};
         }
 
         Transform2D walkBetweenNear(const Transform2D& currentState, const Transform2D& targetState) {
@@ -307,8 +309,9 @@ namespace nump {
         //    double blend = std::max(0.0, std::min(1.0, (dist - nearDist) / (farDist - nearDist)));
         //    return blend * walkBetweenFar(x1, x2) + (1 - blend) * walkBetweenNear(x1, x2);
 
-        //        if (dist > 0.2) {
-            if (dist > 0.2 && std::abs(targetAngle) < M_PI*0.25) { // TODO: Choose walkBetweenFar as long as it satisfies the topological property.
+            // TODO: Choose walkBetweenFar as long as it satisfies the topological property.
+            // if (dist > 0.2 && std::abs(targetAngle) < M_PI*0.5) {
+            if (dist > 0.2) {
                 return walkBetweenFar(x1, x2);
             } else {
                 return walkBetweenNear(x1, x2);
@@ -351,28 +354,49 @@ namespace nump {
         traj.t = 0;
 
         int maxSteps = 1000;
-        double maxTimeStep = 0.02;
-        double minTimeStep = maxTimeStep * 0.05;
-        double goalThreshold = 0.005;
-        double closeThreshold = goalThreshold * 100;
+        double maxTimeStep = 0.01;
+        double minTimeStep = maxTimeStep * 1;
+
+        double goalAngleTolerance = arma::datum::pi/32;
+        double goalDistanceTolerance = 0.005;
+
+        double closeAngleThreshold = maxTimeStep * 1;
+        double closeDistanceThreshold = maxTimeStep * 1;
 
         Transform2D pos = xInit.position;
 
         double totalTime = 0;
         for (int numSteps = 0; numSteps < maxSteps; numSteps++) {
-            double timeStep = (arma::norm(pos - xGoal.position) < closeThreshold) ? minTimeStep : maxTimeStep;
+            Transform2D diff = arma::abs(pos - xGoal.position);
+            diff.angle() = std::abs(utility::math::angle::normalizeAngle(diff.angle()));
 
-            pos = pos.localToWorld(robotmodel::walkBetween(pos, xGoal.position) * timeStep);
-
-            totalTime += timeStep;
-            traj.t = totalTime; // TODO: Consider removing.
-
-            double goalDist = arma::norm(pos - xGoal.position);
-            if (goalDist < goalThreshold) {
+            // If we have reached the goal, return.
+            bool angleGoalAchieved = diff.angle() < goalAngleTolerance;
+            bool positionGoalAchieved = arma::norm(diff.xy()) < goalDistanceTolerance;
+            if (angleGoalAchieved && positionGoalAchieved) {
                 traj.t = totalTime;
                 traj.reachesTarget = true;
                 break;
             }
+
+            double timeStep = maxTimeStep;
+            if (arma::norm(diff.xy()) < closeDistanceThreshold || diff.angle() < closeAngleThreshold) {
+                timeStep = minTimeStep;
+            }
+
+            Transform2D control = robotmodel::walkBetween(pos, xGoal.position);
+
+            arma::vec3 timeSteps = arma::abs(arma::vec3 {
+                diff.x() / control.x(),
+                diff.y() / control.y(),
+                diff.angle() / control.angle(),
+            });
+            pos = pos.localToWorld(control * std::min(timeStep, arma::max(timeSteps)));
+            // pos = pos.localToWorld(control * std::min(std::min(timeSteps(0), timeSteps(1)), std::min(timeSteps(2), timeSteps(3))));
+            // pos = pos.localToWorld(control * timeStep);
+
+            totalTime += timeStep;
+            traj.t = totalTime; // TODO: Consider removing.
         }
 
         return traj;
