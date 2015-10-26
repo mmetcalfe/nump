@@ -91,15 +91,17 @@ namespace drawing {
         cairo_close_path(cr);
     }
 
-    void drawRobot(cairo_t *cr, arma::vec2 pos, double size) {
+    void drawRobot(cairo_t *cr, arma::vec2 pos, double size, bool noFill) {
         double radius = 1.5 * size*0.15;
         cairo_save(cr);
         cairo_arc(cr, pos(0), pos(1), radius, -M_PI, M_PI);
-        cairo_fill(cr);
+        if (!noFill) {
+            cairo_fill(cr);
+        }
         cairo_restore(cr);
     }
 
-    void drawRobot(cairo_t *cr, Transform2D trans, double size) {
+    void drawRobot(cairo_t *cr, Transform2D trans, double size, bool noFill) {
         double radius = 1.5 * size*0.15;
         double length = 1.5 * size*0.4;
 
@@ -117,7 +119,9 @@ namespace drawing {
         cairo_arc_negative(cr, 0, 0, radius, -angle, angle);
         cairo_close_path(cr);
 
-        cairo_fill(cr);
+        if (!noFill) {
+            cairo_fill(cr);
+        }
 
         cairo_restore(cr);
     }

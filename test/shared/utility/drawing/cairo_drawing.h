@@ -55,8 +55,8 @@ namespace drawing {
 
     void drawSearchTree(cairo_t *cr, const nump::SearchTree& searchTree);
 
-    void drawRobot(cairo_t *cr, Transform2D trans, double size);
-    void drawRobot(cairo_t *cr, arma::vec2 pos, double size);
+    void drawRobot(cairo_t *cr, Transform2D trans, double size, bool noFill = false);
+    void drawRobot(cairo_t *cr, arma::vec2 pos, double size, bool noFill = false);
     void drawRobot(cairo_t *cr, Transform2D trans, double size, arma::vec2 footprintSize);
 
     void drawRRBT(cairo_t *cr, const nump::RRBT& rrbt);
