@@ -3,6 +3,7 @@
 //
 
 #include "math/geometry.h"
+#include <list>
 
 #ifndef NUMP_TRAJECTORY_H
 #define NUMP_TRAJECTORY_H
@@ -62,6 +63,28 @@ namespace nump {
         };
 
         TrajectoryWalker walk(double timeStep) const;
+    };
+
+    template <class StateT>
+    struct Path {
+        typedef Trajectory<StateT> TrajT;
+        std::list<TrajT> segments;
+
+        struct Walker {
+            typename std::list<TrajT>::const_iterator currentSegment;
+            typename std::list<TrajT>::const_iterator endSegment;
+            typename TrajT::TrajectoryWalker currentWalker;
+            double t = 0;
+            double timeStep = 0;
+
+            void stepTo(double t);
+            void stepBy(double deltaT);
+            arma::vec2 currentControl();
+            StateT currentState();
+            bool isFinished();
+        };
+
+        Walker walk(double timeStep) const;
     };
 }
 

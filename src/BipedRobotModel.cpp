@@ -430,41 +430,41 @@ namespace nump {
     //     double finishTime = 0;
 
         // Modifies the trajectory to advance its initial state by a single step of t seconds.
-        template <>
-        StateT Trajectory<StateT>::TrajectoryWalker::getNext(const StateT& current) const {
-            Transform2D pos = current.position;
-            pos = pos.localToWorld(robotmodel::walkBetween(pos, xGoal.position) * timeStep);
-            return StateT { pos };
-        }
-        template <>
-        void Trajectory<StateT>::TrajectoryWalker::stepBy() {
-            xCurrent = xNext;
-            xNext = getNext(xCurrent);
-            t += timeStep;
-        }
-        template <>
-        arma::vec2 Trajectory<StateT>::TrajectoryWalker::currentControl() {
-            Transform2D velTraj = xNext.position - xCurrent.position;
-            double angleDiff = utility::math::angle::signedDifference(xNext.position.angle(), xCurrent.position.angle());
-            ControlT controlTraj = {
-                arma::norm(velTraj.xy()) / timeStep,
-                angleDiff / timeStep
-            };
+    template <>
+    StateT Trajectory<StateT>::TrajectoryWalker::getNext(const StateT& current) const {
+        Transform2D pos = current.position;
+        pos = pos.localToWorld(robotmodel::walkBetween(pos, xGoal.position) * timeStep);
+        return StateT { pos };
+    }
+    template <>
+    void Trajectory<StateT>::TrajectoryWalker::stepBy() {
+        xCurrent = xNext;
+        xNext = getNext(xCurrent);
+        t += timeStep;
+    }
+    template <>
+    arma::vec2 Trajectory<StateT>::TrajectoryWalker::currentControl() {
+        Transform2D velTraj = xNext.position - xCurrent.position;
+        double angleDiff = utility::math::angle::signedDifference(xNext.position.angle(), xCurrent.position.angle());
+        ControlT controlTraj = {
+            arma::norm(velTraj.xy()) / timeStep,
+            angleDiff / timeStep
+        };
 
-            return controlTraj;
-        }
-        template <>
-        StateT Trajectory<StateT>::TrajectoryWalker::currentState() {
-            return xCurrent;
-        }
-        template <>
-        double Trajectory<StateT>::TrajectoryWalker::currentTime() {
-            return t;
-        }
-        template <>
-        bool Trajectory<StateT>::TrajectoryWalker::isFinished() {
-            return t >= finishTime - timeStep*0.5;
-        }
+        return controlTraj;
+    }
+    template <>
+    StateT Trajectory<StateT>::TrajectoryWalker::currentState() {
+        return xCurrent;
+    }
+    template <>
+    double Trajectory<StateT>::TrajectoryWalker::currentTime() {
+        return t;
+    }
+    template <>
+    bool Trajectory<StateT>::TrajectoryWalker::isFinished() {
+        return t >= finishTime - timeStep*0.5;
+    }
 
     template <>
     Trajectory<StateT>::TrajectoryWalker Trajectory<StateT>::walk(double timeStep) const {
@@ -478,5 +478,54 @@ namespace nump {
         walker.xNext = walker.getNext(xInit);
 
         return walker;
+    }
+
+    template <>
+    Path<StateT>::Walker Path<StateT>::walk(double timeStep) const {
+        Path<StateT>::Walker walker;
+
+        walker.currentSegment = segments.begin();
+        walker.endSegment = segments.end();
+        walker.currentWalker = walker.currentSegment->walk(timeStep);
+        walker.t = 0;
+        walker.timeStep = timeStep;
+
+        return walker;
+    }
+
+    template <>
+    arma::vec2 Path<StateT>::Walker::currentControl() {
+        return currentWalker.currentControl();
+    }
+    template <>
+    StateT Path<StateT>::Walker::currentState() {
+        return currentWalker.currentState();
+    }
+    template <>
+    bool Path<StateT>::Walker::isFinished() {
+        return currentSegment == endSegment;
+    }
+
+    template <>
+    void Path<StateT>::Walker::stepTo(double targetTime) {
+        while (t < targetTime) {
+            if (currentWalker.isFinished()) {
+                ++currentSegment;
+                if (isFinished()) {
+                    return;
+                } else {
+                    currentWalker = currentSegment->walk(timeStep);
+                }
+            }
+
+            currentWalker.stepBy();
+
+            t += timeStep;
+        }
+    }
+
+    template <>
+    void Path<StateT>::Walker::stepBy(double deltaT) {
+        stepTo(t+deltaT);
     }
 }

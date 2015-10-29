@@ -71,6 +71,9 @@ namespace numptest {
         void performRRTsSearch(cairo_t* cr, const std::string& scenario_prefix);
         void execute(const std::string& scenario_prefix);
 
+        void simulate(cairo_t* cr);
+
+
         static SearchScenario fromFile(const std::string& file_path);
     };
 

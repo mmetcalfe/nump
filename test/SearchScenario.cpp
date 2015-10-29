@@ -20,6 +20,7 @@ using utility::drawing::drawRRBT;
 using utility::drawing::fillCircle;
 using nump::math::Transform2D;
 using nump::math::Circle;
+using nump::BipedRobotModel;
 
 arma::arma_rng::seed_type randomSeed() {
     arma::arma_rng::set_seed_random();
@@ -257,6 +258,78 @@ void numptest::SearchScenario::performRRTsSearch(cairo_t* cr, const std::string&
     //  writeDataFile(scenario_prefix + "_iteration_times.dat", rrtsTree.iterationTimes);
 }
 
+
+void numptest::SearchScenario::simulate(cairo_t* cr) {
+    // Obtain a nominal path using a planning algorithm:
+    auto rrtsTree = nump::SearchTree::fromRRTs(cfg_, cr);
+
+
+    nump::Path<BipedRobotModel::State> nominalPath;
+    auto goalNode = rrtsTree.createValidNodeForState({cfg_.goalState});
+    if (goalNode) {
+        auto zNearby = rrtsTree.nearVertices(goalNode, rrtsTree.tree.nodes.size());
+        rrtsTree.optimiseParent(goalNode, zNearby);
+        for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
+            nominalPath.segments.push_front(pathNode->value.traj);
+        }
+    }
+
+    // Draw the nominal path:
+    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
+    drawSearchTree(cr, rrtsTree);
+    // drawPath(nominalPath);
+
+    cairo_set_source_rgb(cr, 0.2, 0.5, 0.8);
+    double walkTime = 0;
+    for (auto walker = nominalPath.walk(0.01); !walker.isFinished(); walker.stepBy(0.01)) {
+        auto state = walker.currentState();
+        utility::drawing::drawRobot(cr, state.position, 0.05, true);
+    }
+    cairo_fill(cr);
+
+    // Simulate the robot following the path:
+
+    Transform2D robot = cfg_.initialState;
+
+    std::vector<Transform2D> simulationStates = {robot};
+
+    double timeStep = 0.1;
+    double timeLimit = 5 * 60; // The robot must kick the ball within 5 minutes.
+    for (double currentTime = 0; currentTime < timeLimit; currentTime += timeStep) {
+        // Make observations to update the state estimate:
+
+        // Obtain desired state and control for the current time from the path:
+        // walker.stepTo(currentTime);
+        // Transform2D desiredState = walker.currentState();
+        // Transform2D nominalControl = walker.currentControl();
+
+        // Use state estimate and stabiliser to enhance the desired control to correct current error:
+        // Transform2D lqrControl =
+
+        // Add noise to obtain actual control:
+        // arma::mat33 motionCov = BipedRobotModel::motionNoiseCovariance();
+        // Transform2D actualControl = utility::math::distributions::randn(1, lqrControl, motionCov);
+        Transform2D actualControl = {1, 0, 0};
+
+        // Apply the actual control to the robot to obtain the new state:
+        robot = robot.localToWorld(actualControl * timeStep);
+
+        // Record the new state of the robot:
+        simulationStates.push_back(robot);
+
+        // Check whether the robot has succeeded or failed the test:
+    }
+
+    // Draw the robot's actual path:
+    cairo_set_source_rgb(cr, 0.8, 0.5, 0.2);
+    for (auto& state : simulationStates) {
+        utility::drawing::drawRobot(cr, state, 0.05, true);
+    }
+    cairo_fill(cr);
+
+    cairo_show_page(cr);
+}
+
 void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
     arma::arma_rng::set_seed(cfg_.seed);
     std::cout << "SEED: " << cfg_.seed << std::endl;
@@ -281,7 +354,8 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
 //    cairo_scale(cr, centeredFrac, centeredFrac);
 //    cairo_translate(cr, borderSize, borderSize);
 
-    performRRBTSearch(cr, scenario_prefix);
+    simulate(cr);
+    // performRRBTSearch(cr, scenario_prefix);
     // performRRTsSearch(cr, scenario_prefix);
 
     std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;

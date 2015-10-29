@@ -256,19 +256,33 @@ namespace drawing {
             showText(cr, state.position.rows(0, 1), r*0.15, node->value.cost);
         }
 
-//        // Draw optimal path:
-//        auto goalNode = searchTree.createValidNodeForState(searchTree.scenario.initialState);
-//        if (goalNode) {
-//            cairoSetSourceRGBAlpha(cr, {0, 0.7, 0}, 0.8);
-//            auto zNearby = searchTree.nearVertices(goalNode, tree.nodes.size());
-//            searchTree.optimiseParent(goalNode, zNearby);
-//            for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
-//                drawRobot(cr, pathNode->value.state, r);
-//                drawNodeTrajectoryPoints(cr, pathNode->value.traj, r * 0.5);
-//            }
-//        }
+       // Draw optimal path:
+       auto goalNode = searchTree.createValidNodeForState({searchTree.scenario.goalState});
+       if (goalNode) {
+           cairoSetSourceRGBAlpha(cr, {0, 0.7, 0}, 0.8);
+           auto zNearby = searchTree.nearVertices(goalNode, tree.nodes.size());
+           searchTree.optimiseParent(goalNode, zNearby);
+           for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
+               drawRobot(cr, pathNode->value.state, r);
+               drawNodeTrajectoryPoints(cr, pathNode->value.traj, r * 0.5);
+           }
+       }
 
-        cairo_restore(cr);
+
+       double lwNormal = 0.01;
+       cairo_set_source_rgb(cr, 0.5, 1, 0.5);
+       cairo_set_line_width(cr, lwNormal);
+       // drawRobot(cr, rrbt.scenario.goalState, r);
+       arma::vec2 target = {std::cos(searchTree.scenario.targetAngle), std::sin(searchTree.scenario.targetAngle)};
+       arma::vec2 minTarget = {std::cos(searchTree.scenario.targetAngle-0.5*searchTree.scenario.targetAngleRange), std::sin(searchTree.scenario.targetAngle-0.5*searchTree.scenario.targetAngleRange)};
+       arma::vec2 maxTarget = {std::cos(searchTree.scenario.targetAngle+0.5*searchTree.scenario.targetAngleRange), std::sin(searchTree.scenario.targetAngle+0.5*searchTree.scenario.targetAngleRange)};
+       utility::drawing::drawLine(cr, searchTree.scenario.ball.centre, searchTree.scenario.ball.centre+target);
+       utility::drawing::drawLine(cr, searchTree.scenario.ball.centre, searchTree.scenario.ball.centre+minTarget);
+       utility::drawing::drawLine(cr, searchTree.scenario.ball.centre, searchTree.scenario.ball.centre+maxTarget);
+       cairo_stroke(cr);
+
+
+       cairo_restore(cr);
     }
 
     void drawEdgeRRBT(cairo_t *cr,
