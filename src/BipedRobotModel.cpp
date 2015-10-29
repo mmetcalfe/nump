@@ -266,19 +266,37 @@ namespace nump {
     }
 
     namespace robotmodel {
+        // double walk_far_translation_speed = 0.25;
+        // double walk_far_rotation_speed = ((2*arma::datum::pi)/8)/5;
+        // double walk_near_rotation_speed = ((2*arma::datum::pi)/8)/2;
+        // double walk_near_translation_speed = 0.05;
+
+        double walk_far_translation_speed = 0.1;
+        double walk_far_rotation_speed = ((2*arma::datum::pi)/8)/2;
+        double walk_near_rotation_speed = ((2*arma::datum::pi)/8)/1.2;
+        double walk_near_translation_speed = 0.05;
+
         Transform2D walkBetweenFar(const Transform2D& currentState, const Transform2D& targetState) {
             auto diff = arma::vec2(targetState.xy() - currentState.xy());
             auto dir = utility::math::angle::vectorToBearing(diff);
             double wcAngle = utility::math::angle::signedDifference(dir, currentState.angle());
             int angleSign = (wcAngle < 0) ? -1 : 1;
 
-            double walk_far_translation_speed = 1;
-            double walk_far_rotation_speed = 5;
-
             double rotationSpeed = angleSign * walk_far_rotation_speed;
             double forwardSpeed = std::cos(wcAngle) * walk_far_translation_speed;
 
+            // {
+            //     Transform2D localTarget = currentState.worldToLocal(targetState);
+            //     double a = 1;
+            //     double b = 2*localTarget.x()+1;
+            //     double c = arma::vec(localTarget.xy().t()*localTarget.xy())(0);
+            //
+            //     double r = (-b + std::sqrt(b*b-4*a*c))/(2*a);
+            //     forwardSpeed = std::min(r*walk_far_rotation_speed, walk_far_translation_speed);
+            // }
+
             return {std::max(0.0, forwardSpeed), 0, rotationSpeed};
+            // return {forwardSpeed, 0, rotationSpeed};
             //    return {1, 0, rotationSpeed};
         }
 
@@ -287,12 +305,11 @@ namespace nump {
 
             int angleSign = (localTarget.angle() < 0) ? -1 : 1; // angle must be normalised.
         //        // TODO: Consider using a smaller, non-constant speed.
-            double walk_near_rotation_speed = 5;
             double rotationSpeed = angleSign * walk_near_rotation_speed;
 
             arma::vec2 translationVec = arma::normalise(localTarget.xy());
             double translationAngle = utility::math::angle::vectorToBearing(translationVec);
-            double translationSpeed = (1 - std::abs(translationAngle)*(0.25/M_PI)); // TODO: Ensure translationSpeed matches the distance metrics used.
+            double translationSpeed = walk_near_translation_speed*(1 - std::abs(translationAngle)*(0.25/M_PI)); // TODO: Ensure translationSpeed matches the distance metrics used.
             arma::vec2 translationVelocity = translationVec * translationSpeed;
             Transform2D velocity = {translationVelocity, rotationSpeed};
             return velocity;
@@ -300,7 +317,7 @@ namespace nump {
 
         Transform2D walkBetween(const Transform2D& x1, const Transform2D& x2) {
             Transform2D localTarget = x1.worldToLocal(x2);
-            auto targetAngle = utility::math::angle::vectorToBearing(localTarget.xy());
+            auto targetAngle = utility::math::angle::normalizeAngle(utility::math::angle::vectorToBearing(localTarget.xy()));
 
             double dist = arma::norm(localTarget.xy());
 
@@ -310,11 +327,15 @@ namespace nump {
         //    return blend * walkBetweenFar(x1, x2) + (1 - blend) * walkBetweenNear(x1, x2);
 
             // TODO: Choose walkBetweenFar as long as it satisfies the topological property.
-            // if (dist > 0.2 && std::abs(targetAngle) < M_PI*0.5) {
-            if (dist > 0.2) {
-                return walkBetweenFar(x1, x2);
-            } else {
+            // if (dist > 0.2 && std::abs(targetAngle) < M_PI*0.25) {
+
+            // double d_near = walk_far_rotation_speed / walk_far_translation_speed;
+            double d_near = 0.2;
+
+            if (dist < d_near) {
                 return walkBetweenNear(x1, x2);
+            } else {
+                return walkBetweenFar(x1, x2);
             }
         }
     }
@@ -354,11 +375,11 @@ namespace nump {
         traj.t = 0;
 
         int maxSteps = 1000;
-        double maxTimeStep = 0.01;
+        double maxTimeStep = 0.1;
         double minTimeStep = maxTimeStep * 1;
 
-        double goalAngleTolerance = arma::datum::pi/32;
-        double goalDistanceTolerance = 0.005;
+        double goalAngleTolerance = arma::datum::pi/16;
+        double goalDistanceTolerance = 0.01;
 
         double closeAngleThreshold = maxTimeStep * 1;
         double closeDistanceThreshold = maxTimeStep * 1;

@@ -40,6 +40,8 @@ void drawSampleTrajectories(cairo_t *cr) {
     int numTrials = 12;
     int numSteps = 200;
     for (int i = 0; i < numTrials; i++) {
+        std::cout << "sampleTrajectory: " << i << std::endl;
+
         double t = i / double(numTrials);
         arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
 
@@ -89,7 +91,7 @@ void drawSampleTrajectories(cairo_t *cr) {
         }
 
         utility::drawing::cairoSetSourceRGBAlpha(cr, pathCol, 0.5);
-        double timeStep = size*0.25;
+        double timeStep = 0.5;
         drawTrajectory(cr, traj, timeStep, size);
         cairo_fill(cr);
 
@@ -103,6 +105,8 @@ void drawSampleTrajectories(cairo_t *cr) {
 }
 
 void drawDistanceField(cairo_t *cr) {
+    std::cout << "drawDistanceField: " << std::flush;
+
     double size = 0.2;
 
     nump::RRBT::StateT x1 = {{0.5, 0.5, 1.5*arma::datum::pi}}; //nump::RRBT::TrajT::sample();
@@ -110,6 +114,23 @@ void drawDistanceField(cairo_t *cr) {
 
     int gridSize = 50;
     double cellSize = 1 / double(gridSize - 1);
+
+    std::cout << "findMaxDist: " << std::flush;
+    double maxDist = 0;
+    for (int i = 0; i < gridSize; i++) {
+        for (int j = 0; j < gridSize; j++) {
+            double x = 1 - i / double(gridSize - 1);
+            double y = j / double(gridSize - 1);
+            nump::RRBT::StateT x2;
+            x2.position = Transform2D({x, y, 0});
+            nump::RRBT::TrajT traj = nump::RRBT::steer(x1, x2);
+            maxDist = std::max(maxDist, traj.t);
+            std::cout << "." << std::flush;
+        }
+        std::cout << "|" << std::endl;
+    }
+
+    std::cout << "drawGridCells: " << std::flush;
     for (int i = 0; i < gridSize; i++) {
         for (int j = 0; j < gridSize; j++) {
             double x = 1 - i / double(gridSize - 1);
@@ -118,13 +139,13 @@ void drawDistanceField(cairo_t *cr) {
             x2.position = Transform2D({x, y, 0});
             nump::RRBT::TrajT traj = nump::RRBT::steer(x1, x2);
 
-            double c = traj.t * 0.8;
+            // double c = traj.t * 0.8;
+            double c = (traj.t / maxDist) * 0.8;
             arma::vec3 distCol = {c, c, c};
 
             if (!traj.reachesTarget) {
                 distCol = {1, 0.5, 0.5};
             } else {
-                double c = traj.t * 0.8;
                 // arma::vec3 col = {c,1-c,1-c};
                 // utility::drawing::cairoSetSourceRGB(cr, col);
                 distCol = {c, c, c};
@@ -141,8 +162,12 @@ void drawDistanceField(cairo_t *cr) {
             cairo_set_line_width(cr, 0.002);
             utility::drawing::drawRobot(cr, x2.position, 1.2*arma::datum::sqrt2/(2*gridSize), true);
             cairo_stroke(cr);
+
+            std::cout << "." << std::flush;
         }
+        std::cout << "|" << std::endl;
     }
+    std::cout << "#" << std::endl;
 
     utility::drawing::cairoSetSourceRGB(cr, {0,0,0});
     utility::drawing::drawRobot(cr, x1.position, 0.1);
@@ -164,6 +189,20 @@ void trajectoryTests() {
 
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
     drawSampleTrajectories(cr);
+
+
+    double walk_far_translation_speed = 0.15;
+    double walk_far_rotation_speed = ((2*arma::datum::pi)/8)/2;
+    // double d_near = walk_far_rotation_speed / walk_far_translation_speed;
+    double d_near = walk_far_translation_speed / walk_far_rotation_speed;
+    std::cout << "walk_far_translation_speed: " << walk_far_translation_speed << std::endl;
+    std::cout << "walk_far_rotation_speed: " << walk_far_rotation_speed << std::endl;
+    std::cout << "d_near: " << d_near << std::endl;
+    utility::drawing::cairoSetSourceRGB(cr, {0,0,0});
+    cairo_set_line_width(cr, 0.002);
+    utility::drawing::drawCircle(cr, {{0.5, 0.5}, d_near});
+    cairo_stroke(cr);
+
     cairo_show_page(cr);
 
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
@@ -178,6 +217,7 @@ void trajectoryTests() {
     double gridScale = 0.5;
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
+            std::cout << "sampleTrajectory: " << i << ", " << j << std::endl;
             double x = 1 - i / double(gridSize - 1);
             double y = j / double(gridSize - 1);
             arma::vec2 xyPos = arma::vec2({x, y}) - arma::vec2({0.5, 0.5});
@@ -185,7 +225,9 @@ void trajectoryTests() {
             x2.position = x1.position + Transform2D({xyPos * gridScale, arma::datum::pi*0.5});
             nump::RRBT::TrajT traj = nump::RRBT::steer(x1, x2);
 
-            arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
+            // arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
+            arma::vec3 col = {x, y, traj.t};
+            // arma::vec3 col = {0.5, 0.2, traj.t*traj.t*2};
             arma::vec3 pathCol = col * 0.75;
             if (traj.reachesTarget) {
                 pathCol = col * 0.75;
@@ -194,9 +236,12 @@ void trajectoryTests() {
             }
             // utility::drawing::cairoSetSourceRGBAlpha(cr, pathCol, 0.5);
             utility::drawing::cairoSetSourceRGB(cr, pathCol);
-            double timeStep = size*0.25;
+            double timeStep = 0.5;
             drawTrajectory(cr, traj, timeStep, size);
-            cairo_fill(cr);
+            cairo_fill_preserve(cr);
+            utility::drawing::cairoSetSourceRGB(cr, col*1.5);
+            cairo_set_line_width(cr, 0.001);
+            cairo_stroke(cr);
         }
     }
     utility::drawing::cairoSetSourceRGB(cr, {0,0,0});

@@ -390,7 +390,7 @@ void robotCircleConfidenceRegionIntersectionTests(cairo_t *cr) {
 
     int numSamples = 50;
     cairo_push_group(cr);
-    utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
+    utility::drawing::cairoSetSourceRGB(cr, {0.5,0.5,0.5});
     cairo_set_line_width(cr, 0.005);
     for (int i = 0; i < numSamples; i++) {
         double t = i / double(numSamples);
@@ -403,7 +403,8 @@ void robotCircleConfidenceRegionIntersectionTests(cairo_t *cr) {
     utility::drawing::drawEllipse(cr, confEllipse);
     cairo_fill(cr);
     cairo_pop_group_to_source(cr);
-    cairo_paint_with_alpha(cr, 0.5);
+    // cairo_paint_with_alpha(cr, 0.5);
+    cairo_paint(cr);
 
     // Draw footprint and confidence ellipse:
     // utility::drawing::cairoSetSourceRGB(cr, {0.7,0.7,0.7});
@@ -467,13 +468,15 @@ void drawRobotConfidenceFootprint(cairo_t *cr, arma::vec2 footprintSize, Transfo
             // }
 
             // utility::drawing::cairoSetSourceRGB(cr, {1.0,0.0,0.0});
-            utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
+            // utility::drawing::cairoSetSourceRGB(cr, {0.0,0.0,0.0});
+            utility::drawing::cairoSetSourceRGB(cr, {0.5,0.5,0.5});
             utility::drawing::drawRectangleRotationRange(cr, {sx, sy}, footprintSize, {tRange[0], tRange[1]});
             cairo_stroke(cr);
         }
     }
     cairo_pop_group_to_source(cr);
-    cairo_paint_with_alpha(cr, 0.5);
+    // cairo_paint_with_alpha(cr, 0.5);
+    cairo_paint(cr);
 
     // Draw ellipse AABB:
     // utility::drawing::cairoSetSourceRGB(cr, {0.8,0.8,0.8});
