@@ -3,7 +3,10 @@
 # seed: 6153 # Finds, then loses feasible solution.
 # seed: 11055941 # Finds a goal state.
 seed: RANDOM # RANDOM, or an integer.
-num_samples: 32
+
+# num_samples: 10000
+num_samples: 100000
+search_time_limit_seconds: 3
 
 rrbt_append_reject_cov_threshold: 0.01
 rrbt_append_reject_cost_threshold: 0.001
@@ -25,7 +28,7 @@ map_size: [1, 1]
 footprint_size: [0.12, 0.17]
 # ball: { type: CIRCLE, position: [0.5, 0.5], radius: 0.065 }
 ball: { type: CIRCLE, position: [0.7, 0.5], radius: 0.065 }
-target_angle: 0
+target_angle: 3.14
 target_angle_range: 2.5
 min_kick_probability: 0.7
 kickboxes:
@@ -49,6 +52,7 @@ obstacles:
     # - { type: CIRCLE, position: [0.5, 2.445], radius: 0.055 }
 
 measurement_regions:
-    - { type: CIRCLE, position: [0.5, 0.5], radius: 0.4 }
+    - { type: CIRCLE, position: [0.5, 0.5], radius: 1 }
+    # - { type: CIRCLE, position: [0.5, 0.5], radius: 0.4 }
     # - { type: CIRCLE, position: [0.5, 0.555], radius: 1 }
     # - { type: CIRCLE, position: [0.5, 2.445], radius: 1 }

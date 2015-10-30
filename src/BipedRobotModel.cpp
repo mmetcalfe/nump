@@ -5,6 +5,7 @@
 #include "BipedRobotModel.h"
 
 #include <vector>
+#include <cassert>
 #include <armadillo>
 #include "math/geometry.h"
 #include "shared/utility/math/control/lqr.h"
@@ -73,6 +74,16 @@ namespace nump {
         int numIterations = 3;
         RegulatorMatrix Kt = utility::math::control::LQR<stateSize, controlSize>::lqrValueIterationSolution(At, Bt, Qt, Rt, numIterations);
 
+        if (!arma::is_finite(Kt)) {
+            std::cout << "satisfiesChanceConstraint: is_finite fail." << std::endl;
+            std::cout << "Kt: " << Kt << std::endl;
+            assert(false);
+        } else if (std::abs(Kt(0,0)) > 1e10 || std::abs(Kt(0,1)) > 1e10 || std::abs(Kt(0,2)) > 1e10) {
+            std::cout << "satisfiesChanceConstraint: std::abs(stateCov(x,y)) > 1e20 fail." << std::endl;
+            std::cout << "Kt: " << Kt << std::endl;
+            assert(false);
+        }
+
         return -Kt;
     }
 
@@ -84,8 +95,8 @@ namespace nump {
         // Robot specific motion error parameters:
         // (See (5.10) on page 127 of Sebastian Thrun's Probabilistic Robotics book)
         arma::mat22 alpha = {
-            {0.1, 0.01},
-            {0.01, 0.1}
+            {0.05, 0.005},
+            {0.005, 0.05}
         };
         ControlT controlSquared = control % control;
         BipedRobotModel::ControlCov Mt = arma::diagmat(alpha*controlSquared);
@@ -158,8 +169,8 @@ namespace nump {
         BipedRobotModel::MeasurementCov Rt;
         Rt.eye();
         // Rt(0,0) = 0.01 * r*r;
-        Rt(0,0) = 0.05;
-        Rt(1,1) = 0.01;
+        Rt(0,0) = 0.01;
+        Rt(1,1) = 0.001;
         return Rt;
     }
     BipedRobotModel::MeasurementCov BipedRobotModel::measurementNoiseCovariance(double Δt, const StateT& state, const std::vector<Circle>& measurementRegions) {
@@ -220,6 +231,8 @@ namespace nump {
 
         mean.position = μbt;
         covariance = Σbt;
+
+        // std::cout << "EKF covariance: " << covariance << std::endl;
     }
 
 

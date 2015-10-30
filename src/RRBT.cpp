@@ -137,19 +137,32 @@ namespace nump {
         auto tree = RRBT(scenario);
         tree.cairo = cr; // TODO: Fix this.
 
+        arma::wall_clock searchTimer;
+        searchTimer.tic();
         for (int i = 0; i < scenario.numSamples; i++) {
+            // Enforce the time limit:
+            double elapsedSeconds = searchTimer.toc();
+            if (elapsedSeconds > scenario.searchTimeLimitSeconds) {
+                std::cout << "RRBT::fromSearchScenario: Time limit reached after "
+                          << elapsedSeconds
+                          << " seconds and "
+                          << i
+                          << " iterations." << std::endl;
+                break;
+            }
+
             arma::wall_clock timer;
             timer.tic();
 
-            // // Random sampling:
-            // StateT xRand = TrajT::sample(scenario.mapSize);
+            // Random sampling:
+            StateT xRand = TrajT::sample(scenario.mapSize);
 
-            // Grid sampling:
-            int sqrtNum = int(std::sqrt(scenario.numSamples));
-            double ix = i % sqrtNum;
-            double iy = i / sqrtNum;
-            arma::vec2 samplePos = (arma::vec2({iy, ix}) / sqrtNum) % scenario.mapSize;
-            StateT xRand = { Transform2D::lookAt(samplePos, scenario.ball.centre) };
+            // // Grid sampling:
+            // int sqrtNum = int(std::sqrt(scenario.numSamples));
+            // double ix = i % sqrtNum;
+            // double iy = i / sqrtNum;
+            // arma::vec2 samplePos = (arma::vec2({iy, ix}) / sqrtNum) % scenario.mapSize;
+            // StateT xRand = { Transform2D::lookAt(samplePos, scenario.ball.centre) };
 
             bool extended = tree.extendRRBT(cr, xRand);
 
@@ -236,7 +249,7 @@ namespace nump {
         // Iterate over trajectory:
         // TODO: Make trajectory iteration efficient.
         // TODO: Determine how to change matrices per timestep so that timesteps do not have to equal in time.
-        double timeStep = 0.1;
+        double timeStep = 0.2;
         for (auto walker = traj.walk(timeStep); !walker.isFinished(); ) {
             // double t = (i / double(numSteps)) * traj.t;
             // RobotModel::State xTraj = traj(t);
@@ -277,13 +290,17 @@ namespace nump {
             Λt = Ak*Λp*Ak.t() + Lt*Ct*Σbt; // (equation 33)
 
             // std::cout << "controlTraj" << controlTraj.t() << std::endl;
-            // std::cout << "Bt: " << Bt << std::endl;
-            // std::cout << "Kt: " << Kt << std::endl;
+            // std::cout << "Qt: " << Qt << std::endl;
+            // std::cout << "Rt: " << Rt << std::endl;
             // std::cout << "At: " << At << std::endl;
+            // std::cout << "Bt: " << Bt << std::endl;
+            // std::cout << "Ct: " << Ct << std::endl;
+            // std::cout << "Kt: " << Kt << std::endl;
             // std::cout << "Bt*Kt: " << (Bt*Kt) << std::endl;
             // std::cout << "Ak: " << Ak << std::endl;
             // std::cout << "Ak*Λp*Ak.t(): " << Ak*Λp*Ak.t() << std::endl;
             // std::cout << "Lt*Ct*Σbt: " << Lt*Ct*Σbt << std::endl;
+            // std::cout << "Σt: " << Σt << std::endl;
             // std::cout << "Λt: " << Λt << std::endl;
 
 
@@ -291,8 +308,19 @@ namespace nump {
             // x_t ~ N(\check{x}, Λ_{t} + Σ_{t})
             // i.e. x_t ~ N(xTraj, xTrajCov)
             // (where x_t is the true state)
+
+//            double minVariance = 1e-8;
+//            Σt(0,0) = std::max(Σt(0,0), minVariance);
+//            Σt(1,1) = std::max(Σt(1,1), minVariance);
+//            Σt(2,2) = std::max(Σt(2,2), minVariance);
+//            Λt(0,0) = std::max(Λt(0,0), minVariance);
+//            Λt(1,1) = std::max(Λt(1,1), minVariance);
+//            Λt(2,2) = std::max(Λt(2,2), minVariance);
             RobotModel::MotionMatrix xTrajCov = Σt + Λt;
 
+            
+//            utility::math::distributions::confidenceRegionArea(xTrajCov.submat(0,0,1,1), 0.95, 3);
+            
             // Step 2 - Cost expectation evaluation (equation 11):
             // TODO: Work out how to evaluate expected path cost.
 
@@ -317,6 +345,10 @@ namespace nump {
             // Update previous values:
             Σp = Σt;
             Λp = Λt;
+        }
+
+        if (Σt(1,1) < 6.9532e-100) {
+            std::cout << Σt << std::endl;
         }
 
         // Construct a belief node with the resultant distribution:

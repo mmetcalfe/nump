@@ -44,15 +44,13 @@ namespace control {
             // Set P_0 = 0:
             P.zeros();
 
-            MatState2State ABK = A + B*K;
-            MatState2State ABKt = ABK.t();
-
             for (int i = 1; i <= numIterations; i++) {
-                // K = -(R + B.t()*P*B).i()*B.t()*P*A;
-                // P = Q + K.t()*R*K + (A + B*K).t()*P*(A + B*K);
+//                 K = -(R + B.t()*P*B).i()*B.t()*P*A;
+//                 P = Q + K.t()*R*K + (A + B*K).t()*P*(A + B*K);
                 MatState2Control BtP = B.t()*P;
                 K = -(R + BtP*B).i()*BtP*A;
-                P = Q + K.t()*R*K + ABKt*P*ABK;
+                MatState2State ABK = A + B*K;
+                P = Q + K.t()*R*K + ABK.t()*P*ABK;
             }
 
             // Note: x.t()*P*x is now the cost-to-go function for an i-step horizon.

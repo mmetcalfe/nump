@@ -236,7 +236,20 @@ namespace nump {
         auto tree = SearchTree(scenario);
         tree.cairo = cr; // TODO: Fix this.
 
+        arma::wall_clock searchTimer;
+        searchTimer.tic();
         for (int i = 0; i < scenario.numSamples; i++) {
+            // Enforce the time limit:
+            double elapsedSeconds = searchTimer.toc();
+            if (elapsedSeconds > scenario.searchTimeLimitSeconds) {
+                std::cout << "SearchTree::fromRRTs: Time limit reached after "
+                          << elapsedSeconds
+                          << " seconds and "
+                          << i
+                          << " iterations." << std::endl;
+                break;
+            }
+
             StateT zRand = TrajT::sample(scenario.mapSize);
             bool extended = tree.extendRRTs(cr, zRand);
 

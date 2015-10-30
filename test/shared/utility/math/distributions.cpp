@@ -135,6 +135,9 @@ double confidenceRegionArea(arma::mat22 cov, double conf, int dof) {
         << "Eigenvalues of covariance matrix must not be negative, but"
         << " eigval = "
         << eigval.t()
+        << std::endl
+        << " cov = "
+        << cov
         << std::endl;
         assert(false);
     }

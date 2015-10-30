@@ -37,6 +37,7 @@ namespace numptest {
             // Search settings:
             int seed;
             int numSamples;
+            double searchTimeLimitSeconds;
 
             double rrbtAppendRejectCovThreshold = 10;
             double rrbtAppendRejectCostThreshold = 0.01;
@@ -78,7 +79,7 @@ namespace numptest {
 
         // void simulate(cairo_t* cr, nump::Path<nump::BipedRobotModel::State> nominalPath);
         void simulate(cairo_t* cr,
-            std::function<nump::Path<nump::BipedRobotModel::State>(nump::BipedRobotModel::State)> replanFunc
+            std::function<nump::Path<nump::BipedRobotModel::State>(nump::BipedRobotModel::State, nump::BipedRobotModel::MotionCov)> replanFunc
         );
         void simulation(cairo_t* cr);
 
