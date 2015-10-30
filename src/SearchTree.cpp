@@ -30,8 +30,8 @@ namespace nump {
 
     nump::Path<BipedRobotModel::State> SearchTree::getSolutionPath() const {
         nump::Path<BipedRobotModel::State> nominalPath;
-        auto goalNode = createValidNodeForState({scenario.goalState});
-
+        BipedRobotModel::State kickPos = BipedRobotModel::getIdealKickingPosition(scenario.ball, scenario.kbConfig, scenario.targetAngle);
+        auto goalNode = createValidNodeForState(kickPos);
 
         if (goalNode) {
             auto zNearby = nearVertices(goalNode, tree.nodes.size());

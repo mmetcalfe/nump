@@ -59,7 +59,10 @@ namespace nump {
         static bool canKickBallAtTarget(RotatedRectangle robotFootprint, Circle ball, const KickBox& kbConfig, double targetAngle, double validAngleRange);
         static bool canAlmostKickBallAtTarget(RotatedRectangle robotFootprint, Circle ball, const KickBox& kbConfig, double targetAngle, double validAngleRange);
 
-        static std::vector<RotatedRectangle> getLocalKickBoxes(Transform2D robot, const KickBox& kbConfig, double ballRadius);
+        static State getIdealKickingPosition(Circle ball, const KickBox& kbConfig, double targetAngle);
+
+
+        static std::vector<RotatedRectangle> getLocalKickBoxes(const KickBox& kbConfig, double ballRadius);
 
         static double kickSuccessProbability(
             Transform2D robot,

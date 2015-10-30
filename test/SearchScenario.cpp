@@ -444,7 +444,8 @@ void numptest::SearchScenario::simulation(cairo_t* cr) {
         auto rrbtTree = nump::RRBT::fromSearchScenario(newScenario, cr);
 
         // Add the goal state to the tree:
-        rrbtTree.extendRRBT(cr, {newScenario.goalState});
+        BipedRobotModel::State kickPos = BipedRobotModel::getIdealKickingPosition(cfg_.ball, cfg_.kbConfig, cfg_.targetAngle);
+        rrbtTree.extendRRBT(cr, kickPos);
 
         nump::Path<BipedRobotModel::State> newPath = rrbtTree.getSolutionPath();
 

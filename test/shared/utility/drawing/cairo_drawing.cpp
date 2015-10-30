@@ -25,7 +25,7 @@ namespace drawing {
     void drawKickBoxes(cairo_t *cr, Transform2D robot, const nump::BipedRobotModel::KickBox& kbConfig, double ballRadius) {
         cairo_save(cr);
             utility::drawing::cairoTransformToLocal(cr, robot);
-            auto kickBoxes = BipedRobotModel::getLocalKickBoxes(robot, kbConfig, ballRadius);
+            auto kickBoxes = BipedRobotModel::getLocalKickBoxes(kbConfig, ballRadius);
             utility::drawing::drawRotatedRectangle(cr, kickBoxes[0]);
             utility::drawing::drawRotatedRectangle(cr, kickBoxes[1]);
         cairo_restore(cr);

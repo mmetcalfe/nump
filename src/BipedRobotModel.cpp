@@ -308,7 +308,7 @@ namespace nump {
     }
 
 
-    std::vector<RotatedRectangle> BipedRobotModel::getLocalKickBoxes(Transform2D robot, const KickBox& kbConfig, double ballRadius) {
+    std::vector<RotatedRectangle> BipedRobotModel::getLocalKickBoxes(const KickBox& kbConfig, double ballRadius) {
         double kbX = kbConfig.footFrontX+ballRadius+kbConfig.kickExtent*0.5;
         double kbY = kbConfig.footSep*0.5 + kbConfig.footWidth*0.5;
         RotatedRectangle left = {{kbX, -kbY, 0}, {kbConfig.kickExtent, kbConfig.footWidth}};
@@ -329,7 +329,7 @@ namespace nump {
 
         arma::mat33 localBallTargetCov = utility::math::distributions::transformToLocalDistribution(robot, stateCov, globalBallTarget);
 
-        auto kickBoxes = BipedRobotModel::getLocalKickBoxes(robot, kbConfig, ball.radius);
+        auto kickBoxes = BipedRobotModel::getLocalKickBoxes(kbConfig, ball.radius);
         auto densityFunc = [=](auto x){ return utility::math::distributions::dnorm(localBallTarget, localBallTargetCov, x); };
 
         int order = 4;
@@ -340,6 +340,16 @@ namespace nump {
 
         return kickProb;
     }
+
+    BipedRobotModel::State BipedRobotModel::getIdealKickingPosition(Circle ball, const KickBox& kbConfig, double targetAngle) {
+        Transform2D globalBallTarget = {ball.centre, targetAngle};
+        auto kickBoxes = BipedRobotModel::getLocalKickBoxes(kbConfig, ball.radius);
+
+        Transform2D kickPos = globalBallTarget.localToWorld({-kickBoxes[0].transform.xy(), 0});
+
+        return {kickPos};
+    }
+
 
     namespace robotmodel {
         // double walk_far_translation_speed = 0.25;

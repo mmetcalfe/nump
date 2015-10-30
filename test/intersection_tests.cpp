@@ -137,7 +137,7 @@ void kickProbabilityTests(cairo_t *cr) {
     arma::mat33 localBallTargetCov = utility::math::distributions::transformToLocalDistribution(robot, stateCov, globalBallTarget);
     Ellipse localConfEllipse = utility::math::distributions::confidenceRegion(localBallTarget.xy(), localBallTargetCov.submat(0,0,1,1), 0.95, 3);
 
-    auto kickBoxes = BipedRobotModel::getLocalKickBoxes(robot, kbConfig, ball.radius);
+    auto kickBoxes = BipedRobotModel::getLocalKickBoxes(kbConfig, ball.radius);
 
     {
         cairo_save(cr);
