@@ -17,7 +17,7 @@
 namespace nump {
     typedef BipedRobotModel::State StateT;
     typedef BipedRobotModel::Control ControlT;
-    typedef numptest::SearchScenario::Config::KickBox KickBox;
+    typedef nump::BipedRobotModel::KickBox KickBox;
 
     using nump::math::Circle;
     using nump::math::RotatedRectangle;
@@ -110,21 +110,9 @@ namespace nump {
         return nullptr;
     }
 
-    /// The C matrix in RRBT's propagate function.
-    BipedRobotModel::MeasurementMatrix BipedRobotModel::measurementErrorJacobian(double Δt, const StateT& state, const std::vector<Circle>& measurementRegions) {
-        // The Jacobion of the measurement model.
-        // (See H^i_t on page 207 of Sebastian Thrun's Probabilistic Robotics book)
-
-        auto landmark = firstContaining(measurementRegions, state);
-
-        if (landmark == nullptr) {
-            BipedRobotModel::MeasurementMatrix Ct;
-            Ct.eye();
-            return Ct;
-        }
-
+    BipedRobotModel::MeasurementMatrix measurementErrorJacobian(double Δt, const StateT& state, const Circle& landmark) {
         arma::vec2 mu = state.position.xy();
-        arma::vec2 loc = landmark->centre;
+        arma::vec2 loc = landmark.centre;
 
         double dist = arma::norm(mu - loc);
         double lx = loc(0);
@@ -147,18 +135,93 @@ namespace nump {
         return Ct;
     }
 
+    /// The C matrix in RRBT's propagate function.
+    BipedRobotModel::MeasurementMatrix BipedRobotModel::measurementErrorJacobian(double Δt, const StateT& state, const std::vector<Circle>& measurementRegions) {
+        // The Jacobion of the measurement model.
+        // (See H^i_t on page 207 of Sebastian Thrun's Probabilistic Robotics book)
+
+        auto landmark = firstContaining(measurementRegions, state);
+
+        if (landmark == nullptr) {
+            BipedRobotModel::MeasurementMatrix Ct;
+            Ct.eye();
+            return Ct;
+        }
+
+        return nump::measurementErrorJacobian(Δt, state, *landmark);
+    }
+
     /// The R matrix in RRBT's propagate function.
-    BipedRobotModel::MeasurementCov BipedRobotModel::measurementNoiseCovariance(double Δt, const StateT& state, const std::vector<Circle>& measurementRegions) {
+    BipedRobotModel::MeasurementCov BipedRobotModel::measurementNoiseCovariance(double Δt, const StateT& state, const Circle& landmark) {
+        auto expectedMeas = BipedRobotModel::observeLandmark(state, landmark);
+        double r = expectedMeas.r();
         BipedRobotModel::MeasurementCov Rt;
         Rt.eye();
-        Rt(0,0) = 1e7;
-        Rt(1,1) = 1e7;
-        if (firstContaining(measurementRegions, state) != nullptr) {
-            Rt(0,0) = 0.0001;
-            Rt(1,1) = 0.0001;
-        }
+        // Rt(0,0) = 0.01 * r*r;
+        Rt(0,0) = 0.05;
+        Rt(1,1) = 0.01;
         return Rt;
     }
+    BipedRobotModel::MeasurementCov BipedRobotModel::measurementNoiseCovariance(double Δt, const StateT& state, const std::vector<Circle>& measurementRegions) {
+        auto landmark = firstContaining(measurementRegions, state);
+        if (landmark != nullptr) {
+            return measurementNoiseCovariance(Δt, state, *landmark);
+        } else {
+            BipedRobotModel::MeasurementCov Rt;
+            Rt.eye();
+            Rt(0,0) = 1e7;
+            Rt(1,1) = 1e7;
+            return Rt;
+        }
+    }
+
+    BipedRobotModel::Measurement BipedRobotModel::observeLandmark(const State& state, const Circle& landmark) {
+        Transform2D local = state.position.worldToLocal({landmark.centre, 0});
+        Measurement meas;
+        meas.r() = arma::norm(local.xy());
+        meas.phi() = utility::math::angle::normalizeAngle(std::atan2(local.y(), local.x()));
+        return meas;
+    }
+
+    void BipedRobotModel::EKF::update(double Δt, Transform2D bipedControl, std::vector<Measurement> measurements, std::vector<Circle> landmarks) {
+        arma::vec2 control = {arma::norm(bipedControl.xy()), bipedControl.angle()};
+
+        Transform2D μbt = mean.position.localToWorld(Δt*bipedControl);
+
+        BipedRobotModel::MotionCov& Σp = covariance;
+
+        // Gt
+        BipedRobotModel::MotionMatrix At = motionErrorJacobian(Δt, mean, control);
+        // Vt
+        BipedRobotModel::ControlMatrix Bt = controlErrorJacobian(Δt, mean, control);
+        // VtMtVt^T
+        BipedRobotModel::MotionCov Qt = motionNoiseCovariance(Δt, mean, control, Bt);
+
+        // Step 1 - Covariance prediction (equations 21, 33):
+        // Kalman filter process step:
+        BipedRobotModel::MotionCov Σbt = At*Σp*At.t() + Qt; // (equation 17)
+
+        for (int i = 0; i < measurements.size(); i++) {
+            Measurement& meas = measurements[i];
+            Circle& landmark = landmarks[i];
+
+            // Ht
+            BipedRobotModel::MeasurementMatrix Ct = nump::measurementErrorJacobian(Δt, mean, landmark);
+            BipedRobotModel::MeasurementCov Rt = measurementNoiseCovariance(Δt, mean, landmark);
+
+            auto expectedMeas = observeLandmark({μbt}, landmark);
+
+            // Kalman filter measurement update:
+            BipedRobotModel::MeasurementCov St = Ct*Σbt*Ct.t() + Rt; // (equation 18)
+            BipedRobotModel::KalmanGainMatrix Lt = Σbt*Ct.t()*St.i(); // (equation 19)
+            μbt = μbt + Lt*(meas - expectedMeas);
+            Σbt = Σbt - Lt*Ct*Σbt;
+        }
+
+        mean.position = μbt;
+        covariance = Σbt;
+    }
+
 
     bool BipedRobotModel::canKickBall(RotatedRectangle robotFootprint, Circle ball, const KickBox& kbConfig) {
         Circle localBall = {robotFootprint.transform.worldToLocal({ball.centre,0}).xy(), ball.radius};
@@ -454,6 +517,13 @@ namespace nump {
         return controlTraj;
     }
     template <>
+    Transform2D Trajectory<StateT>::TrajectoryWalker::currentOmniControl() {
+        Transform2D velTraj = xNext.position - xCurrent.position;
+        double angleDiff = utility::math::angle::signedDifference(xNext.position.angle(), xCurrent.position.angle());
+        velTraj.angle() = angleDiff;
+        return velTraj / timeStep;
+    }
+    template <>
     StateT Trajectory<StateT>::TrajectoryWalker::currentState() {
         return xCurrent;
     }
@@ -496,6 +566,10 @@ namespace nump {
     template <>
     arma::vec2 Path<StateT>::Walker::currentControl() {
         return currentWalker.currentControl();
+    }
+    template <>
+    Transform2D Path<StateT>::Walker::currentOmniControl() {
+        return currentWalker.currentOmniControl();
     }
     template <>
     StateT Path<StateT>::Walker::currentState() {

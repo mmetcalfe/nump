@@ -12,8 +12,10 @@
 #include "math/geometry.h"
 #include "Tree.h"
 #include "shared/utility/drawing/cairo_drawing.h"
+#include "BipedRobotModel.h"
 
 using utility::drawing::fillCircle;
+using nump::BipedRobotModel;
 
 namespace nump {
 
@@ -24,6 +26,23 @@ namespace nump {
     // SearchTree::SearchTree(StateT init, StateT goal)
     //         : tree(SearchNode {init, 0, TrajT()}), init(init), goal(goal) {
     // }
+
+
+    nump::Path<BipedRobotModel::State> SearchTree::getSolutionPath() const {
+        nump::Path<BipedRobotModel::State> nominalPath;
+        auto goalNode = createValidNodeForState({scenario.goalState});
+
+
+        if (goalNode) {
+            auto zNearby = nearVertices(goalNode, tree.nodes.size());
+            optimiseParent(goalNode, zNearby);
+            for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
+                nominalPath.segments.push_front(pathNode->value.traj);
+            }
+        }
+        return nominalPath;
+    }
+
 
     SearchTree::SearchTree(const numptest::SearchScenario::Config& config)
             : scenario(config), tree(SearchNode {config.initialState, 0, TrajT()}) {

@@ -8,11 +8,14 @@
 #include <armadillo>
 #include <cairo/cairo.h>
 #include "math/geometry.h"
+#include "BipedRobotModel.h"
+#include "Trajectory.h"
 
 namespace numptest {
 
     using nump::math::Transform2D;
     using nump::math::Circle;
+
 
 //    template<class StateT, class StateCovT>
     class SearchScenario {
@@ -56,12 +59,14 @@ namespace numptest {
 
             double minKickProbability; // The minimum acceptable probability of a successful kick in the resulting goal state.
 
-            struct KickBox {
-                double kickExtent; // The distance the front of the foot travels during a kick.
-                double footWidth; // The width of the robot's foot.
-                double footSep; // The distance between the robots feet.
-                double footFrontX; // The x coordinate of the front of the robot's feet before beginning a kick.
-            } kbConfig;
+            // struct KickBox {
+            //     double kickExtent; // The distance the front of the foot travels during a kick.
+            //     double footWidth; // The width of the robot's foot.
+            //     double footSep; // The distance between the robots feet.
+            //     double footFrontX; // The x coordinate of the front of the robot's feet before beginning a kick.
+            // } kbConfig;
+
+            nump::BipedRobotModel::KickBox kbConfig;
 
             std::vector<Circle> obstacles;
             std::vector<Circle> measurementRegions;
@@ -71,7 +76,8 @@ namespace numptest {
         void performRRTsSearch(cairo_t* cr, const std::string& scenario_prefix);
         void execute(const std::string& scenario_prefix);
 
-        void simulate(cairo_t* cr);
+        void simulate(cairo_t* cr, nump::Path<nump::BipedRobotModel::State> nominalPath);
+        void simulation(cairo_t* cr);
 
 
         static SearchScenario fromFile(const std::string& file_path);

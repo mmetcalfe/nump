@@ -15,8 +15,19 @@ namespace nump {
     using nump::math::RotatedRectangle;
     using nump::math::Circle;
 
+    namespace robotmodel {
+        Transform2D walkBetween(const Transform2D& x1, const Transform2D& x2);
+    };
+
     struct BipedRobotModel {
-        typedef numptest::SearchScenario::Config::KickBox KickBox;
+        // typedef numptest::SearchScenario::Config::KickBox KickBox;
+
+        struct KickBox {
+            double kickExtent; // The distance the front of the foot travels during a kick.
+            double footWidth; // The width of the robot's foot.
+            double footSep; // The distance between the robots feet.
+            double footFrontX; // The x coordinate of the front of the robot's feet before beginning a kick.
+        };
 
         struct State {
             Transform2D position;
@@ -33,6 +44,15 @@ namespace nump {
             // Angular velocity:
             inline double omega() const { return at(1); }
             inline double& omega() { return at(1); }
+        };
+
+        struct Measurement : public arma::vec2 {
+            using arma::vec2::vec2;
+
+            inline double r() const { return at(0); }
+            inline double& r() { return at(0); }
+            inline double phi() const { return at(1); }
+            inline double& phi() { return at(1); }
         };
 
         static bool canKickBall(RotatedRectangle robotFootprint, Circle ball, const KickBox& kbConfig);
@@ -93,7 +113,18 @@ namespace nump {
         static MotionCov motionNoiseCovariance(double Δt, const State& state, const Control& control, const ControlMatrix& Bt);
 
         /// The R matrix in RRBT's propagate function.
+        static MeasurementCov measurementNoiseCovariance(double Δt, const State& state, const Circle& landmark);
         static MeasurementCov measurementNoiseCovariance(double Δt, const State& state, const std::vector<nump::math::Circle>& measurementRegions);
+
+
+        static Measurement observeLandmark(const State& state, const Circle& landmark);
+
+        struct EKF {
+            State mean;
+            MotionCov covariance;
+
+            void update(double Δt, Transform2D control, std::vector<Measurement> measurements, std::vector<Circle> landmarks);
+        };
     };
 }
 

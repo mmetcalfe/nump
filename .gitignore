@@ -2,6 +2,9 @@
 # Quarantined:
 /rust/
 
+*iteration_times.dat
+doc/
+
 # Temp folders:
 /build/
 

@@ -130,6 +130,8 @@ namespace nump {
         static bool compareCovariancesLT(const RRBT::StateCovT& covA, const RRBT::StateCovT& covB);
 
         std::shared_ptr<BeliefNode> findBestGoalStateWithSuccessThreshold() const;
+
+        nump::Path<BipedRobotModel::State> getSolutionPath() const;
     };
 }
 

@@ -193,6 +193,19 @@ arma::mat randn(int n_elem, arma::vec3 mean, arma::mat33 cov) {
     return arma::repmat(mean, 1, n_elem) + chol.t()*stdVals;
 }
 
+arma::vec randn(arma::vec2 mean, arma::mat22 cov) {
+    arma::vec2 stdVals = arma::randn(2);
+    arma::mat22 chol = arma::chol(cov);
+    return mean + chol.t()*stdVals;
+
+    // arma::mat stdVals = arma::randn(2, n_elem);
+    //
+    // arma::mat22 chol = arma::chol(arma::mat(cov));
+    //
+    // return arma::repmat(mean, 1, n_elem) + chol.t()*stdVals;
+}
+
+
 arma::mat33 transformToLocalDistribution(Transform2D trans, arma::mat33 transCov, Transform2D pos) {
     Transform2D diff = pos - trans;
 

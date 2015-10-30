@@ -75,7 +75,7 @@ double gaussianQuadrature(cairo_t* cr, std::function<double(arma::vec3)> func, R
     return sum*rangeFactor;
 }
 
-void drawKickBoxes(cairo_t *cr, Transform2D robot, const numptest::SearchScenario::Config::KickBox& kbConfig, double ballRadius) {
+void drawKickBoxes(cairo_t *cr, Transform2D robot, const nump::BipedRobotModel::KickBox& kbConfig, double ballRadius) {
     cairo_save(cr);
         utility::drawing::cairoTransformToLocal(cr, robot);
         auto kickBoxes = BipedRobotModel::getLocalKickBoxes(robot, kbConfig, ballRadius);
@@ -113,7 +113,7 @@ void kickProbabilityTests(cairo_t *cr) {
     Ellipse confEllipseXY = utility::math::distributions::confidenceRegion(robot.head(2), stateCov.submat(0,0,1,1), 0.95, 3);
 
     double footWidth = 0.07;
-    numptest::SearchScenario::Config::KickBox kbConfig = {
+    nump::BipedRobotModel::KickBox kbConfig = {
         0.1, // kickExtent
         footWidth, // footWidth
         footprintSize(1) - 2*footWidth, // footSep
@@ -267,7 +267,7 @@ void kickBoxTests(cairo_t *cr) {
     arma::vec2 footprintSize = {0.12, 0.17};
 
     double footWidth = 0.07;
-    numptest::SearchScenario::Config::KickBox kbConfig = {
+    nump::BipedRobotModel::KickBox kbConfig = {
         0.1, // kickExtent
         footWidth, // footWidth
         footprintSize(1) - 2*footWidth, // footSep

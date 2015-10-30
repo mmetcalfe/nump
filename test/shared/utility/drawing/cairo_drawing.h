@@ -59,6 +59,9 @@ namespace drawing {
     void drawRobot(cairo_t *cr, arma::vec2 pos, double size, bool noFill = false);
     void drawRobot(cairo_t *cr, Transform2D trans, double size, arma::vec2 footprintSize);
 
+    void drawPath(cairo_t *cr, nump::Path<nump::BipedRobotModel::State> nominalPath, double timeStep, double size);
+
+
     void drawRRBT(cairo_t *cr, const nump::RRBT& rrbt);
 
     bool drawEllipse(cairo_t *cr, const Ellipse& ellipse);

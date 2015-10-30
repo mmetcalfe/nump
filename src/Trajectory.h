@@ -55,6 +55,7 @@ namespace nump {
             // Modifies the trajectory to advance its initial state by a single step of t seconds.
             void stepBy();
             arma::vec2 currentControl();
+            Transform2D currentOmniControl();
             StateT currentState();
             double currentTime();
             bool isFinished();
@@ -80,6 +81,7 @@ namespace nump {
             void stepTo(double t);
             void stepBy(double deltaT);
             arma::vec2 currentControl();
+            Transform2D currentOmniControl();
             StateT currentState();
             bool isFinished();
         };

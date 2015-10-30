@@ -16,6 +16,7 @@
 
 using nump::math::Transform2D;
 using nump::math::Rotation2D;
+using nump::BipedRobotModel;
 using utility::math::geometry::Ellipse;
 
 namespace utility {
@@ -256,17 +257,17 @@ namespace drawing {
             showText(cr, state.position.rows(0, 1), r*0.15, node->value.cost);
         }
 
-       // Draw optimal path:
-       auto goalNode = searchTree.createValidNodeForState({searchTree.scenario.goalState});
-       if (goalNode) {
-           cairoSetSourceRGBAlpha(cr, {0, 0.7, 0}, 0.8);
-           auto zNearby = searchTree.nearVertices(goalNode, tree.nodes.size());
-           searchTree.optimiseParent(goalNode, zNearby);
-           for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
-               drawRobot(cr, pathNode->value.state, r);
-               drawNodeTrajectoryPoints(cr, pathNode->value.traj, r * 0.5);
-           }
-       }
+    //    // Draw optimal path:
+    //    auto goalNode = searchTree.createValidNodeForState({searchTree.scenario.goalState});
+    //    if (goalNode) {
+    //        cairoSetSourceRGBAlpha(cr, {0, 0.7, 0}, 0.8);
+    //        auto zNearby = searchTree.nearVertices(goalNode, tree.nodes.size());
+    //        searchTree.optimiseParent(goalNode, zNearby);
+    //        for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
+    //            drawRobot(cr, pathNode->value.state, r);
+    //            drawNodeTrajectoryPoints(cr, pathNode->value.traj, r * 0.5);
+    //        }
+    //    }
 
 
        double lwNormal = 0.01;
@@ -672,6 +673,14 @@ namespace drawing {
         cairo_close_path(cr);
         cairo_restore(cr);
     }
+
+    void drawPath(cairo_t *cr, nump::Path<BipedRobotModel::State> nominalPath, double timeStep, double size) {
+        for (auto walker = nominalPath.walk(timeStep); !walker.isFinished(); walker.stepBy(timeStep)) {
+            auto state = walker.currentState();
+            utility::drawing::drawRobot(cr, state.position, size, true);
+        }
+    }
+
 
 }
 }

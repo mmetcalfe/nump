@@ -47,6 +47,8 @@ namespace nump {
         typedef std::shared_ptr<TreeT::Node> NodeT;
 
 
+        nump::Path<BipedRobotModel::State> getSolutionPath() const;
+
     private:
         // StateT init;
         // StateT goal;

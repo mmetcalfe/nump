@@ -196,6 +196,11 @@ namespace nump {
 
     bool RRBT::satisfiesChanceConstraint(StateT state, StateCovT stateCov, arma::vec2 footprintSize,
                                          const std::vector<nump::math::Circle>& obstacles) {
+        if (!arma::is_finite(stateCov)) {
+            std::cout << "satisfiesChanceConstraint: is_finite fail." << std::endl;
+            return false;
+        }
+
         arma::vec size = arma::vec(arma::size(state.position));
         if (size(0) == 2) {
             // TODO: Enhance test to work for a polygonal robot footprint, rather than just a point robot.
@@ -228,7 +233,7 @@ namespace nump {
         // Iterate over trajectory:
         // TODO: Make trajectory iteration efficient.
         // TODO: Determine how to change matrices per timestep so that timesteps do not have to equal in time.
-        double timeStep = 0.02;
+        double timeStep = 0.1;
         for (auto walker = traj.walk(timeStep); !walker.isFinished(); ) {
             // double t = (i / double(numSteps)) * traj.t;
             // RobotModel::State xTraj = traj(t);
@@ -546,6 +551,10 @@ namespace nump {
         double bestCost = arma::datum::inf;
         double bestProb = 0;
 
+        std::shared_ptr<BeliefNode> highSuccessNode = nullptr;
+        double bestSuccessProb = 0;
+
+
         for (auto weakGoalVertex : goalVertices) {
             auto goalVertex = weakGoalVertex.lock();
             const auto& state = goalVertex->value.state;
@@ -562,6 +571,11 @@ namespace nump {
 
                 std::cout << "prob: " << prob << std::endl;
 
+                if (prob > bestSuccessProb) {
+                    highSuccessNode = goalNode;
+                    bestSuccessProb = prob;
+                }
+
                 if (prob < scenario.minKickProbability) {
                     continue;
                 } else if (goalNode->cost < bestCost) {
@@ -572,9 +586,56 @@ namespace nump {
             }
         }
 
+        if (!bestNode) {
+            std::cout << "Success chance threshold not met: "
+                      << bestSuccessProb << " < " << scenario.minKickProbability
+                      << std::endl;
+            bestNode = highSuccessNode;
+        }
+
         std::cout << "bestProb: " << bestProb << std::endl;
 
         return bestNode;
+    }
+
+    nump::Path<BipedRobotModel::State> RRBT::getSolutionPath() const {
+        auto goalNode = findBestGoalStateWithSuccessThreshold();
+
+        nump::Path<BipedRobotModel::State> nominalPath;
+        if (goalNode) {
+            // auto zNearby = nearVertices(goalNode, tree.nodes.size());
+            // optimiseParent(goalNode, zNearby);
+            // for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
+            //     nominalPath.segments.push_front(pathNode->value.traj);
+            // }
+
+
+            // auto n = goalNode;
+            // int depth = 0;
+            // for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
+            for (auto pathNode = goalNode; pathNode != initialBelief; pathNode = pathNode->parent) {
+            // while (n != rrbt.initialBelief) {
+
+                auto currentVertex = pathNode->containingNode;
+                auto parentVertex = pathNode->parent->containingNode;
+                auto edge = graph.edgeBetween(parentVertex.lock(), currentVertex.lock());
+                nominalPath.segments.push_front(edge->value);
+
+                // if (!n->containingNode.lock()) {
+                    // break;
+                // }
+                // cairoMoveTo(cr, n->containingNode.lock()->value.state.position.head(2));
+                // cairoLineTo(cr, n->parent->containingNode.lock()->value.state.position.head(2));
+                // cairo_set_line_width(cr, lwHighlight);
+                // drawErrorEllipse(cr, n->containingNode.lock()->value.state, n->stateCov + n->stateDistribCov, 0.95);
+                // n = n->parent;
+                // ++depth;
+                // if (depth > rrbt.graph.nodes.size()) {
+                    // break;
+                // }
+            }
+        }
+        return nominalPath;
     }
 
 }

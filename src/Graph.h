@@ -54,6 +54,16 @@ namespace nump {
             return out;
         }
 
+        std::shared_ptr<Edge> edgeBetween(NodeT from, NodeT to) const {
+            for (auto& edge : edges) {
+                if (edge.parent.lock() == from && edge.child.lock() == to) {
+                    return std::make_shared<Edge>(edge);
+                }
+            }
+
+            return nullptr;
+        }
+
         NodeT parent(NodeT node) const {
             for (auto& edge : edges) {
                 if (edge.child.lock() == node) {

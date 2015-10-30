@@ -3,7 +3,7 @@
 # seed: 6153 # Finds, then loses feasible solution.
 # seed: 11055941 # Finds a goal state.
 seed: RANDOM # RANDOM, or an integer.
-num_samples: 81
+num_samples: 32
 
 rrbt_append_reject_cov_threshold: 0.01
 rrbt_append_reject_cost_threshold: 0.001
@@ -40,7 +40,7 @@ initial_covariance:
     - [0, 0.001, 0]
     - [0, 0, 0.001]
 
-goal_state: [0.64, 0.5, -3.1415]
+goal_state: [0.55, 0.5, 0]
 
 obstacles:
     # - { type: CIRCLE, position: [0.5, 0.5], radius: 0.065 }

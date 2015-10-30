@@ -13,6 +13,8 @@
 #include "shared/utility/drawing/cairo_drawing.h"
 #include "shared/utility/math/geometry/Ellipse.h"
 #include "shared/utility/math/geometry/intersection/Intersection.h"
+#include "shared/utility/math/angle.h"
+#include "shared/utility/math/distributions.h"
 
 using utility::math::geometry::Ellipse;
 using utility::drawing::drawSearchTree;
@@ -83,8 +85,8 @@ Circle shapeFromYaml(const YAML::Node& yaml) {
     exit(1);
 }
 
-numptest::SearchScenario::Config::KickBox kickBoxConfigFromYaml(const YAML::Node& yaml) {
-    numptest::SearchScenario::Config::KickBox kickBoxConfig;
+nump::BipedRobotModel::KickBox kickBoxConfigFromYaml(const YAML::Node& yaml) {
+    nump::BipedRobotModel::KickBox kickBoxConfig;
 
     kickBoxConfig.kickExtent = yaml["kick_extent"].as<double>();
     kickBoxConfig.footWidth = yaml["foot_width"].as<double>();
@@ -259,74 +261,125 @@ void numptest::SearchScenario::performRRTsSearch(cairo_t* cr, const std::string&
 }
 
 
-void numptest::SearchScenario::simulate(cairo_t* cr) {
-    // Obtain a nominal path using a planning algorithm:
-    auto rrtsTree = nump::SearchTree::fromRRTs(cfg_, cr);
-
-
-    nump::Path<BipedRobotModel::State> nominalPath;
-    auto goalNode = rrtsTree.createValidNodeForState({cfg_.goalState});
-    if (goalNode) {
-        auto zNearby = rrtsTree.nearVertices(goalNode, rrtsTree.tree.nodes.size());
-        rrtsTree.optimiseParent(goalNode, zNearby);
-        for (auto pathNode = goalNode; pathNode != nullptr; pathNode = pathNode->parent) {
-            nominalPath.segments.push_front(pathNode->value.traj);
-        }
-    }
-
-    // Draw the nominal path:
-    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
-    drawSearchTree(cr, rrtsTree);
-    // drawPath(nominalPath);
-
-    cairo_set_source_rgb(cr, 0.2, 0.5, 0.8);
-    double walkTime = 0;
-    for (auto walker = nominalPath.walk(0.01); !walker.isFinished(); walker.stepBy(0.01)) {
-        auto state = walker.currentState();
-        utility::drawing::drawRobot(cr, state.position, 0.05, true);
-    }
-    cairo_fill(cr);
-
-    // Simulate the robot following the path:
-
+void numptest::SearchScenario::simulate(cairo_t* cr, nump::Path<BipedRobotModel::State> nominalPath) {
     Transform2D robot = cfg_.initialState;
+    BipedRobotModel::EKF robotFilter;
+    robotFilter.mean = {cfg_.initialState};
+    robotFilter.covariance = cfg_.initialCovariance;
 
     std::vector<Transform2D> simulationStates = {robot};
+    std::vector<BipedRobotModel::EKF> simulationFilters = {robotFilter};
 
     double timeStep = 0.1;
     double timeLimit = 5 * 60; // The robot must kick the ball within 5 minutes.
+    auto walker = nominalPath.walk(0.001);
     for (double currentTime = 0; currentTime < timeLimit; currentTime += timeStep) {
-        // Make observations to update the state estimate:
-
         // Obtain desired state and control for the current time from the path:
-        // walker.stepTo(currentTime);
-        // Transform2D desiredState = walker.currentState();
-        // Transform2D nominalControl = walker.currentControl();
+        walker.stepTo(currentTime);
+        if (walker.isFinished()) {
+            break;
+        }
+        Transform2D desiredState = walker.currentState().position;
+        // arma::vec2 rawControl = walker.currentControl();
+        // Transform2D nominalControl = {nominalControl(0), 0, nominalControl(1)};
+        // Transform2D nominalControl = walker.currentOmniControl();
+        Transform2D nominalControl = nump::robotmodel::walkBetween(robotFilter.mean.position, walker.currentSegment->xGoal.position);
+
+        // Make observations to update the state estimate:
+        std::vector<BipedRobotModel::Measurement> measurements;
+        for (auto& landmark : cfg_.measurementRegions) {
+            BipedRobotModel::Measurement expectedMeas = BipedRobotModel::observeLandmark({robot}, landmark);
+            // double r = expectedMeas.r();
+            // BipedRobotModel::MeasurementCov measCov = {
+            //     // {0.01*r*r, 0.0},
+            //     {0.01, 0.0},
+            //     {0.0, 0.01}
+            // };
+            BipedRobotModel::MeasurementCov measCov = BipedRobotModel::measurementNoiseCovariance(timeStep, {robot}, landmark);
+            BipedRobotModel::Measurement actualMeas = utility::math::distributions::randn(expectedMeas, measCov);
+            measurements.push_back(actualMeas);
+        }
+        // arma::vec2 bicycleControl = {arma::norm(nominalControl.xy()), nominalControl.angle()};
+        robotFilter.update(timeStep, nominalControl, measurements, cfg_.measurementRegions);
 
         // Use state estimate and stabiliser to enhance the desired control to correct current error:
         // Transform2D lqrControl =
 
         // Add noise to obtain actual control:
-        // arma::mat33 motionCov = BipedRobotModel::motionNoiseCovariance();
-        // Transform2D actualControl = utility::math::distributions::randn(1, lqrControl, motionCov);
-        Transform2D actualControl = {1, 0, 0};
+        // Transform2D actualControl = nominalControl;
+        BipedRobotModel::MotionCov alpha = {
+            {0.1, 0.001, 0.001},
+            {0.001, 0.1, 0.001},
+            {0.001, 0.001, 0.2}
+        };
+        Transform2D controlSquared = nominalControl % nominalControl;
+        BipedRobotModel::MotionCov motionCov = arma::diagmat(alpha*controlSquared);
+        Transform2D actualControl = utility::math::distributions::randn(1, nominalControl, motionCov);
 
         // Apply the actual control to the robot to obtain the new state:
         robot = robot.localToWorld(actualControl * timeStep);
 
         // Record the new state of the robot:
         simulationStates.push_back(robot);
+        simulationFilters.push_back(robotFilter);
 
         // Check whether the robot has succeeded or failed the test:
     }
 
+
     // Draw the robot's actual path:
+    cairo_set_line_width(cr, 0.001);
     cairo_set_source_rgb(cr, 0.8, 0.5, 0.2);
     for (auto& state : simulationStates) {
-        utility::drawing::drawRobot(cr, state, 0.05, true);
+        utility::drawing::drawRobot(cr, state, 0.02, true);
     }
-    cairo_fill(cr);
+    cairo_stroke(cr);
 
+    arma::vec3 col = {0.2, 0.8, 0.5};
+    cairo_set_line_width(cr, 0.001);
+    for (auto& filter : simulationFilters) {
+        utility::drawing::cairoSetSourceRGB(cr, col);
+        utility::drawing::drawRobot(cr, filter.mean.position, 0.02, true);
+        cairo_stroke(cr);
+        utility::drawing::cairoSetSourceRGB(cr, col*0.5);
+        auto ellipse = utility::math::distributions::confidenceRegion(filter.mean.position.xy(), filter.covariance.submat(0,0,1,1), 0.95, 3);
+        utility::drawing::drawEllipse(cr, ellipse);
+        cairo_stroke(cr);
+    }
+}
+
+void numptest::SearchScenario::simulation(cairo_t* cr) {
+    // Obtain a nominal path using a planning algorithm:
+    auto rrtsTree = nump::SearchTree::fromRRTs(cfg_, cr);
+    nump::Path<BipedRobotModel::State> rrtsSolutionPath = rrtsTree.getSolutionPath();
+
+    // Draw the search tree and nominal path:
+    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
+    drawSearchTree(cr, rrtsTree);
+    cairo_set_source_rgb(cr, 0.2, 0.5, 0.8);
+    cairo_set_line_width(cr, 0.001);
+    utility::drawing::drawPath(cr, rrtsSolutionPath, 0.1, 0.02);
+    cairo_stroke(cr);
+
+    // Simulate the robot following the path:
+    simulate(cr, rrtsSolutionPath);
+    cairo_show_page(cr);
+
+
+    // Obtain a nominal path using a planning algorithm:
+    auto rrbtTree = nump::RRBT::fromSearchScenario(cfg_, cr);
+    nump::Path<BipedRobotModel::State> rrbtSolutionPath = rrbtTree.getSolutionPath();
+
+    // Draw the search tree and nominal path:
+    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
+    drawRRBT(cr, rrbtTree);
+    cairo_set_source_rgb(cr, 0.2, 0.5, 0.8);
+    cairo_set_line_width(cr, 0.001);
+    utility::drawing::drawPath(cr, rrbtSolutionPath, 0.1, 0.02);
+    cairo_stroke(cr);
+
+    // Simulate the robot following the path:
+    simulate(cr, rrbtSolutionPath);
     cairo_show_page(cr);
 }
 
@@ -354,7 +407,7 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
 //    cairo_scale(cr, centeredFrac, centeredFrac);
 //    cairo_translate(cr, borderSize, borderSize);
 
-    simulate(cr);
+    simulation(cr);
     // performRRBTSearch(cr, scenario_prefix);
     // performRRTsSearch(cr, scenario_prefix);
 

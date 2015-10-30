@@ -25,6 +25,7 @@ namespace distributions {
 
     double dnorm(arma::vec3 mean, arma::mat33 cov, arma::vec3 pos);
     arma::mat randn(int n_elem, arma::vec3 mean, arma::mat33 cov);
+    arma::vec randn(arma::vec2 mean, arma::mat22 cov);
 
     arma::mat33 transformToLocalDistribution(Transform2D trans, arma::mat33 transCov, Transform2D pos);
 }
