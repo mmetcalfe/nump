@@ -32,7 +32,7 @@ namespace intersection {
 
     bool testConfidenceRegion(const RotatedRectangle& rect, const arma::mat33& posHeadingCov, double conf, const Circle& circle) {
 
-        Ellipse ellipse = utility::math::distributions::confidenceRegion(rect.transform.head(2), posHeadingCov.submat(0,0,1,1), 0.95, 3);
+        Ellipse ellipse = utility::math::distributions::confidenceRegion(rect.transform.head(2), posHeadingCov.submat(0,0,1,1), conf, 3);
 
         // // Throw out far off circles:
         double maxRectRad = arma::norm(rect.size / 2);
@@ -73,7 +73,7 @@ namespace intersection {
                     continue;
                 }
 
-                auto tRange = utility::math::distributions::confidenceEllipsoidZRangeForXY({gq.x(), gq.y()}, rect.transform, posHeadingCov, 0.95);
+                auto tRange = utility::math::distributions::confidenceEllipsoidZRangeForXY({gq.x(), gq.y()}, rect.transform, posHeadingCov, conf);
                 if (tRange.size() != 2) {
                     continue;
                 }

@@ -329,7 +329,7 @@ namespace drawing {
         int stepNum = 0;
         int drawPeriod = 5;
         // Perform belief propagation:
-        auto n2 = nump::RRBT::propagate(traj, n1, scenario.footprintSize, scenario.obstacles, scenario.measurementRegions, [&](auto t, auto xt, auto nt) {
+        auto n2 = nump::RRBT::propagate(traj, n1, scenario.footprintSize, scenario.rrbt, scenario.obstacles, scenario.measurementRegions, [&](auto t, auto xt, auto nt) {
             ++stepNum;
             if (stepNum % drawPeriod != 0) {
                 return;
@@ -343,7 +343,7 @@ namespace drawing {
             double alpha = alphaNormal;
             cairo_set_line_width(cr, lwNormal);
 
-            if (!nump::RRBT::satisfiesChanceConstraint(xt, fullCov, scenario.footprintSize, scenario.obstacles)) {
+            if (!nump::RRBT::satisfiesChanceConstraint(xt, fullCov, scenario.footprintSize, scenario.obstacles, scenario.rrbt.chanceConstraint)) {
                 colt = colFailure;
                 alpha = 1;
                 cairo_set_line_width(cr, lwHighlight);
@@ -351,11 +351,11 @@ namespace drawing {
 
             cairoSetSourceRGBAlpha(cr, colt, alpha);
             drawRobot(cr, xt, size * 0.2);
-            drawErrorEllipse(cr, xt, fullCov, 0.95);
+            drawErrorEllipse(cr, xt, fullCov, scenario.rrbt.chanceConstraint);
             cairo_stroke(cr);
 
             cairoSetSourceRGBAlpha(cr, colt * 0.5, alpha);
-            drawErrorEllipse(cr, xt, nt->stateCov, 0.95);
+            drawErrorEllipse(cr, xt, nt->stateCov, scenario.rrbt.chanceConstraint);
             cairo_stroke(cr);
         });
 
@@ -395,7 +395,7 @@ namespace drawing {
             cairo_stroke(cr);
 
             cairo_set_line_width(cr, lwHighlight);
-            drawErrorEllipse(cr, n->containingNode.lock()->value.state, n->stateCov + n->stateDistribCov, 0.95);
+            drawErrorEllipse(cr, n->containingNode.lock()->value.state, n->stateCov + n->stateDistribCov, rrbt.scenario.rrbt.chanceConstraint);
             cairo_stroke(cr);
             n = n->parent;
             ++depth;
@@ -511,7 +511,7 @@ namespace drawing {
 
             cairo_set_line_width(cr, lwNormal);
             for (auto& bn : node->value.beliefNodes) {
-                drawErrorEllipse(cr, state, bn->stateCov + bn->stateDistribCov, 0.95);
+                drawErrorEllipse(cr, state, bn->stateCov + bn->stateDistribCov, rrbt.scenario.rrbt.chanceConstraint);
             }
             cairo_stroke(cr);
 
@@ -519,17 +519,17 @@ namespace drawing {
             showText(cr, state.position.head(2), r*0.2, node->value.beliefNodes.size());
         }
 
-        // Draw obstacles:
-        cairo_push_group(cr);
-        cairoSetSourceRGB(cr, colRegion);
-        for (auto& reg : rrbt.scenario.measurementRegions) {
-            drawCircle(cr, reg);
-        }
-        cairo_fill(cr);
-        cairo_pop_group_to_source(cr);
-        cairo_paint_with_alpha(cr, 0.3);
+        // // Draw information regions:
+        // cairo_push_group(cr);
+        // cairoSetSourceRGB(cr, colRegion);
+        // for (auto& reg : rrbt.scenario.measurementRegions) {
+        //     drawCircle(cr, reg);
+        // }
+        // cairo_fill(cr);
+        // cairo_pop_group_to_source(cr);
+        // cairo_paint_with_alpha(cr, 0.3);
 
-        // Draw information regions:
+        // Draw obstacles:
         cairo_push_group(cr);
         cairoSetSourceRGB(cr, colObstacle);
         for (auto& obs : rrbt.scenario.obstacles) {
@@ -544,7 +544,7 @@ namespace drawing {
         cairo_set_line_width(cr, lwNormal);
         cairo_set_source_rgb(cr, 1, 0.5, 0.5);
         drawRobot(cr, rrbt.scenario.initialState, r);
-        drawErrorEllipse(cr, rrbt.initialBelief->containingNode.lock()->value.state, rrbt.initialBelief->stateCov + rrbt.initialBelief->stateDistribCov, 0.95);
+        drawErrorEllipse(cr, rrbt.initialBelief->containingNode.lock()->value.state, rrbt.initialBelief->stateCov + rrbt.initialBelief->stateDistribCov, rrbt.scenario.rrbt.chanceConstraint);
         cairo_stroke(cr);
 
         cairo_set_source_rgb(cr, 0.5, 1, 0.5);

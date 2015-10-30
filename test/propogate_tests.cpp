@@ -120,8 +120,12 @@ void propogateTests() {
         // Generate the trajectory:
         nump::RRBT::TrajT traj = nump::RRBT::connect(x1, x2);
 
+        numptest::SearchScenario::Config::RRBT rrbtConfig;
+        rrbtConfig.propagateTimeStep = 0.1;
+        rrbtConfig.chanceConstraint = 0.7;
+        
         // Perform belief propagation:
-        auto n2 = nump::RRBT::propagate(traj, n1, footprintSize, obstacles, measurementRegions, [&](auto t, auto xt, auto nt) {
+        auto n2 = nump::RRBT::propagate(traj, n1, footprintSize, rrbtConfig, obstacles, measurementRegions, [&](auto t, auto xt, auto nt) {
             double frac = t / traj.t;
 
             nump::RRBT::StateCovT fullCov = nt->stateCov + nt->stateDistribCov;
@@ -130,7 +134,7 @@ void propogateTests() {
             double alpha = 0.3;
             cairo_set_line_width(cr, lwNormal);
 
-            if (!nump::RRBT::satisfiesChanceConstraint(xt, fullCov, footprintSize, obstacles)) {
+            if (!nump::RRBT::satisfiesChanceConstraint(xt, fullCov, footprintSize, obstacles, rrbtConfig.chanceConstraint)) {
                 colt = colFailure;
                 alpha = 1;
                 cairo_set_line_width(cr, lwHighlight);

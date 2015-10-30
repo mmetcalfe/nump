@@ -8,6 +8,9 @@ search_time_limit_seconds: 3
 rrbt_append_reject_cov_threshold: 10
 rrbt_append_reject_cost_threshold: 0.01
 
+rrbt_chance_constraint: 0.7 # Acceptable probability of failure due to collision
+rrbt_propagate_time_step: 0.1 # Timestep in seconds to use for uncertainty propagation along trajectories
+ball_obstacle_radius: 0.13
 
 # Drawing:
 draw_period: 100

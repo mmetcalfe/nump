@@ -95,8 +95,8 @@ namespace nump {
         // Robot specific motion error parameters:
         // (See (5.10) on page 127 of Sebastian Thrun's Probabilistic Robotics book)
         arma::mat22 alpha = {
-            {0.05, 0.005},
-            {0.005, 0.05}
+            {0.02, 0.001},
+            {0.001, 0.005}
         };
         ControlT controlSquared = control % control;
         BipedRobotModel::ControlCov Mt = arma::diagmat(alpha*controlSquared);
@@ -168,9 +168,14 @@ namespace nump {
         double r = expectedMeas.r();
         BipedRobotModel::MeasurementCov Rt;
         Rt.eye();
-        // Rt(0,0) = 0.01 * r*r;
-        Rt(0,0) = 0.01;
-        Rt(1,1) = 0.001;
+        if (std::abs(expectedMeas.phi()) > arma::datum::pi/2) {
+            Rt(0,0) = 1e7;
+            Rt(1,1) = 1e7;
+        } else {
+            // Rt(0,0) = 0.01 * r*r;
+            Rt(0,0) = 0.02 * (r*r);
+            Rt(1,1) = 0.001;
+        }
         return Rt;
     }
     BipedRobotModel::MeasurementCov BipedRobotModel::measurementNoiseCovariance(double Δt, const StateT& state, const std::vector<Circle>& measurementRegions) {
@@ -221,6 +226,10 @@ namespace nump {
             BipedRobotModel::MeasurementCov Rt = measurementNoiseCovariance(Δt, mean, landmark);
 
             auto expectedMeas = observeLandmark({μbt}, landmark);
+
+            if (std::abs(expectedMeas.phi()) > arma::datum::pi/2) {
+                continue;
+            }
 
             // Kalman filter measurement update:
             BipedRobotModel::MeasurementCov St = Ct*Σbt*Ct.t() + Rt; // (equation 18)
@@ -525,7 +534,7 @@ namespace nump {
     template <>
     void Trajectory<StateT>::TrajectoryWalker::stepBy() {
         double nextTimeStep = std::min(timeStep, finishTime - t);
-        
+
         xCurrent = xNext;
         xNext = getNext(xCurrent, nextTimeStep);
         t += nextTimeStep;

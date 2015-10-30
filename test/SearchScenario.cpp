@@ -111,11 +111,15 @@ numptest::SearchScenario numptest::SearchScenario::fromFile(const std::string &f
         scenario.cfg_.seed = scenarioYaml["seed"].as<int>();
     }
 
+    scenario.cfg_.searchTrialDuration = scenarioYaml["search_trial_duration"].as<double>();
     scenario.cfg_.searchTimeLimitSeconds = scenarioYaml["search_time_limit_seconds"].as<double>();
     scenario.cfg_.numSamples = scenarioYaml["num_samples"].as<int>();
-    scenario.cfg_.rrbtAppendRejectCovThreshold = scenarioYaml["rrbt_append_reject_cov_threshold"].as<double>();
-    scenario.cfg_.rrbtAppendRejectCostThreshold = scenarioYaml["rrbt_append_reject_cost_threshold"].as<double>();
+    scenario.cfg_.rrbt.appendRejectCovThreshold = scenarioYaml["rrbt_append_reject_cov_threshold"].as<double>();
+    scenario.cfg_.rrbt.appendRejectCostThreshold = scenarioYaml["rrbt_append_reject_cost_threshold"].as<double>();
 
+    scenario.cfg_.rrbt.chanceConstraint = scenarioYaml["rrbt_chance_constraint"].as<double>();
+    scenario.cfg_.rrbt.propagateTimeStep = scenarioYaml["rrbt_propagate_time_step"].as<double>();
+    scenario.cfg_.ballObstacleRadius = scenarioYaml["ball_obstacle_radius"].as<double>();
 
     // Drawing:
     scenario.cfg_.drawPeriod = scenarioYaml["draw_period"].as<int>();
@@ -155,10 +159,36 @@ numptest::SearchScenario numptest::SearchScenario::fromFile(const std::string &f
     scenario.cfg_.ball = shapeFromYaml(scenarioYaml["ball"]);
     scenario.cfg_.targetAngle = scenarioYaml["target_angle"].as<double>();
     scenario.cfg_.targetAngleRange = scenarioYaml["target_angle_range"].as<double>();
-    scenario.cfg_.minKickProbability = scenarioYaml["min_kick_probability"].as<double>();
+    scenario.cfg_.rrbt.minKickProbability = scenarioYaml["min_kick_probability"].as<double>();
     scenario.cfg_.kbConfig = kickBoxConfigFromYaml(scenarioYaml["kickboxes"]);
 
     return scenario;
+}
+
+void appendTrialToFile(std::string fname, const numptest::SearchScenario::SearchTrialResult& trialResult) {
+    std::ofstream fs(fname, std::ios::out | std::ios::app);
+
+    fs << "{ kickSuccess: " << trialResult.kickSuccess << std::endl;
+    fs << ", initialState: "
+       << "[" << trialResult.initialState(0)
+       << "," << trialResult.initialState(1)
+       << "," << trialResult.initialState(2)
+       << "]" << std::endl;
+    fs << ", finalState: "
+       << "[" << trialResult.finalState(0)
+       << "," << trialResult.finalState(1)
+       << "," << trialResult.finalState(2)
+       << "]" << std::endl;
+    fs << ", collisionFailure: " << trialResult.collisionFailure  << std::endl;
+    fs << ", timeLimit: " << trialResult.timeLimit  << std::endl;
+    fs << ", targetAngleRange: " << trialResult.targetAngleRange  << std::endl;
+    fs << ", finishTime: " << trialResult.finishTime << std::endl;
+    fs << ", replanInterval: " << trialResult.replanInterval  << std::endl;
+    fs << ", numReplans: " << trialResult.numReplans << std::endl;
+    fs << ", chanceConstraint: " << trialResult.chanceConstraint << std::endl;
+    fs << ", seed: " << trialResult.seed << std::endl;
+    fs << "}," << std::endl;
+    fs.close();
 }
 
 void writeDataFile(std::string fname, const std::vector<double>& values) {
@@ -264,7 +294,7 @@ void numptest::SearchScenario::performRRTsSearch(cairo_t* cr, const std::string&
 }
 
 
-void numptest::SearchScenario::simulate(cairo_t* cr, //nump::Path<BipedRobotModel::State> nominalPath,
+numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(cairo_t* cr, //nump::Path<BipedRobotModel::State> nominalPath,
     std::function<nump::Path<BipedRobotModel::State>(BipedRobotModel::State, BipedRobotModel::MotionCov)> replanFunc
 ) {
     Transform2D robot = cfg_.initialState;
@@ -272,13 +302,24 @@ void numptest::SearchScenario::simulate(cairo_t* cr, //nump::Path<BipedRobotMode
     robotFilter.mean = {cfg_.initialState};
     robotFilter.covariance = cfg_.initialCovariance;
 
+    SearchTrialResult trialResult;
+    trialResult.seed = cfg_.seed;
+    trialResult.kickSuccess = false;
+    trialResult.collisionFailure = false;
+    trialResult.timeLimit = cfg_.searchTrialDuration;
+    trialResult.initialState = cfg_.initialState;
+    trialResult.targetAngleRange = cfg_.targetAngleRange;
+    trialResult.finalState = cfg_.initialState;
+    trialResult.finishTime = cfg_.searchTrialDuration;
+    trialResult.replanInterval = cfg_.searchTimeLimitSeconds;
+    trialResult.numReplans = 0;
+    trialResult.chanceConstraint = cfg_.rrbt.chanceConstraint;
+
     auto nominalPath = replanFunc(robotFilter.mean, robotFilter.covariance);
+    trialResult.numReplans++;
 
     std::vector<Transform2D> simulationStates = {robot};
     std::vector<BipedRobotModel::EKF> simulationFilters = {robotFilter};
-
-    bool kickSuccess = false;
-    bool collisionFailure = false;
 
     double replanInterval = cfg_.searchTimeLimitSeconds;
     double lastPlanningTime = 0;
@@ -286,13 +327,15 @@ void numptest::SearchScenario::simulate(cairo_t* cr, //nump::Path<BipedRobotMode
     double walkTimeStep = 0.001;
 
     double timeStep = 0.1;
-    double timeLimit = 20; // The robot must kick the ball within 5 minutes.
+    double timeLimit = cfg_.searchTrialDuration;; // The robot must kick the ball within 5 minutes.
     auto walker = nominalPath.walk(walkTimeStep);
-    for (double currentTime = 0; currentTime < timeLimit; currentTime += timeStep) {
+    double currentTime = 0;
+    for (currentTime = 0; currentTime < timeLimit; currentTime += timeStep) {
         if (currentTime - lastPlanningTime > replanInterval) {
             std::cout << "REPLANNING: t = " << currentTime << std::endl;
             lastPlanningTime = currentTime;
             nominalPath = replanFunc(robotFilter.mean, robotFilter.covariance);
+            trialResult.numReplans++;
             walker = nominalPath.walk(walkTimeStep);
         }
 
@@ -351,7 +394,7 @@ void numptest::SearchScenario::simulate(cairo_t* cr, //nump::Path<BipedRobotMode
         // Check for collision with the ball:
         RotatedRectangle robotFootprint = {robot, cfg_.footprintSize};
         if (utility::math::geometry::intersection::test(cfg_.ball, robotFootprint)) {
-            collisionFailure = true;
+            trialResult.collisionFailure = true;
             std::cout << "COLLISION FAILURE" << std::endl;
             break;
         }
@@ -366,10 +409,14 @@ void numptest::SearchScenario::simulate(cairo_t* cr, //nump::Path<BipedRobotMode
         cfg_.targetAngle,
         cfg_.targetAngleRange)
     ) {
-        kickSuccess = true;
+        trialResult.kickSuccess = true;
         std::cout << "KICK SUCCESS" << std::endl;
         // break;
     }
+
+    // Record results:
+    trialResult.finalState = robot;
+    trialResult.finishTime = currentTime;
 
     // Draw the robot's actual path:
     cairo_set_line_width(cr, 0.001);
@@ -392,10 +439,16 @@ void numptest::SearchScenario::simulate(cairo_t* cr, //nump::Path<BipedRobotMode
         utility::drawing::drawRobot(cr, filter.mean.position, 0.02, true);
         cairo_stroke(cr);
         utility::drawing::cairoSetSourceRGB(cr, col*0.5);
-        auto ellipse = utility::math::distributions::confidenceRegion(filter.mean.position.xy(), filter.covariance.submat(0,0,1,1), 0.95, 3);
+        auto ellipse = utility::math::distributions::confidenceRegion(filter.mean.position.xy(), filter.covariance.submat(0,0,1,1), cfg_.rrbt.chanceConstraint, 3);
         utility::drawing::drawEllipse(cr, ellipse);
         cairo_stroke(cr);
     }
+
+    // Draw the ball;
+    cairo_set_line_width(cr, 0.005);
+    cairo_set_source_rgb(cr, 0,0,0);
+    utility::drawing::drawCircle(cr, cfg_.ball);
+    cairo_stroke(cr);
 
     // Draw the final robot's position and kickboxes:
     cairo_set_line_width(cr, 0.005);
@@ -404,14 +457,15 @@ void numptest::SearchScenario::simulate(cairo_t* cr, //nump::Path<BipedRobotMode
     utility::drawing::drawRotatedRectangle(cr, finalFootprint);
     utility::drawing::drawKickBoxes(cr, robot, cfg_.kbConfig, cfg_.ball.radius);
     cairo_stroke(cr);
+
+    return trialResult;
 }
 
 void numptest::SearchScenario::simulation(cairo_t* cr) {
-
     // // Simulate the robot following the path:
     // // simulate(cr, rrtsSolutionPath, [=](auto currentState) {
     // cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
-    // simulate(cr, [=](auto currentState, auto currentCovariance) {
+    // auto resultRRTs = simulate(cr, [=](auto currentState, auto currentCovariance) {
     //     auto newScenario = cfg_;
     //     newScenario.initialState = currentState.position;
     //     newScenario.initialCovariance = currentCovariance;
@@ -432,10 +486,11 @@ void numptest::SearchScenario::simulation(cairo_t* cr) {
     //     return newPath;
     // });
     // cairo_show_page(cr);
+    // appendTrialToFile("rrtsTrials.yaml", resultRRTs);
 
     // Simulate the robot following the path:
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
-    simulate(cr, [=](auto currentState, auto currentCovariance) {
+    auto resultRRBt = simulate(cr, [=](auto currentState, auto currentCovariance) {
         auto newScenario = cfg_;
         newScenario.initialState = currentState.position;
         newScenario.initialCovariance = currentCovariance;
@@ -450,7 +505,7 @@ void numptest::SearchScenario::simulation(cairo_t* cr) {
         nump::Path<BipedRobotModel::State> newPath = rrbtTree.getSolutionPath();
 
         // Draw the search tree and nominal path:
-        drawRRBT(cr, rrbtTree);
+        // drawRRBT(cr, rrbtTree);
         cairo_set_source_rgb(cr, 0.2, 0.5, 0.8);
         cairo_set_line_width(cr, 0.001);
         utility::drawing::drawPath(cr, newPath, 0.1, 0.02);
@@ -459,14 +514,24 @@ void numptest::SearchScenario::simulation(cairo_t* cr) {
         return newPath;
     });
     cairo_show_page(cr);
+    appendTrialToFile("rrbtTrials.yaml", resultRRBt);
 }
 
 void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
+    while (true) {
+
     arma::arma_rng::set_seed(cfg_.seed);
     std::cout << "SEED: " << cfg_.seed << std::endl;
 
-    auto ouptut_img_file_name = scenario_prefix + "_searchTests.pdf";
-    cairo_surface_t *surface = cairo_pdf_surface_create(ouptut_img_file_name.c_str(), cfg_.canvasSize(0), cfg_.canvasSize(1));
+    auto trialSeed = randomSeed();
+
+    std::stringstream ss;
+    ss << "trial-diagrams/" << scenario_prefix << "_" << trialSeed << "_searchTests.pdf";
+    std::string fname = ss.str();
+    std::cout << "'" << fname << "'" << std::endl;
+    // auto ouptut_img_file_name = scenario_prefix + "_searchTests.pdf";
+    // cairo_surface_t *surface = cairo_pdf_surface_create(ouptut_img_file_name.c_str(), cfg_.canvasSize(0), cfg_.canvasSize(1));
+    cairo_surface_t *surface = cairo_pdf_surface_create(fname.c_str(), cfg_.canvasSize(0), cfg_.canvasSize(1));
     cairo_t *cr = cairo_create(surface);
 
     double canvasAspect = cfg_.canvasSize(0) / cfg_.canvasSize(1);
@@ -485,7 +550,40 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
 //    cairo_scale(cr, centeredFrac, centeredFrac);
 //    cairo_translate(cr, borderSize, borderSize);
 
-    simulation(cr);
+
+        arma::vec trialConfRand = arma::vec(arma::randu(10));
+
+        double theta = utility::math::angle::normalizeAngle(trialConfRand(0)*arma::datum::pi*2);
+        double ballDist = 0.2 + trialConfRand(1)*0.6;
+        double heading = utility::math::angle::normalizeAngle(trialConfRand(2)*arma::datum::pi*2);
+        arma::vec2 unitvec = utility::math::angle::bearingToUnitVector(theta);
+        arma::vec2 xyPos = unitvec * ballDist;
+        Transform2D initialState = {xyPos,heading};
+        double targetAngleRange = arma::datum::pi/2; // trialConfRand(4) * arma::datum::pi/2;
+        double replanInterval = 5; // 1 + trialConfRand(5) * 19;
+        double chanceConstraint = 0.6 + trialConfRand(6)*0.4;
+
+        cfg_.seed = trialSeed;
+        cfg_.initialState = initialState;
+        cfg_.targetAngleRange = targetAngleRange;
+        cfg_.searchTimeLimitSeconds = replanInterval;
+        cfg_.rrbt.chanceConstraint = chanceConstraint;
+
+        std::cout << "{ " << std::endl;
+        std::cout << "initialState: "
+           << "[" << cfg_.initialState(0)
+           << "," << cfg_.initialState(1)
+           << "," << cfg_.initialState(2)
+           << "]" << std::endl;
+        std::cout << ", targetAngleRange: " << cfg_.targetAngleRange  << std::endl;
+        std::cout << ", replanInterval: " << cfg_.searchTimeLimitSeconds  << std::endl;
+        std::cout << ", chanceConstraint: " << cfg_.rrbt.chanceConstraint << std::endl;
+        std::cout << ", seed: " << cfg_.seed << std::endl;
+        std::cout << "}," << std::endl;
+
+        simulation(cr);
+
+
     // performRRBTSearch(cr, scenario_prefix);
     // performRRTsSearch(cr, scenario_prefix);
 
@@ -494,4 +592,6 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
     // Clean up:
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
+
+    }
 }

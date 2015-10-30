@@ -155,7 +155,17 @@ namespace nump {
             timer.tic();
 
             // Random sampling:
-            StateT xRand = TrajT::sample(scenario.mapSize);
+            // StateT xRand = TrajT::sample(scenario.mapSize);
+
+            // Normal distribution:
+            double sampleVar = 0.2;
+            arma::mat33 sampleCov = {
+                { sampleVar, 0, 0 },
+                { 0, sampleVar, 0 },
+                { 0, 0, 100 }
+            };
+            arma::mat sample = utility::math::distributions::randn(1, Transform2D{scenario.ball.centre, scenario.targetAngle}, sampleCov);
+            StateT xRand = {sample};
 
             // // Grid sampling:
             // int sqrtNum = int(std::sqrt(scenario.numSamples));
@@ -178,8 +188,8 @@ namespace nump {
     }
 
     bool satisfiesChanceConstraintPointFootprint(RRBT::StateT mean, RRBT::StateCovT cov,
-                                   const std::vector<nump::math::Circle>& obstacles) {
-        Ellipse confEllipse = utility::math::distributions::confidenceRegion(mean.position.head(2), cov.submat(0,0,1,1), 0.95);
+                                   const std::vector<nump::math::Circle>& obstacles, double chanceConstraint) {
+        Ellipse confEllipse = utility::math::distributions::confidenceRegion(mean.position.head(2), cov.submat(0,0,1,1), chanceConstraint, 3);
         for (auto& obs : obstacles) {
             bool intersects = utility::math::geometry::intersection::test(obs, confEllipse);
 
@@ -193,12 +203,12 @@ namespace nump {
     }
 
     bool satisfiesChanceConstraintTransform2D(Transform2D mean, arma::mat33 cov, arma::vec2 footprintSize,
-                                   const std::vector<nump::math::Circle>& obstacles) {
+                                   const std::vector<nump::math::Circle>& obstacles, double chanceConstraint) {
         RotatedRectangle robotFootprint = {mean, footprintSize};
-        // Ellipse confEllipse = utility::math::distributions::confidenceRegion(mean.head(2), cov.submat(0,0,1,1), 0.95, arma::size(mean)(0));
+        // Ellipse confEllipse = utility::math::distributions::confidenceRegion(mean.head(2), cov.submat(0,0,1,1), chanceConstraint, arma::size(mean)(0));
         for (auto& obs : obstacles) {
             bool intersects = utility::math::geometry::intersection::testConfidenceRegion(
-                robotFootprint, cov, 0.95, obs);
+                robotFootprint, cov, chanceConstraint, obs);
             // bool intersects = utility::math::geometry::intersection::test(obs, confEllipse);
 
             // Return failure if the chance constraint is violated:
@@ -211,7 +221,7 @@ namespace nump {
     }
 
     bool RRBT::satisfiesChanceConstraint(StateT state, StateCovT stateCov, arma::vec2 footprintSize,
-                                         const std::vector<nump::math::Circle>& obstacles) {
+                                         const std::vector<nump::math::Circle>& obstacles, double chanceConstraint) {
         if (!arma::is_finite(stateCov)) {
             std::cout << "satisfiesChanceConstraint: is_finite fail." << std::endl;
             return false;
@@ -223,9 +233,9 @@ namespace nump {
         arma::vec size = arma::vec(arma::size(state.position));
         if (size(0) == 2) {
             // TODO: Enhance test to work for a polygonal robot footprint, rather than just a point robot.
-            return satisfiesChanceConstraintPointFootprint(state, stateCov, obstacles);
+            return satisfiesChanceConstraintPointFootprint(state, stateCov, obstacles, chanceConstraint);
         } else {
-            return satisfiesChanceConstraintTransform2D(state.position, stateCov, footprintSize, obstacles);
+            return satisfiesChanceConstraintTransform2D(state.position, stateCov, footprintSize, obstacles, chanceConstraint);
         }
     }
 
@@ -233,6 +243,7 @@ namespace nump {
             const TrajT& traj,
             BeliefNodePtr belief,
             arma::vec2 footprintSize,
+            const numptest::SearchScenario::Config::RRBT& rrbtConfig,
             const std::vector<nump::math::Circle>& obstacles,
             const std::vector<nump::math::Circle>& measurementRegions,
             std::function<void(double, StateT, BeliefNodePtr)> callback
@@ -256,7 +267,7 @@ namespace nump {
         // Iterate over trajectory:
         // TODO: Make trajectory iteration efficient.
         // TODO: Determine how to change matrices per timestep so that timesteps do not have to equal in time.
-        double timeStep = 0.2;
+        double timeStep = rrbtConfig.propagateTimeStep;
         for (auto walker = traj.walk(timeStep); !walker.isFinished(); ) {
             // double t = (i / double(numSteps)) * traj.t;
             // RobotModel::State xTraj = traj(t);
@@ -330,7 +341,7 @@ namespace nump {
             RobotModel::MotionMatrix xTrajCov = Σt + Λt;
 
 
-//            utility::math::distributions::confidenceRegionArea(Σt.submat(0,0,1,1), 0.95, 3);
+//            utility::math::distributions::confidenceRegionArea(Σt.submat(0,0,1,1), chanceConstraint, 3);
 
             // Step 2 - Cost expectation evaluation (equation 11):
             // TODO: Work out how to evaluate expected path cost.
@@ -349,7 +360,7 @@ namespace nump {
 
             // Step 3 - Chance-constraint checking (equation 13):
             //   P(x_t \in \mathcal{X}_obs) < \delta, \forall t \in [0, T]
-            if (!satisfiesChanceConstraint(xTraj, xTrajCov, footprintSize, obstacles)) {
+            if (!satisfiesChanceConstraint(xTraj, xTrajCov, footprintSize, obstacles, rrbtConfig.chanceConstraint)) {
                 return nullptr;
             }
 
@@ -395,7 +406,7 @@ namespace nump {
         // std::cout << __LINE__ << ":     covA: " << covA << std::endl;
         // std::cout << __LINE__ << ":     covB: " << covB << std::endl;
 
-        // return is_positive_definite(covB - covA);
+        return is_positive_definite(covB - covA);
 
         // Ellipse ellipseA = Ellipse::forConfidenceRegion({0,0}, covA);
         // Ellipse ellipseB = Ellipse::forConfidenceRegion({0,0}, covB);
@@ -407,9 +418,9 @@ namespace nump {
 
         // // TODO: Consider the method from http://math.stackexchange.com/a/669115
         // // where X >= Y <==> all eigenvalues of X - Y are >= 0
-        double areaA = utility::math::distributions::confidenceRegionArea(covA.submat(0,0,1,1), 0.95);
-        double areaB = utility::math::distributions::confidenceRegionArea(covB.submat(0,0,1,1), 0.95);
-        return areaA < areaB;
+        // double areaA = utility::math::distributions::confidenceRegionArea(covA.submat(0,0,1,1), 0.95);
+        // double areaB = utility::math::distributions::confidenceRegionArea(covB.submat(0,0,1,1), 0.95);
+        // return areaA < areaB;
     }
 
     bool RRBT::BeliefNode::dominates(BeliefNodePtr belief, double tolerance, double costTolerance) {
@@ -442,7 +453,7 @@ namespace nump {
 
         // If n is dominated by any nodes in v.N, return failure.
         for (auto& cmpBelief : beliefNodes) {
-            if (cmpBelief->dominates(belief, scenario.rrbtAppendRejectCovThreshold, scenario.rrbtAppendRejectCostThreshold)) {
+            if (cmpBelief->dominates(belief, scenario.rrbt.appendRejectCovThreshold, scenario.rrbt.appendRejectCostThreshold)) {
                 return false;
             }
         }
@@ -477,7 +488,7 @@ namespace nump {
         // violating the chance constraint, then return failure.
         BeliefNodePtr nRand = nullptr;
         for (auto& node : vNearest->value.beliefNodes) {
-            nRand = propagate(eNearestRand, node, scenario.footprintSize, scenario.obstacles, scenario.measurementRegions);
+            nRand = propagate(eNearestRand, node, scenario.footprintSize, scenario.rrbt, scenario.obstacles, scenario.measurementRegions);
             if (nRand != nullptr) {
                 break;
             }
@@ -573,7 +584,7 @@ namespace nump {
                 // }
 
                 // std::cout << __LINE__ << ": propagate" << std::endl;
-                auto nNew = propagate(eNeighbour.value, nBelief, scenario.footprintSize, scenario.obstacles, scenario.measurementRegions);
+                auto nNew = propagate(eNeighbour.value, nBelief, scenario.footprintSize, scenario.rrbt, scenario.obstacles, scenario.measurementRegions);
 
                 // TODO: Confirm the necessity of this test. It is not present in the paper.
                 if (nNew == nullptr) {
@@ -623,7 +634,7 @@ namespace nump {
                     bestSuccessProb = prob;
                 }
 
-                if (prob < scenario.minKickProbability) {
+                if (prob < scenario.rrbt.minKickProbability) {
                     continue;
                 } else if (goalNode->cost < bestCost) {
                     bestNode = goalNode;
@@ -635,7 +646,7 @@ namespace nump {
 
         if (!bestNode) {
             std::cout << "Success chance threshold not met: "
-                      << bestSuccessProb << " < " << scenario.minKickProbability
+                      << bestSuccessProb << " < " << scenario.rrbt.minKickProbability
                       << std::endl;
             bestNode = highSuccessNode;
         }
@@ -674,7 +685,7 @@ namespace nump {
                 // cairoMoveTo(cr, n->containingNode.lock()->value.state.position.head(2));
                 // cairoLineTo(cr, n->parent->containingNode.lock()->value.state.position.head(2));
                 // cairo_set_line_width(cr, lwHighlight);
-                // drawErrorEllipse(cr, n->containingNode.lock()->value.state, n->stateCov + n->stateDistribCov, 0.95);
+                // drawErrorEllipse(cr, n->containingNode.lock()->value.state, n->stateCov + n->stateDistribCov, chanceConstraint);
                 // n = n->parent;
                 // ++depth;
                 // if (depth > rrbt.graph.nodes.size()) {

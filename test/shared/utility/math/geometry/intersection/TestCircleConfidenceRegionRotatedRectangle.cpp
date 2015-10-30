@@ -32,7 +32,7 @@ namespace intersection {
 
     bool testConfidenceRegion(const Circle& circle, const arma::mat22& posCov, double conf, const RotatedRectangle& rect) {
 
-        Ellipse confEllipse = utility::math::distributions::confidenceRegion(circle.centre, posCov, 0.95, 2);
+        Ellipse confEllipse = utility::math::distributions::confidenceRegion(circle.centre, posCov, conf, 2);
 
         // Throw out far off rectangles:
         double maxEllipseRad = arma::max(confEllipse.size / 2);

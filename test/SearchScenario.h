@@ -16,7 +16,6 @@ namespace numptest {
     using nump::math::Transform2D;
     using nump::math::Circle;
 
-
 //    template<class StateT, class StateCovT>
     class SearchScenario {
         // typedef arma::vec2 StateT;
@@ -26,6 +25,20 @@ namespace numptest {
         typedef arma::mat33 StateCovT;
 
     public:
+        struct SearchTrialResult {
+            bool collisionFailure = false;
+            Transform2D finalState = {0,0,0};
+            double finishTime = 0;
+            Transform2D initialState = {0,0,0};
+            bool kickSuccess = false;
+            double targetAngleRange = arma::datum::pi/3;
+            double timeLimit = 1;
+            double replanInterval = 3;
+            double chanceConstraint = 0.75;
+            int numReplans = 0;
+            int seed = 0;
+        };
+
         enum class StateType {
             Position,
             PositionBearing,
@@ -38,9 +51,18 @@ namespace numptest {
             int seed;
             int numSamples;
             double searchTimeLimitSeconds;
+            double searchTrialDuration;
 
-            double rrbtAppendRejectCovThreshold = 10;
-            double rrbtAppendRejectCostThreshold = 0.01;
+            struct RRBT {
+                double appendRejectCovThreshold = 10;
+                double appendRejectCostThreshold = 0.01;
+                double propagateTimeStep = 0.1;
+
+                double chanceConstraint = 0.7;
+                double minKickProbability = 0.5; // The minimum acceptable probability of a successful kick in the resulting goal state.
+            } rrbt;
+
+            double ballObstacleRadius = 0.13;
 
             // Drawing:
             int drawPeriod;
@@ -57,8 +79,6 @@ namespace numptest {
             Circle ball = {{0, 0}, 1};
             double targetAngle; // The direction in which to kick the ball.
             double targetAngleRange; // The range of acceptable kick angles around the target angle.
-
-            double minKickProbability; // The minimum acceptable probability of a successful kick in the resulting goal state.
 
             // struct KickBox {
             //     double kickExtent; // The distance the front of the foot travels during a kick.
@@ -78,7 +98,7 @@ namespace numptest {
         void execute(const std::string& scenario_prefix);
 
         // void simulate(cairo_t* cr, nump::Path<nump::BipedRobotModel::State> nominalPath);
-        void simulate(cairo_t* cr,
+        numptest::SearchScenario::SearchTrialResult simulate(cairo_t* cr,
             std::function<nump::Path<nump::BipedRobotModel::State>(nump::BipedRobotModel::State, nump::BipedRobotModel::MotionCov)> replanFunc
         );
         void simulation(cairo_t* cr);

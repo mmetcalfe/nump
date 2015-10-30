@@ -13,6 +13,7 @@
 #include "Tree.h"
 #include "shared/utility/drawing/cairo_drawing.h"
 #include "shared/utility/math/geometry/intersection/Intersection.h"
+#include "shared/utility/math/distributions.h"
 #include "BipedRobotModel.h"
 
 using utility::drawing::fillCircle;
@@ -252,7 +253,17 @@ namespace nump {
                 break;
             }
 
-            StateT zRand = TrajT::sample(scenario.mapSize);
+            // StateT zRand = TrajT::sample(scenario.mapSize);
+            // Normal distribution:
+            double sampleVar = 0.2;
+            arma::mat33 sampleCov = {
+                { sampleVar, 0, 0 },
+                { 0, sampleVar, 0 },
+                { 0, 0, 100 }
+            };
+            arma::mat sample = utility::math::distributions::randn(1, Transform2D{scenario.ball.centre, scenario.targetAngle}, sampleCov);
+            StateT zRand = {sample};
+
             bool extended = tree.extendRRTs(cr, zRand);
 
             callback(tree, zRand, extended);

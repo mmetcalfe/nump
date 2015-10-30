@@ -14,10 +14,22 @@ using nump::math::Transform2D;
 
 double cChiSquare(double percentile, int dof) {
     double chiSquareVal;
+
     switch (dof) {
         case 1: chiSquareVal = 3.8415; break; // 95th percentile of 1-DOF chi-square distribution.
         case 2: chiSquareVal = 5.991; break; // 95th percentile of 2-DOF chi-square distribution.
-        case 3: chiSquareVal = 7.815; break; // 95th percentile of 3-DOF chi-square distribution.
+        case 3: { // 3-DOF chi-square distribution.
+            if (percentile >= 0.9) {
+                chiSquareVal = 7.8147279; // 95th percentile
+            } else if (percentile >= 0.8) {
+                chiSquareVal = 5.3170478; // 85th percentile
+            }else if (percentile >= 0.7) {
+                chiSquareVal = 4.1083449; // 75th percentile
+            // } else if (percentile >= 0.6) {
+            } else {
+                chiSquareVal = 3.2831125; // 65th percentile
+            }
+        }break;
         default:
             std::cerr << __FILE__ << ", " << __LINE__ << " - " << __func__ << ": "
                       << "Unsupported DOF value ("
