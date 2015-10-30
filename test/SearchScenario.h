@@ -76,7 +76,10 @@ namespace numptest {
         void performRRTsSearch(cairo_t* cr, const std::string& scenario_prefix);
         void execute(const std::string& scenario_prefix);
 
-        void simulate(cairo_t* cr, nump::Path<nump::BipedRobotModel::State> nominalPath);
+        // void simulate(cairo_t* cr, nump::Path<nump::BipedRobotModel::State> nominalPath);
+        void simulate(cairo_t* cr,
+            std::function<nump::Path<nump::BipedRobotModel::State>(nump::BipedRobotModel::State)> replanFunc
+        );
         void simulation(cairo_t* cr);
 
 
