@@ -480,7 +480,7 @@ namespace nump {
             // If we have reached the goal, return.
             bool angleGoalAchieved = diff.angle() < goalAngleTolerance;
             bool positionGoalAchieved = arma::norm(diff.xy()) < goalDistanceTolerance;
-            if (angleGoalAchieved && positionGoalAchieved) {
+            if (totalTime > 0 && angleGoalAchieved && positionGoalAchieved) {
                 traj.t = totalTime;
                 traj.reachesTarget = true;
                 break;
@@ -517,16 +517,18 @@ namespace nump {
 
         // Modifies the trajectory to advance its initial state by a single step of t seconds.
     template <>
-    StateT Trajectory<StateT>::TrajectoryWalker::getNext(const StateT& current) const {
+    StateT Trajectory<StateT>::TrajectoryWalker::getNext(const StateT& current, double deltaT) const {
         Transform2D pos = current.position;
-        pos = pos.localToWorld(robotmodel::walkBetween(pos, xGoal.position) * timeStep);
+        pos = pos.localToWorld(robotmodel::walkBetween(pos, xGoal.position) * deltaT);
         return StateT { pos };
     }
     template <>
     void Trajectory<StateT>::TrajectoryWalker::stepBy() {
+        double nextTimeStep = std::min(timeStep, finishTime - t);
+        
         xCurrent = xNext;
-        xNext = getNext(xCurrent);
-        t += timeStep;
+        xNext = getNext(xCurrent, nextTimeStep);
+        t += nextTimeStep;
     }
     template <>
     arma::vec2 Trajectory<StateT>::TrajectoryWalker::currentControl() {
@@ -556,7 +558,7 @@ namespace nump {
     }
     template <>
     bool Trajectory<StateT>::TrajectoryWalker::isFinished() {
-        return t >= finishTime - timeStep*0.5;
+        return t >= finishTime - timeStep*0.001;
     }
 
     template <>
@@ -568,7 +570,7 @@ namespace nump {
         walker.timeStep = timeStep;
         walker.xCurrent = xInit;
         walker.xGoal = xGoal;
-        walker.xNext = walker.getNext(xInit);
+        walker.xNext = walker.getNext(xInit, timeStep);
 
         return walker;
     }

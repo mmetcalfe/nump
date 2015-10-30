@@ -1,6 +1,6 @@
 # Search settings:
-seed: 85373599 # RANDOM, or an integer.
-# seed: RANDOM # RANDOM, or an integer.
+# seed: 85373599 # RANDOM, or an integer.
+seed: RANDOM # RANDOM, or an integer.
 
 num_samples: 1
 search_time_limit_seconds: 3

@@ -28,7 +28,7 @@ namespace nump {
 
 
     RRBT::RRBT(const numptest::SearchScenario::Config& config)
-            : scenario(config), graph(Vertex {config.initialState, {}}) {
+            : scenario(config), graph(Vertex {{config.initialState}, {}}) {
 
         auto& initNode = graph.nodes.front();
 
@@ -194,9 +194,12 @@ namespace nump {
 
     bool satisfiesChanceConstraintTransform2D(Transform2D mean, arma::mat33 cov, arma::vec2 footprintSize,
                                    const std::vector<nump::math::Circle>& obstacles) {
-        Ellipse confEllipse = utility::math::distributions::confidenceRegion(mean.head(2), cov.submat(0,0,1,1), 0.95, arma::size(mean)(0));
+        RotatedRectangle robotFootprint = {mean, footprintSize};
+        // Ellipse confEllipse = utility::math::distributions::confidenceRegion(mean.head(2), cov.submat(0,0,1,1), 0.95, arma::size(mean)(0));
         for (auto& obs : obstacles) {
-            bool intersects = utility::math::geometry::intersection::test(obs, confEllipse);
+            bool intersects = utility::math::geometry::intersection::testConfidenceRegion(
+                robotFootprint, cov, 0.95, obs);
+            // bool intersects = utility::math::geometry::intersection::test(obs, confEllipse);
 
             // Return failure if the chance constraint is violated:
             if (intersects) {
@@ -244,7 +247,11 @@ namespace nump {
         RobotModel::MotionCov Σp = belief->stateCov;
         RobotModel::MotionCov Λp = belief->stateDistribCov;
 
-        RobotModel::MotionCov Σt, Λt; // declare ouptuts
+//        RobotModel::MotionCov Σt, Λt; // declare ouptuts
+        RobotModel::MotionCov Σt = Σp;
+        RobotModel::MotionCov Λt = Λp;
+
+//        bool noSteps = true;
 
         // Iterate over trajectory:
         // TODO: Make trajectory iteration efficient.
@@ -253,6 +260,8 @@ namespace nump {
         for (auto walker = traj.walk(timeStep); !walker.isFinished(); ) {
             // double t = (i / double(numSteps)) * traj.t;
             // RobotModel::State xTraj = traj(t);
+
+//            noSteps = false;
 
             walker.stepBy();
             RobotModel::State xTraj = walker.currentState();
@@ -289,20 +298,22 @@ namespace nump {
             RobotModel::MotionMatrix Ak = (At - Bt*Kt); // A_{K}
             Λt = Ak*Λp*Ak.t() + Lt*Ct*Σbt; // (equation 33)
 
-            // std::cout << "controlTraj" << controlTraj.t() << std::endl;
-            // std::cout << "Qt: " << Qt << std::endl;
-            // std::cout << "Rt: " << Rt << std::endl;
-            // std::cout << "At: " << At << std::endl;
-            // std::cout << "Bt: " << Bt << std::endl;
-            // std::cout << "Ct: " << Ct << std::endl;
-            // std::cout << "Kt: " << Kt << std::endl;
-            // std::cout << "Bt*Kt: " << (Bt*Kt) << std::endl;
-            // std::cout << "Ak: " << Ak << std::endl;
-            // std::cout << "Ak*Λp*Ak.t(): " << Ak*Λp*Ak.t() << std::endl;
-            // std::cout << "Lt*Ct*Σbt: " << Lt*Ct*Σbt << std::endl;
-            // std::cout << "Σt: " << Σt << std::endl;
-            // std::cout << "Λt: " << Λt << std::endl;
 
+//            if (Σt(1,1) < 6.9532e-100 || Σt(2,2) < 6.9532e-100) {
+//                std::cout << "controlTraj" << controlTraj.t() << std::endl;
+//                std::cout << "Qt: " << Qt << std::endl;
+//                std::cout << "Rt: " << Rt << std::endl;
+//                std::cout << "At: " << At << std::endl;
+//                std::cout << "Bt: " << Bt << std::endl;
+//                std::cout << "Ct: " << Ct << std::endl;
+//                std::cout << "Kt: " << Kt << std::endl;
+//                std::cout << "Bt*Kt: " << (Bt*Kt) << std::endl;
+//                std::cout << "Ak: " << Ak << std::endl;
+//                std::cout << "Ak*Λp*Ak.t(): " << Ak*Λp*Ak.t() << std::endl;
+//                std::cout << "Lt*Ct*Σbt: " << Lt*Ct*Σbt << std::endl;
+//                std::cout << "Σt: " << Σt << std::endl;
+//                std::cout << "Λt: " << Λt << std::endl;
+//            }
 
             // Distribution over trajectories (at current time step):
             // x_t ~ N(\check{x}, Λ_{t} + Σ_{t})
@@ -318,9 +329,9 @@ namespace nump {
 //            Λt(2,2) = std::max(Λt(2,2), minVariance);
             RobotModel::MotionMatrix xTrajCov = Σt + Λt;
 
-            
-//            utility::math::distributions::confidenceRegionArea(xTrajCov.submat(0,0,1,1), 0.95, 3);
-            
+
+//            utility::math::distributions::confidenceRegionArea(Σt.submat(0,0,1,1), 0.95, 3);
+
             // Step 2 - Cost expectation evaluation (equation 11):
             // TODO: Work out how to evaluate expected path cost.
 
@@ -347,9 +358,10 @@ namespace nump {
             Λp = Λt;
         }
 
-        if (Σt(1,1) < 6.9532e-100) {
-            std::cout << Σt << std::endl;
-        }
+//        if (noSteps) {
+//            std::cout << "Σt: " << Σt << std::endl;
+//            std::cout << "Λt: " << Λt << std::endl;
+//        }
 
         // Construct a belief node with the resultant distribution:
         // TODO: Get node from the edge:
@@ -476,7 +488,7 @@ namespace nump {
         }
 
         // TODO: Verify whether belief node should be added.
-        // auto vRand = graph.makeNode(Vertex {xRand, {nRand}});
+//         auto vRand = graph.makeNode(Vertex {xRand, {nRand}});
         auto vRand = graph.makeNode(Vertex {xRand, {}});
         nRand->containingNode = vRand; // Set containing vertex of the belief node.
         graph.nodes.push_back(vRand);

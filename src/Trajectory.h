@@ -60,7 +60,7 @@ namespace nump {
             double currentTime();
             bool isFinished();
 
-            StateT getNext(const StateT& current) const;
+            StateT getNext(const StateT& current, double deltaT) const;
         };
 
         TrajectoryWalker walk(double timeStep) const;

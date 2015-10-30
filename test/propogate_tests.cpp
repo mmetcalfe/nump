@@ -38,8 +38,8 @@ void propogateTests() {
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
 
     // Get random seed:
-    // int seed = randomSeed();
-    int seed = 36957015;
+     int seed = randomSeed();
+//    int seed = 36957015;
     arma::arma_rng::set_seed(seed);
 
     std::cout << "  SEED: " << seed << std::endl;
@@ -64,7 +64,8 @@ void propogateTests() {
     obstacles.push_back({{0.4, 1.5}, 0.7});
 
     for (auto& obs : obstacles) {
-        nump::math::Circle reg = {obs.centre, obs.radius + 0.2};
+        // nump::math::Circle reg = {obs.centre, obs.radius + 0.2};
+        nump::math::Circle reg = {obs.centre, obs.radius + 2};
         measurementRegions.push_back(reg);
     }
 
@@ -72,14 +73,16 @@ void propogateTests() {
 //    arma::vec2 x1 = {0.5, 0.5}; //nump::RRBT::TrajT::sample();
     // Transform2D x1 = {0.5, 0.5, 0}; //nump::RRBT::TrajT::sample();
     nump::RRBT::StateT x1;
-    x1.position = {0.5, 0.5, 0}; //nump::RRBT::TrajT::sample();
+     x1.position = {0.5, 0.5, 0}; //nump::RRBT::TrajT::sample();
+//    x1 = nump::RRBT::TrajT::sample({1, 1});
 
     arma::vec2 footprintSize = {0.1, 0.15};
 
     // Create initial belief node:
     auto n1 = std::make_shared<nump::RRBT::BeliefNode>(std::weak_ptr<nump::RRBT::GraphT::Node>()); // null weak pointer
     n1->parent = nullptr;
-    n1->stateCov = arma::diagmat(arma::vec({0.001, 0.001, 0.001}));
+    // n1->stateCov = arma::diagmat(arma::vec({0.001, 0.001, 0.001}));
+    n1->stateCov = arma::diagmat(arma::vec({0.0001, 0.0001, 0.0001}));
 //    n1->stateCov = arma::diagmat(arma::vec({0.001, 0.001}));
     n1->stateCov(0,1) = n1->stateCov(1,0) = 0.0;
     n1->stateDistribCov = arma::diagmat(arma::vec({0.0, 0.0, 0.0}));
@@ -100,6 +103,8 @@ void propogateTests() {
         for (auto& obs : obstacles) {
             fillCircle(cr, obs, colObstacle, 0.3);
         }
+
+        x1 = nump::RRBT::TrajT::sample({1, 1});
 
         // Draw initial distribution:
         cairoSetSourceRGB(cr, colInitial);

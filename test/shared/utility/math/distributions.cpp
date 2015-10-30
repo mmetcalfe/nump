@@ -23,6 +23,7 @@ double cChiSquare(double percentile, int dof) {
                       << "Unsupported DOF value ("
                       << dof << ")."
                       << std::endl;
+            assert(false);
             break;
     }
     return chiSquareVal;

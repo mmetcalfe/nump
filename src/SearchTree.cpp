@@ -12,6 +12,7 @@
 #include "math/geometry.h"
 #include "Tree.h"
 #include "shared/utility/drawing/cairo_drawing.h"
+#include "shared/utility/math/geometry/intersection/Intersection.h"
 #include "BipedRobotModel.h"
 
 using utility::drawing::fillCircle;
@@ -45,7 +46,7 @@ namespace nump {
 
 
     SearchTree::SearchTree(const numptest::SearchScenario::Config& config)
-            : scenario(config), tree(SearchNode {config.initialState, 0, TrajT()}) {
+            : tree(SearchNode {{config.initialState}, 0, TrajT()}), scenario(config) {
         // auto& initNode = graph.nodes.front();
         // auto belief = std::make_shared<BeliefNode>(initNode);
         // belief->stateCov = config.initialCovariance;
@@ -153,11 +154,12 @@ namespace nump {
 ////            fillCircle(cairo, {x(0), x(1)}, 0.001, {1, 1, 1}, 1);
 //            cairo_set_source_rgba(cairo, 0, 0, 0, 0.5);
 //            utility::drawing::drawRobot(cairo, x, 0.01);
-
+            RotatedRectangle robotFootprint = {xTraj.position, scenario.footprintSize};
             for (auto &obs : scenario.obstacles) {
-                if (obs.contains(xTraj.position.xy())) {
+                bool intersects = utility::math::geometry::intersection::test(obs, robotFootprint);
+                if (intersects) {
+                // if (obs.contains(xTraj.position.xy())) {
 //                    fillCircle(cairo, pos, 0.003, {0, 1, 1}, 1);
-
                     return false;
                 }
             }
