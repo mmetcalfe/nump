@@ -22,6 +22,15 @@ using utility::math::geometry::Ellipse;
 namespace utility {
 namespace drawing {
 
+    void drawKickBoxes(cairo_t *cr, Transform2D robot, const nump::BipedRobotModel::KickBox& kbConfig, double ballRadius) {
+        cairo_save(cr);
+            utility::drawing::cairoTransformToLocal(cr, robot);
+            auto kickBoxes = BipedRobotModel::getLocalKickBoxes(robot, kbConfig, ballRadius);
+            utility::drawing::drawRotatedRectangle(cr, kickBoxes[0]);
+            utility::drawing::drawRotatedRectangle(cr, kickBoxes[1]);
+        cairo_restore(cr);
+    }
+
     arma::vec2 deviceToUser(cairo_t *cr, arma::vec2 pt) {
         double x = pt(0), y = pt(1);
         cairo_device_to_user(cr, &x, &y);

@@ -199,6 +199,9 @@ namespace nump {
         if (!arma::is_finite(stateCov)) {
             std::cout << "satisfiesChanceConstraint: is_finite fail." << std::endl;
             return false;
+        } else if (std::abs(stateCov(0,0)) > 1e20 || std::abs(stateCov(0,1)) > 1e20) {
+            std::cout << "satisfiesChanceConstraint: std::abs(stateCov(x,y)) > 1e20 fail." << std::endl;
+            return false;
         }
 
         arma::vec size = arma::vec(arma::size(state.position));

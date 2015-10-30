@@ -75,14 +75,14 @@ double gaussianQuadrature(cairo_t* cr, std::function<double(arma::vec3)> func, R
     return sum*rangeFactor;
 }
 
-void drawKickBoxes(cairo_t *cr, Transform2D robot, const nump::BipedRobotModel::KickBox& kbConfig, double ballRadius) {
-    cairo_save(cr);
-        utility::drawing::cairoTransformToLocal(cr, robot);
-        auto kickBoxes = BipedRobotModel::getLocalKickBoxes(robot, kbConfig, ballRadius);
-        utility::drawing::drawRotatedRectangle(cr, kickBoxes[0]);
-        utility::drawing::drawRotatedRectangle(cr, kickBoxes[1]);
-    cairo_restore(cr);
-}
+// void utility::drawing::drawKickBoxes(cairo_t *cr, Transform2D robot, const nump::BipedRobotModel::KickBox& kbConfig, double ballRadius) {
+//     cairo_save(cr);
+//         utility::drawing::cairoTransformToLocal(cr, robot);
+//         auto kickBoxes = BipedRobotModel::getLocalKickBoxes(robot, kbConfig, ballRadius);
+//         utility::drawing::drawRotatedRectangle(cr, kickBoxes[0]);
+//         utility::drawing::drawRotatedRectangle(cr, kickBoxes[1]);
+//     cairo_restore(cr);
+// }
 
 void kickProbabilityTests(cairo_t *cr) {
     Transform2D robot = {0.333, 0.5, 0.5};
@@ -200,7 +200,7 @@ void kickProbabilityTests(cairo_t *cr) {
     // Draw footprint and confidence ellipse:
     utility::drawing::cairoSetSourceRGB(cr, globalCol);
     cairo_set_line_width(cr, lwGlobal);
-    drawKickBoxes(cr, robot, kbConfig, ball.radius);
+    utility::drawing::drawKickBoxes(cr, robot, kbConfig, ball.radius);
     utility::drawing::drawRotatedRectangle(cr, robotFootprint);
     utility::drawing::drawEllipse(cr, confEllipseXY);
     cairo_stroke(cr);
@@ -295,7 +295,7 @@ void kickBoxTests(cairo_t *cr) {
             cairo_fill(cr);
 
             cairo_set_line_width(cr, 0.01);
-            drawKickBoxes(cr, robot, kbConfig, ball.radius);
+            utility::drawing::drawKickBoxes(cr, robot, kbConfig, ball.radius);
             // cairo_save(cr);
             //     cairo_set_line_width(cr, 0.01);
             //     utility::drawing::cairoTransformToLocal(cr, robot);

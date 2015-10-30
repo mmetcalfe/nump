@@ -15,6 +15,7 @@
 #include "shared/utility/math/geometry/intersection/Intersection.h"
 #include "shared/utility/math/angle.h"
 #include "shared/utility/math/distributions.h"
+#include "shared/utility/math/geometry/intersection/Intersection.h"
 
 using utility::math::geometry::Ellipse;
 using utility::drawing::drawSearchTree;
@@ -22,6 +23,7 @@ using utility::drawing::drawRRBT;
 using utility::drawing::fillCircle;
 using nump::math::Transform2D;
 using nump::math::Circle;
+using nump::RotatedRectangle;
 using nump::BipedRobotModel;
 
 arma::arma_rng::seed_type randomSeed() {
@@ -270,6 +272,9 @@ void numptest::SearchScenario::simulate(cairo_t* cr, nump::Path<BipedRobotModel:
     std::vector<Transform2D> simulationStates = {robot};
     std::vector<BipedRobotModel::EKF> simulationFilters = {robotFilter};
 
+    bool kickSuccess = false;
+    bool collisionFailure = false;
+
     double timeStep = 0.1;
     double timeLimit = 5 * 60; // The robot must kick the ball within 5 minutes.
     auto walker = nominalPath.walk(0.001);
@@ -324,8 +329,29 @@ void numptest::SearchScenario::simulate(cairo_t* cr, nump::Path<BipedRobotModel:
         simulationFilters.push_back(robotFilter);
 
         // Check whether the robot has succeeded or failed the test:
+
+        // Check for collision with the ball:
+        RotatedRectangle robotFootprint = {robot, cfg_.footprintSize};
+        if (utility::math::geometry::intersection::test(cfg_.ball, robotFootprint)) {
+            collisionFailure = true;
+            std::cout << "COLLISION FAILURE" << std::endl;
+            break;
+        }
     }
 
+    // Check whether a valid kick is possible:
+    RotatedRectangle finalFootprint = {robot, cfg_.footprintSize};
+    if (nump::BipedRobotModel::canKickBallAtTarget(
+        finalFootprint,
+        cfg_.ball,
+        cfg_.kbConfig,
+        cfg_.targetAngle,
+        cfg_.targetAngleRange)
+    ) {
+        kickSuccess = true;
+        std::cout << "KICK SUCCESS" << std::endl;
+        // break;
+    }
 
     // Draw the robot's actual path:
     cairo_set_line_width(cr, 0.001);
@@ -335,6 +361,7 @@ void numptest::SearchScenario::simulate(cairo_t* cr, nump::Path<BipedRobotModel:
     }
     cairo_stroke(cr);
 
+    // Draw the robot's filter output:
     arma::vec3 col = {0.2, 0.8, 0.5};
     cairo_set_line_width(cr, 0.001);
     for (auto& filter : simulationFilters) {
@@ -346,6 +373,14 @@ void numptest::SearchScenario::simulate(cairo_t* cr, nump::Path<BipedRobotModel:
         utility::drawing::drawEllipse(cr, ellipse);
         cairo_stroke(cr);
     }
+
+    // Draw the final robot's position and kickboxes:
+    cairo_set_line_width(cr, 0.005);
+    cairo_set_source_rgb(cr, 0.8, 0.5, 0.2);
+    utility::drawing::drawRobot(cr, robot, 0.05, true);
+    utility::drawing::drawRotatedRectangle(cr, finalFootprint);
+    utility::drawing::drawKickBoxes(cr, robot, cfg_.kbConfig, cfg_.ball.radius);
+    cairo_stroke(cr);
 }
 
 void numptest::SearchScenario::simulation(cairo_t* cr) {

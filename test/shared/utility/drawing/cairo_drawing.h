@@ -17,6 +17,8 @@ namespace drawing {
     using nump::math::RotatedRectangle;
     using ::utility::math::geometry::Ellipse;
 
+    void drawKickBoxes(cairo_t *cr, Transform2D robot, const nump::BipedRobotModel::KickBox& kbConfig, double ballRadius);
+
     void cairoTransformToLocal(cairo_t *cr, Transform2D trans);
 
     arma::vec2 deviceToUser(cairo_t *cr, arma::vec2 pt);
