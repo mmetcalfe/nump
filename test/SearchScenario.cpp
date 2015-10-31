@@ -496,51 +496,23 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
 }
 
 void numptest::SearchScenario::simulation(cairo_t* cr) {
-    // Simulate the robot following the path:
-    // simulate(cr, rrtsSolutionPath, [=](auto currentState) {
-    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
-    auto resultRRTs = simulate(cr, [=](auto currentState, auto currentCovariance) {
-        auto newScenario = cfg_;
-        newScenario.initialState = currentState.position;
-        newScenario.initialCovariance = currentCovariance;
-
-        // Obtain a nominal path using a planning algorithm:
-        auto rrtsTree = nump::SearchTree::fromRRTs(newScenario, cr);
-        nump::Path<BipedRobotModel::State> newPath = rrtsTree.getSolutionPath();
-
-        // Draw the search tree and nominal path:
-        // drawSearchTree(cr, rrtsTree);
-        // cairo_set_source_rgb(cr, 0.2, 0.5, 0.8);
-        arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
-        utility::drawing::cairoSetSourceRGB(cr, col);
-        cairo_set_line_width(cr, 0.001);
-        utility::drawing::drawPath(cr, newPath, 0.1, 0.02);
-        cairo_stroke(cr);
-
-        return newPath;
-    });
-    cairo_show_page(cr);
-    appendTrialToFile("rrtsTrials.yaml", resultRRTs);
-
     // // Simulate the robot following the path:
+    // // simulate(cr, rrtsSolutionPath, [=](auto currentState) {
     // cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
-    // auto resultRRBt = simulate(cr, [=](auto currentState, auto currentCovariance) {
+    // auto resultRRTs = simulate(cr, [=](auto currentState, auto currentCovariance) {
     //     auto newScenario = cfg_;
     //     newScenario.initialState = currentState.position;
     //     newScenario.initialCovariance = currentCovariance;
     //
     //     // Obtain a nominal path using a planning algorithm:
-    //     auto rrbtTree = nump::RRBT::fromSearchScenario(newScenario, cr);
-    //
-    //     // Add the goal state to the tree:
-    //     BipedRobotModel::State kickPos = BipedRobotModel::getIdealKickingPosition(cfg_.ball, cfg_.kbConfig, cfg_.targetAngle);
-    //     rrbtTree.extendRRBT(cr, kickPos);
-    //
-    //     nump::Path<BipedRobotModel::State> newPath = rrbtTree.getSolutionPath();
+    //     auto rrtsTree = nump::SearchTree::fromRRTs(newScenario, cr);
+    //     nump::Path<BipedRobotModel::State> newPath = rrtsTree.getSolutionPath();
     //
     //     // Draw the search tree and nominal path:
-    //     // drawRRBT(cr, rrbtTree);
-    //     cairo_set_source_rgb(cr, 0.2, 0.5, 0.8);
+    //     // drawSearchTree(cr, rrtsTree);
+    //     // cairo_set_source_rgb(cr, 0.2, 0.5, 0.8);
+    //     arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
+    //     utility::drawing::cairoSetSourceRGB(cr, col);
     //     cairo_set_line_width(cr, 0.001);
     //     utility::drawing::drawPath(cr, newPath, 0.1, 0.02);
     //     cairo_stroke(cr);
@@ -548,7 +520,35 @@ void numptest::SearchScenario::simulation(cairo_t* cr) {
     //     return newPath;
     // });
     // cairo_show_page(cr);
-    // appendTrialToFile("rrbtTrials.yaml", resultRRBt);
+    // appendTrialToFile("rrtsTrials.yaml", resultRRTs);
+
+    // Simulate the robot following the path:
+    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
+    auto resultRRBt = simulate(cr, [=](auto currentState, auto currentCovariance) {
+        auto newScenario = cfg_;
+        newScenario.initialState = currentState.position;
+        newScenario.initialCovariance = currentCovariance;
+
+        // Obtain a nominal path using a planning algorithm:
+        auto rrbtTree = nump::RRBT::fromSearchScenario(newScenario, cr);
+
+        // Add the goal state to the tree:
+        BipedRobotModel::State kickPos = BipedRobotModel::getIdealKickingPosition(cfg_.ball, cfg_.kbConfig, cfg_.targetAngle);
+        rrbtTree.extendRRBT(cr, kickPos);
+
+        nump::Path<BipedRobotModel::State> newPath = rrbtTree.getSolutionPath();
+
+        // Draw the search tree and nominal path:
+        // drawRRBT(cr, rrbtTree);
+        cairo_set_source_rgb(cr, 0.2, 0.5, 0.8);
+        cairo_set_line_width(cr, 0.001);
+        utility::drawing::drawPath(cr, newPath, 0.1, 0.02);
+        cairo_stroke(cr);
+
+        return newPath;
+    });
+    cairo_show_page(cr);
+    appendTrialToFile("rrbtTrials.yaml", resultRRBt);
 }
 
 void numptest::SearchScenario::execute(const std::string& scenario_prefix) {

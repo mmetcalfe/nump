@@ -93,11 +93,13 @@ def plotFailureSuccessRates(results_table):
                         fontsize=7)
                         # fontsize=13)
 
+        resultsKeys = ['kickSuccessRate', 'kickFailureRate', 'collisionFailureRate']
+
         # series_x_offset = 0
         series_x_offset = -width*0.5
         series_num = 0
         part_rects_dict = {}
-        for resultsKey in ['kickSuccessRate', 'kickFailureRate', 'collisionFailureRate']:
+        for resultsKey in resultsKeys:
             values = map(itemgetter(resultsKey), sortedResults)
             print values
             series_rects = ax.bar(ind + series_x_offset, values, width, color=series_cols[series_num])
@@ -111,10 +113,11 @@ def plotFailureSuccessRates(results_table):
         ax.set_xticks(ind+width)
         ax.set_xticklabels(ind_labels)
 
-        sorted_part_keys = sorted(part_rects_dict.keys())
+        legendHeadings = ['Kick Success', 'Kick Failure', 'Collision Failure']
+        sorted_part_keys = resultsKeys # sorted(part_rects_dict.keys())
 
         ax.legend([part_rects_dict[key] for key in sorted_part_keys]
-        , sorted_part_keys
+        , legendHeadings
         , ncol=3
         , prop=smallFontP
         , loc='upper center'
@@ -183,12 +186,13 @@ def plotResultsTable(results_table):
                         fontsize=7)
                         # fontsize=13)
 
+        resultsKeys = ['kickSuccessTime', 'kickFailureTime', 'collisionFailureTime']
 
         # series_x_offset = 0
         series_x_offset = -width*0.5
         series_num = 0
         part_rects_dict = {}
-        for resultsKey in ['kickSuccessTime', 'kickFailureTime', 'collisionFailureTime']:
+        for resultsKey in resultsKeys:
             # resultsEntry = results_table[resultsKey]
             # trials = series
             # trials = filter(lambda t:
@@ -237,7 +241,9 @@ def plotResultsTable(results_table):
         ax.set_xticks(ind+width)
         ax.set_xticklabels(ind_labels)
 
-        sorted_part_keys = sorted(part_rects_dict.keys())
+        # sorted_part_keys = sorted(part_rects_dict.keys())
+        legendHeadings = ['Kick Success', 'Kick Failure', 'Collision Failure']
+        sorted_part_keys = resultsKeys # sorted(part_rects_dict.keys())
 
         # # Shrink current axis's height by 10% on the bottom
         # box = ax.get_position()
@@ -246,7 +252,7 @@ def plotResultsTable(results_table):
         #                  box.width, box.height * shrinkf])
 
         ax.legend([part_rects_dict[key] for key in sorted_part_keys]
-        , sorted_part_keys
+        , legendHeadings
         , ncol=3
         , prop=smallFontP
         , loc='upper center'
@@ -300,14 +306,17 @@ if __name__ == "__main__":
         part = chanceParts[key]
         partSize = len(part)
 
+        if key != 'RRT*':
+            key = int(round(float(key)*100))
+
         numKickSuccess = len(filter(lambda t: int(t['kickSuccess']) == 1, part))
         numKickFailure = len(filter(lambda t: int(t['kickFailure']) == 1, part))
         numCollisionFailure = len(filter(lambda t: int(t['collisionFailure']) == 1, part))
 
         partStats = {}
-        partStats['kickSuccessRate'] = float(numKickSuccess) / partSize
-        partStats['kickFailureRate'] = float(numKickFailure) / partSize
-        partStats['collisionFailureRate'] = float(numCollisionFailure) / partSize
+        partStats['kickSuccessRate'] = 100*(float(numKickSuccess) / partSize)
+        partStats['kickFailureRate'] = 100*(float(numKickFailure) / partSize)
+        partStats['collisionFailureRate'] = 100*(float(numCollisionFailure) / partSize)
         partStats['chanceConstraint'] = key
         partStats['sampleCount'] = partSize
 
@@ -341,6 +350,8 @@ if __name__ == "__main__":
 
         timeTable[key] = partTimes
 
-    # print resultsTable
+    print 'resultsTable:', resultsTable
+    print 'timeTable:', timeTable
+    
     plotFailureSuccessRates(resultsTable)
     plotResultsTable(timeTable)
