@@ -12,7 +12,7 @@ search_trial_duration: 60
 rrbt_append_reject_cov_threshold: 0.01
 rrbt_append_reject_cost_threshold: 0.001
 
-min_kick_probability: 0.7
+min_kick_probability: 0.0
 rrbt_chance_constraint: 0.7 # Minimum acceptable probability of NOT failing due to collision
 rrbt_propagate_time_step: 0.1 # Timestep in seconds to use for uncertainty propagation along trajectories
 ball_obstacle_radius: 0.13

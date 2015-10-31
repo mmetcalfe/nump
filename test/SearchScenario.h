@@ -26,6 +26,7 @@ namespace numptest {
 
     public:
         struct SearchTrialResult {
+            bool kickFailure = false;
             bool collisionFailure = false;
             Transform2D finalState = {0,0,0};
             double finishTime = 0;

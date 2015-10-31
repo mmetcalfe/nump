@@ -169,6 +169,7 @@ void appendTrialToFile(std::string fname, const numptest::SearchScenario::Search
     std::ofstream fs(fname, std::ios::out | std::ios::app);
 
     fs << "{ kickSuccess: " << trialResult.kickSuccess << std::endl;
+    fs << ", kickFailure: " << trialResult.kickFailure  << std::endl;
     fs << ", initialState: "
        << "[" << trialResult.initialState(0)
        << "," << trialResult.initialState(1)
@@ -305,6 +306,7 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
     SearchTrialResult trialResult;
     trialResult.seed = cfg_.seed;
     trialResult.kickSuccess = false;
+    trialResult.kickFailure = false;
     trialResult.collisionFailure = false;
     trialResult.timeLimit = cfg_.searchTrialDuration;
     trialResult.initialState = cfg_.initialState;
@@ -327,21 +329,52 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
     double walkTimeStep = 0.001;
 
     double timeStep = 0.1;
-    double timeLimit = cfg_.searchTrialDuration;; // The robot must kick the ball within 5 minutes.
+    double timeLimit = cfg_.searchTrialDuration; // The robot must kick the ball within 5 minutes.
     auto walker = nominalPath.walk(walkTimeStep);
     double currentTime = 0;
+    bool pathWasReplaced = false;
     for (currentTime = 0; currentTime < timeLimit; currentTime += timeStep) {
         if (currentTime - lastPlanningTime > replanInterval) {
             std::cout << "REPLANNING: t = " << currentTime << std::endl;
             lastPlanningTime = currentTime;
             nominalPath = replanFunc(robotFilter.mean, robotFilter.covariance);
             trialResult.numReplans++;
+            pathWasReplaced = true;
             walker = nominalPath.walk(walkTimeStep);
         }
 
         // Obtain desired state and control for the current time from the path:
         // walker.stepTo(currentTime);
         walker.stepBy(timeStep);
+
+        if (walker.isFinished() || pathWasReplaced) {
+            // Check whether a valid kick is possible:
+            RotatedRectangle estimatedFootprint = {robotFilter.mean.position, cfg_.footprintSize};
+            if (nump::BipedRobotModel::canKickBallAtTarget(
+                estimatedFootprint,
+                cfg_.ball,
+                cfg_.kbConfig,
+                cfg_.targetAngle,
+                cfg_.targetAngleRange)
+            ) {
+                RotatedRectangle realFootprint = {robot, cfg_.footprintSize};
+                if (nump::BipedRobotModel::canKickBallAtTarget(
+                    realFootprint,
+                    cfg_.ball,
+                    cfg_.kbConfig,
+                    cfg_.targetAngle,
+                    cfg_.targetAngleRange)
+                ) {
+                    trialResult.kickSuccess = true;
+                    std::cout << "KICK SUCCESS" << std::endl;
+                } else {
+                    trialResult.kickFailure = true;
+                    std::cout << "KICK FAILURE" << std::endl;
+                }
+                break;
+            }
+        }
+
         if (walker.isFinished()) {
             continue;
         }
@@ -400,19 +433,19 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
         }
     }
 
-    // Check whether a valid kick is possible:
-    RotatedRectangle finalFootprint = {robot, cfg_.footprintSize};
-    if (nump::BipedRobotModel::canKickBallAtTarget(
-        finalFootprint,
-        cfg_.ball,
-        cfg_.kbConfig,
-        cfg_.targetAngle,
-        cfg_.targetAngleRange)
-    ) {
-        trialResult.kickSuccess = true;
-        std::cout << "KICK SUCCESS" << std::endl;
-        // break;
-    }
+    // // Check whether a valid kick is possible:
+    // RotatedRectangle finalFootprint = {robot, cfg_.footprintSize};
+    // if (nump::BipedRobotModel::canKickBallAtTarget(
+    //     finalFootprint,
+    //     cfg_.ball,
+    //     cfg_.kbConfig,
+    //     cfg_.targetAngle,
+    //     cfg_.targetAngleRange)
+    // ) {
+    //     trialResult.kickSuccess = true;
+    //     std::cout << "KICK SUCCESS" << std::endl;
+    //     // break;
+    // }
 
     // Record results:
     trialResult.finalState = robot;
@@ -451,6 +484,7 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
     cairo_stroke(cr);
 
     // Draw the final robot's position and kickboxes:
+    RotatedRectangle finalFootprint = {robot, cfg_.footprintSize};
     cairo_set_line_width(cr, 0.005);
     cairo_set_source_rgb(cr, 0.8, 0.5, 0.2);
     utility::drawing::drawRobot(cr, robot, 0.05, true);
@@ -462,51 +496,23 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
 }
 
 void numptest::SearchScenario::simulation(cairo_t* cr) {
-    // // Simulate the robot following the path:
-    // // simulate(cr, rrtsSolutionPath, [=](auto currentState) {
-    // cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
-    // auto resultRRTs = simulate(cr, [=](auto currentState, auto currentCovariance) {
-    //     auto newScenario = cfg_;
-    //     newScenario.initialState = currentState.position;
-    //     newScenario.initialCovariance = currentCovariance;
-    //
-    //     // Obtain a nominal path using a planning algorithm:
-    //     auto rrtsTree = nump::SearchTree::fromRRTs(newScenario, cr);
-    //     nump::Path<BipedRobotModel::State> newPath = rrtsTree.getSolutionPath();
-    //
-    //     // Draw the search tree and nominal path:
-    //     // drawSearchTree(cr, rrtsTree);
-    //     // cairo_set_source_rgb(cr, 0.2, 0.5, 0.8);
-    //     arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
-    //     utility::drawing::cairoSetSourceRGB(cr, col);
-    //     cairo_set_line_width(cr, 0.001);
-    //     utility::drawing::drawPath(cr, newPath, 0.1, 0.02);
-    //     cairo_stroke(cr);
-    //
-    //     return newPath;
-    // });
-    // cairo_show_page(cr);
-    // appendTrialToFile("rrtsTrials.yaml", resultRRTs);
-
     // Simulate the robot following the path:
+    // simulate(cr, rrtsSolutionPath, [=](auto currentState) {
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
-    auto resultRRBt = simulate(cr, [=](auto currentState, auto currentCovariance) {
+    auto resultRRTs = simulate(cr, [=](auto currentState, auto currentCovariance) {
         auto newScenario = cfg_;
         newScenario.initialState = currentState.position;
         newScenario.initialCovariance = currentCovariance;
 
         // Obtain a nominal path using a planning algorithm:
-        auto rrbtTree = nump::RRBT::fromSearchScenario(newScenario, cr);
-
-        // Add the goal state to the tree:
-        BipedRobotModel::State kickPos = BipedRobotModel::getIdealKickingPosition(cfg_.ball, cfg_.kbConfig, cfg_.targetAngle);
-        rrbtTree.extendRRBT(cr, kickPos);
-
-        nump::Path<BipedRobotModel::State> newPath = rrbtTree.getSolutionPath();
+        auto rrtsTree = nump::SearchTree::fromRRTs(newScenario, cr);
+        nump::Path<BipedRobotModel::State> newPath = rrtsTree.getSolutionPath();
 
         // Draw the search tree and nominal path:
-        // drawRRBT(cr, rrbtTree);
-        cairo_set_source_rgb(cr, 0.2, 0.5, 0.8);
+        // drawSearchTree(cr, rrtsTree);
+        // cairo_set_source_rgb(cr, 0.2, 0.5, 0.8);
+        arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
+        utility::drawing::cairoSetSourceRGB(cr, col);
         cairo_set_line_width(cr, 0.001);
         utility::drawing::drawPath(cr, newPath, 0.1, 0.02);
         cairo_stroke(cr);
@@ -514,7 +520,35 @@ void numptest::SearchScenario::simulation(cairo_t* cr) {
         return newPath;
     });
     cairo_show_page(cr);
-    appendTrialToFile("rrbtTrials.yaml", resultRRBt);
+    appendTrialToFile("rrtsTrials.yaml", resultRRTs);
+
+    // // Simulate the robot following the path:
+    // cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint_with_alpha (cr, 1);
+    // auto resultRRBt = simulate(cr, [=](auto currentState, auto currentCovariance) {
+    //     auto newScenario = cfg_;
+    //     newScenario.initialState = currentState.position;
+    //     newScenario.initialCovariance = currentCovariance;
+    //
+    //     // Obtain a nominal path using a planning algorithm:
+    //     auto rrbtTree = nump::RRBT::fromSearchScenario(newScenario, cr);
+    //
+    //     // Add the goal state to the tree:
+    //     BipedRobotModel::State kickPos = BipedRobotModel::getIdealKickingPosition(cfg_.ball, cfg_.kbConfig, cfg_.targetAngle);
+    //     rrbtTree.extendRRBT(cr, kickPos);
+    //
+    //     nump::Path<BipedRobotModel::State> newPath = rrbtTree.getSolutionPath();
+    //
+    //     // Draw the search tree and nominal path:
+    //     // drawRRBT(cr, rrbtTree);
+    //     cairo_set_source_rgb(cr, 0.2, 0.5, 0.8);
+    //     cairo_set_line_width(cr, 0.001);
+    //     utility::drawing::drawPath(cr, newPath, 0.1, 0.02);
+    //     cairo_stroke(cr);
+    //
+    //     return newPath;
+    // });
+    // cairo_show_page(cr);
+    // appendTrialToFile("rrbtTrials.yaml", resultRRBt);
 }
 
 void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
@@ -557,7 +591,7 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
         double ballDist = 0.2 + trialConfRand(1)*0.6;
         double heading = utility::math::angle::normalizeAngle(trialConfRand(2)*arma::datum::pi*2);
         arma::vec2 unitvec = utility::math::angle::bearingToUnitVector(theta);
-        arma::vec2 xyPos = unitvec * ballDist;
+        arma::vec2 xyPos = cfg_.ball.centre + unitvec * ballDist;
         Transform2D initialState = {xyPos,heading};
         double targetAngleRange = arma::datum::pi/2; // trialConfRand(4) * arma::datum::pi/2;
         double replanInterval = 5; // 1 + trialConfRand(5) * 19;
