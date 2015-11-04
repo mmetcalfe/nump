@@ -32,7 +32,10 @@ namespace nump {
 
     nump::Path<BipedRobotModel::State> SearchTree::getSolutionPath() const {
         nump::Path<BipedRobotModel::State> nominalPath;
-        BipedRobotModel::State kickPos = BipedRobotModel::getIdealKickingPosition(scenario.ball, scenario.kbConfig, scenario.targetAngle);
+        auto kickBoxes = BipedRobotModel::getLocalKickBoxes(scenario.kbConfig, scenario.ball.radius);
+        double kickBoxLength = kickBoxes[0].size(0);
+        double approachClearence = kickBoxLength * scenario.ballObstacleOffsetFactor;
+        BipedRobotModel::State kickPos = BipedRobotModel::getIdealKickingPosition(scenario.ball, scenario.kbConfig, scenario.targetAngle, approachClearence);
         auto goalNode = createValidNodeForState(kickPos);
 
         if (goalNode) {
@@ -45,6 +48,29 @@ namespace nump {
         return nominalPath;
     }
 
+    Circle SearchTree::getBallObstacle(const numptest::SearchScenario::Config& scenario) {
+        // Create the ball obstacle:
+        // auto kickBoxes = BipedRobotModel::getLocalKickBoxes(scenario.kbConfig, scenario.ball.radius);
+        // double kickBoxLength = kickBoxes[0].size(0);
+        // double obsRadius = scenario.ball.radius * scenario.ballObstacleRadiusFactor;
+        // double obsOffset = kickBoxLength * scenario.ballObstacleOffsetFactor;
+        // Transform2D ballTarget = {scenario.ball.centre, scenario.targetAngle};
+        // double obsX = -scenario.ball.radius + obsRadius - obsOffset;
+        // Transform2D obsPos = ballTarget.localToWorld({obsX, 0, 0});
+        // Circle ballObstacle = {obsPos.xy(), obsRadius};
+        // return ballObstacle;
+
+        auto kickBoxes = BipedRobotModel::getLocalKickBoxes(scenario.kbConfig, scenario.ball.radius);
+        double kickBoxLength = kickBoxes[0].size(0);
+        double backClearence = scenario.ball.radius * scenario.ballObstacleRadiusFactor;
+        double approachClearence = kickBoxLength * scenario.ballObstacleOffsetFactor;
+        double obsRadius = scenario.ball.radius + 0.5*(backClearence + approachClearence);
+        Transform2D ballTarget = {scenario.ball.centre, scenario.targetAngle};
+        double obsX = -scenario.ball.radius + obsRadius - approachClearence;
+        Transform2D obsPos = ballTarget.localToWorld({obsX, 0, 0});
+        Circle ballObstacle = {obsPos.xy(), obsRadius};
+        return ballObstacle;
+    }
 
     SearchTree::SearchTree(const numptest::SearchScenario::Config& config)
             : tree(SearchNode {{config.initialState}, 0, TrajT()}), scenario(config) {
@@ -53,6 +79,9 @@ namespace nump {
         // belief->stateCov = config.initialCovariance;
         // initNode->value.beliefNodes.push_back(belief);
         // initialBelief = belief;
+
+        auto ballObstacle = getBallObstacle(scenario);
+        scenario.obstacles.push_back(ballObstacle);
     }
 
 
@@ -241,10 +270,10 @@ namespace nump {
 
         arma::wall_clock searchTimer;
         searchTimer.tic();
-        for (int i = 0; i < scenario.numSamples; i++) {
+        for (int i = 0; i < tree.scenario.numSamples; i++) {
             // Enforce the time limit:
             double elapsedSeconds = searchTimer.toc();
-            if (elapsedSeconds > scenario.searchTimeLimitSeconds) {
+            if (elapsedSeconds > tree.scenario.searchTimeLimitSeconds) {
                 std::cout << "SearchTree::fromRRTs: Time limit reached after "
                           << elapsedSeconds
                           << " seconds and "
@@ -253,7 +282,7 @@ namespace nump {
                 break;
             }
 
-            // StateT zRand = TrajT::sample(scenario.mapSize);
+            // StateT zRand = TrajT::sample(tree.scenario.mapSize);
             // Normal distribution:
             double sampleVar = 0.2;
             arma::mat33 sampleCov = {
@@ -261,7 +290,7 @@ namespace nump {
                 { 0, sampleVar, 0 },
                 { 0, 0, 100 }
             };
-            arma::mat sample = utility::math::distributions::randn(1, Transform2D{scenario.ball.centre, scenario.targetAngle}, sampleCov);
+            arma::mat sample = utility::math::distributions::randn(1, Transform2D{tree.scenario.ball.centre, tree.scenario.targetAngle}, sampleCov);
             StateT zRand = {sample};
 
             bool extended = tree.extendRRTs(cr, zRand);

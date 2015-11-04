@@ -58,6 +58,8 @@ namespace nump {
 
     public:
 
+        static Circle getBallObstacle(const numptest::SearchScenario::Config& config);
+
 //        // State space:
 //        static StateT sample();
 

@@ -399,12 +399,18 @@ namespace nump {
         return kickProb;
     }
 
-    BipedRobotModel::State BipedRobotModel::getIdealKickingPosition(Circle ball, const KickBox& kbConfig, double targetAngle) {
+    BipedRobotModel::State BipedRobotModel::getIdealKickingPosition(Circle ball, const KickBox& kbConfig, double targetAngle, double offset) {
         Transform2D globalBallTarget = {ball.centre, targetAngle};
         auto kickBoxes = BipedRobotModel::getLocalKickBoxes(kbConfig, ball.radius);
+        // Transform2D kickPos = globalBallTarget.localToWorld({-kickBoxes[0].transform.xy(), 0});
+        // return {kickPos};
 
-        Transform2D kickPos = globalBallTarget.localToWorld({-kickBoxes[0].transform.xy(), 0});
-
+        double kickBoxLength = kickBoxes[0].size(0);
+        double kbCentreX = kickBoxes[0].transform.x();
+        double kbMax = kbCentreX + kickBoxLength*0.5;
+        double effectiveKbMin = kbCentreX - kickBoxLength*0.5 + offset;
+        double localX = (kbMax + effectiveKbMin)*0.5;
+        Transform2D kickPos = globalBallTarget.localToWorld({-localX, -kickBoxes[0].transform.y(), 0});
         return {kickPos};
     }
 
