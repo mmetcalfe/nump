@@ -352,6 +352,14 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
         // walker.stepTo(currentTime);
         walker.stepBy(timeStep);
 
+        if (walker.currentWalker.t < 0.5) {
+            double frac = walker.currentWalker.t / walker.currentWalker.finishTime;
+            cairo_set_line_width(cr, 0.005);
+            cairo_set_source_rgb(cr, 1, 1-frac, frac);
+            utility::drawing::drawRobot(cr, robot, 0.07, true);
+            cairo_stroke(cr);
+        }
+
         // std::cout << "walker after step state: " << walker.currentState().position << std::endl;
 
         if (walker.isFinished() || pathWasReplaced) {
@@ -613,7 +621,8 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
 
     auto trialSeed = randomSeed();
     // std::cout << "WARNING: SET SEED IS INACCURATE." << std::endl;
-    // arma::arma_rng::set_seed(originalSeed);
+    // // arma::arma_rng::set_seed(originalSeed);
+    // arma::arma_rng::set_seed(8513135);
 
     std::stringstream ss;
     ss << "trial-diagrams/" << scenario_prefix << "_" << trialSeed << "_searchTests.pdf";

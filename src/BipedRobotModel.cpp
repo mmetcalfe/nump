@@ -94,9 +94,13 @@ namespace nump {
 
         // Robot specific motion error parameters:
         // (See (5.10) on page 127 of Sebastian Thrun's Probabilistic Robotics book)
+        // arma::mat22 alpha = {
+        //     {0.02, 0.001},
+        //     {0.001, 0.005}
+        // };
         arma::mat22 alpha = {
-            {0.02, 0.001},
-            {0.001, 0.005}
+            {0.1, 0.001},
+            {0.001, 0.2}
         };
         ControlT controlSquared = control % control;
         BipedRobotModel::ControlCov Mt = arma::diagmat(alpha*controlSquared);
@@ -646,13 +650,13 @@ namespace nump {
     template <>
     void Path<StateT>::Walker::stepTo(double targetTime) {
         while (t < targetTime) {
+            if (isFinished()) {
+                return;
+            }
+
             if (currentWalker.isFinished()) {
                 ++currentSegment;
-                if (isFinished()) {
-                    return;
-                } else {
-                    currentWalker = currentSegment->walk(timeStep);
-                }
+                currentWalker = currentSegment->walk(timeStep);
             }
 
             currentWalker.stepBy();
