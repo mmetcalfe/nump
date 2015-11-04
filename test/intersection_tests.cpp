@@ -798,6 +798,20 @@ void confidenceEllipseTests(cairo_t *cr) {
     std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
 }
 
+void chiSquareTests(cairo_t *cr) {
+    double stepSize = 0.001;
+    for (double quantile = 0; quantile < 1; quantile += stepSize) {
+        double val = utility::math::distributions::cChiSquare(quantile, 3);
+
+        arma::vec3 col = arma::normalise(arma::vec(arma::randu(3)));
+        utility::drawing::cairoSetSourceRGB(cr, col);
+        utility::drawing::drawCircle(cr, {{quantile, 1 - val/12}, stepSize/2});
+        cairo_fill(cr);
+    }
+
+    std::cout << __LINE__ << ", CAIRO STATUS: " <<  cairo_status_to_string(cairo_status(cr)) << std::endl;
+}
+
 void intersectionTests() {
     std::cout << "IntersectionTests: BEGIN" << std::endl;
 
@@ -810,6 +824,10 @@ void intersectionTests() {
     cairo_surface_t *surface = cairo_pdf_surface_create("intersectionTests.pdf", surfaceDimensions(0), surfaceDimensions(1));
     cairo_t *cr = cairo_create(surface);
     cairo_scale(cr, surfaceDimensions(0), surfaceDimensions(1));
+
+    cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
+    chiSquareTests(cr);
+    cairo_show_page(cr);
 
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0); cairo_paint(cr);
     kickProbabilityTests(cr);

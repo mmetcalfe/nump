@@ -123,10 +123,17 @@ namespace nump {
         static Measurement observeLandmark(const State& state, const Circle& landmark);
 
         struct EKF {
-            State mean;
-            MotionCov covariance;
+            State mean = {Transform2D {0,0,0}};
+            MotionCov covariance = {
+                {1,0,0},
+                {0,1,0},
+                {0,0,1}
+            };
 
-            void update(double Δt, Transform2D control, std::vector<Measurement> measurements, std::vector<Circle> landmarks);
+//            void update(double Δt, Transform2D control, std::vector<Measurement> measurements, std::vector<Circle> landmarks);
+            void update(double Δt, Transform2D control,
+                        std::vector<std::pair<Measurement, BipedRobotModel::MeasurementCov>> measurements,
+                        std::vector<Circle> landmarks);
         };
     };
 }

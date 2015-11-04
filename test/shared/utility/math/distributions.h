@@ -15,6 +15,8 @@ namespace distributions {
     using geometry::Ellipse;
     using nump::math::Transform2D;
 
+    double cChiSquare(double percentile, int dof);
+
     arma::vec2 confidenceRegion(double mean, double var, double conf, int dof = 1);
 
     Ellipse confidenceRegion(arma::vec2 mean, arma::mat22 cov, double conf, int dof = 2);

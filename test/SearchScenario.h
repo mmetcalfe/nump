@@ -35,6 +35,7 @@ namespace numptest {
             double targetAngleRange = arma::datum::pi/3;
             double timeLimit = 1;
             double replanInterval = 3;
+            double searchTimeLimit = 3;
             double chanceConstraint = 0.75;
             int numReplans = 0;
             int seed = 0;
@@ -53,6 +54,7 @@ namespace numptest {
             int numSamples;
             double searchTimeLimitSeconds;
             double searchTrialDuration;
+            double replanInterval;
 
             struct RRBT {
                 double appendRejectCovThreshold = 10;

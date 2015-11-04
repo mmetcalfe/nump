@@ -10,12 +10,12 @@ import math
 
 # loadYamlFile :: String -> IO (Tree String)
 def loadResultsTable(fname):
-	if not os.path.isfile(fname):
-		raise ValueError('Input file \'{}\' does not exist!'.format(fname))
-	file = open(fname, 'r')
-	data = yaml.load(file)
-	file.close()
-	return data
+    if not os.path.isfile(fname):
+        raise ValueError('Input file \'{}\' does not exist!'.format(fname))
+    file = open(fname, 'r')
+    data = yaml.load(file)
+    file.close()
+    return data
 
 # results_table: [
 #     trial_result: {
@@ -262,6 +262,33 @@ def plotResultsTable(results_table):
         # plt.show()
         plt.savefig('results_fig_{}.pdf'.format(value_key), bbox_inches='tight')
 
+
+def saveAsCsv(results_table):
+    with open('results.csv', 'w+') as results_file:
+        col_names = ['kickSuccess',
+                     'kickFailure',
+                    #  'initialState',
+                    #  'finalState',
+                     'collisionFailure',
+                     'timeLimit',
+                     'targetAngleRange',
+                     'finishTime',
+                     'replanInterval',
+                     'numReplans',
+                     'chanceConstraint',
+                     'seed']
+        # col_names = sorted(results_table[0].keys())
+        header_row = '\t'.join(col_names)
+
+        results_file.write(header_row + '\n')
+
+        for result in results_table:
+            row_raw = map(lambda n: result[n], col_names)
+            row_raw = map(lambda n: '' if n is None else n, row_raw)
+            row_str = '\t'.join(map(str, row_raw))
+            results_file.write(row_str + '\n')
+
+
 if __name__ == "__main__":
     # Parse arguments:
     parser = argparse.ArgumentParser(description='Plot trial results')
@@ -273,6 +300,10 @@ if __name__ == "__main__":
     trialResults = loadResultsTable(args.resultsFile)
     rrtsTrialResults = loadResultsTable(args.rrtsResultsFile)
 
+    saveAsCsv(trialResults)
+    sys.exit(0)
+
+    # Group the chanceConstraint into bins:
     for res in trialResults:
         percentile = res['chanceConstraint']
         if percentile >= 0.9:
@@ -352,6 +383,6 @@ if __name__ == "__main__":
 
     print 'resultsTable:', resultsTable
     print 'timeTable:', timeTable
-    
+
     plotFailureSuccessRates(resultsTable)
     plotResultsTable(timeTable)

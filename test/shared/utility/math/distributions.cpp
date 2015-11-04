@@ -12,6 +12,37 @@ namespace distributions {
 
 using nump::math::Transform2D;
 
+// Generated in R using: qchisq(seq(0, 1, 0.01), 3, lower.tail=TRUE)
+std::vector<double> cumulativeChiSquare3DofTable = {
+    0.0000000, 0.1148318, 0.1848318, 0.2450987, 0.3001514, 0.3518463, 0.4011734,
+    0.4487387, 0.4949476, 0.5400880, 0.5843744, 0.6279721, 0.6710124, 0.7136022,
+    0.7558302, 0.7977714, 0.8394903, 0.8810430, 0.9224790, 0.9638427, 1.0051740,
+    1.0465095, 1.0878828, 1.1293252, 1.1708660, 1.2125329, 1.2543524, 1.2963499,
+    1.3385499, 1.3809763, 1.4236522, 1.4666009, 1.5098449, 1.5534070, 1.5973096,
+    1.6415756, 1.6862278, 1.7312894, 1.7767839, 1.8227354, 1.8691684, 1.9161081,
+    1.9635806, 2.0116124, 2.0602315, 2.1094665, 2.1593473, 2.2099052, 2.2611725,
+    2.3131835, 2.3659739, 2.4195812, 2.4740450, 2.5294071, 2.5857116, 2.6430053,
+    2.7013378, 2.7607619, 2.8213339, 2.8831139, 2.9461661, 3.0105593, 3.0763677,
+    3.1436708, 3.2125547, 3.2831125, 3.3554449, 3.4296617, 3.5058824, 3.5842376,
+    3.6648708, 3.7479394, 3.8336174, 3.9220975, 4.0135936, 4.1083449, 4.2066193,
+    4.3087186, 4.4149844, 4.5258056, 4.6416277, 4.7629638, 4.8904101, 5.0246641,
+    5.1665493, 5.3170478, 5.4773439, 5.6488837, 5.8334589, 6.0333271, 6.2513886,
+    6.4914577, 6.7586926, 7.0603142, 7.4068800, 7.8147279, 8.3111709, 8.9472875,
+    9.8374093,11.3448667, 1e4 // Note: qchisq(1, N) = Infinity
+};
+
+inline double qChiSquare3FromTable(double quantile) {
+    double percent = quantile*100;
+    int minIndex = std::max(int(std::floor(percent)), 0);
+    int maxIndex = std::min(int(std::ceil(percent)), 100);
+
+    double minVal = cumulativeChiSquare3DofTable[minIndex];
+    double maxVal = cumulativeChiSquare3DofTable[maxIndex];
+    double f = percent - minIndex;
+
+    return (1-f)*minVal + f*maxVal;
+}
+
 double cChiSquare(double percentile, int dof) {
     double chiSquareVal;
 
@@ -19,17 +50,18 @@ double cChiSquare(double percentile, int dof) {
         case 1: chiSquareVal = 3.8415; break; // 95th percentile of 1-DOF chi-square distribution.
         case 2: chiSquareVal = 5.991; break; // 95th percentile of 2-DOF chi-square distribution.
         case 3: { // 3-DOF chi-square distribution.
-            if (percentile >= 0.9) {
-                chiSquareVal = 7.8147279; // 95th percentile
-            } else if (percentile >= 0.8) {
-                chiSquareVal = 5.3170478; // 85th percentile
-            }else if (percentile >= 0.7) {
-                chiSquareVal = 4.1083449; // 75th percentile
-            // } else if (percentile >= 0.6) {
-            } else {
-                chiSquareVal = 3.2831125; // 65th percentile
-            }
-        }break;
+            return qChiSquare3FromTable(percentile);
+            // if (percentile >= 0.9) {
+            //     chiSquareVal = 7.8147279; // 95th percentile
+            // } else if (percentile >= 0.8) {
+            //     chiSquareVal = 5.3170478; // 85th percentile
+            // }else if (percentile >= 0.7) {
+            //     chiSquareVal = 4.1083449; // 75th percentile
+            // // } else if (percentile >= 0.6) {
+            // } else {
+            //     chiSquareVal = 3.2831125; // 65th percentile
+            // }
+        } break;
         default:
             std::cerr << __FILE__ << ", " << __LINE__ << " - " << __func__ << ": "
                       << "Unsupported DOF value ("

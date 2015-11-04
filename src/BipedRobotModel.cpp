@@ -193,18 +193,20 @@ namespace nump {
 
     BipedRobotModel::Measurement BipedRobotModel::observeLandmark(const State& state, const Circle& landmark) {
         Transform2D local = state.position.worldToLocal({landmark.centre, 0});
-        Measurement meas;
+        Measurement meas = {0, 0};
         meas.r() = arma::norm(local.xy());
         meas.phi() = utility::math::angle::normalizeAngle(std::atan2(local.y(), local.x()));
         return meas;
     }
 
-    void BipedRobotModel::EKF::update(double Δt, Transform2D bipedControl, std::vector<Measurement> measurements, std::vector<Circle> landmarks) {
+    void BipedRobotModel::EKF::update(double Δt, Transform2D bipedControl,
+                                      std::vector<std::pair<Measurement, BipedRobotModel::MeasurementCov>> measurements,
+                                      std::vector<Circle> landmarks) {
         arma::vec2 control = {arma::norm(bipedControl.xy()), bipedControl.angle()};
 
         Transform2D μbt = mean.position.localToWorld(Δt*bipedControl);
 
-        BipedRobotModel::MotionCov& Σp = covariance;
+        const BipedRobotModel::MotionCov& Σp = covariance;
 
         // Gt
         BipedRobotModel::MotionMatrix At = motionErrorJacobian(Δt, mean, control);
@@ -218,25 +220,52 @@ namespace nump {
         BipedRobotModel::MotionCov Σbt = At*Σp*At.t() + Qt; // (equation 17)
 
         for (int i = 0; i < measurements.size(); i++) {
-            Measurement& meas = measurements[i];
-            Circle& landmark = landmarks[i];
+            const Measurement& meas = measurements[i].first;
+            const Circle& landmark = landmarks[i];
 
-            // Ht
-            BipedRobotModel::MeasurementMatrix Ct = nump::measurementErrorJacobian(Δt, mean, landmark);
-            BipedRobotModel::MeasurementCov Rt = measurementNoiseCovariance(Δt, mean, landmark);
+            const BipedRobotModel::MeasurementCov& Rt = measurements[i].second; // measurementNoiseCovariance(Δt, mean, landmark);
 
+            // z_t
             auto expectedMeas = observeLandmark({μbt}, landmark);
 
-            if (std::abs(expectedMeas.phi()) > arma::datum::pi/2) {
-                continue;
-            }
+            // Ht
+            BipedRobotModel::MeasurementMatrix Ct = nump::measurementErrorJacobian(Δt, {μbt}, landmark);
+
+//            if (std::abs(expectedMeas.phi()) > arma::datum::pi/2) {
+//                continue;
+//            }
 
             // Kalman filter measurement update:
-            BipedRobotModel::MeasurementCov St = Ct*Σbt*Ct.t() + Rt; // (equation 18)
-            BipedRobotModel::KalmanGainMatrix Lt = Σbt*Ct.t()*St.i(); // (equation 19)
+            BipedRobotModel::MeasurementCov St = Ct*Σbt*Ct.t() + Rt;
+            BipedRobotModel::KalmanGainMatrix Lt = Σbt*Ct.t()*St.i();
+
+            Transform2D μbtBefore = μbt;
+            BipedRobotModel::MotionCov ΣbtBefore = Σbt;
+
             μbt = μbt + Lt*(meas - expectedMeas);
             Σbt = Σbt - Lt*Ct*Σbt;
+
+            // if (arma::norm(μbt) > 20) {
+            //     std::cout << "μbtBefore" << μbtBefore.t() << std::endl;
+            //     std::cout << "ΣbtBefore" << Σbt << std::endl;
+            //     std::cout << "meas: " << meas.t() << std::endl;
+            //     std::cout << "expectedMeas: " << expectedMeas.t() << std::endl;
+            //     std::cout << "At: " << At << std::endl;
+            //     std::cout << "Bt: " << Bt << std::endl;
+            //     std::cout << "Qt: " << Qt << std::endl;
+            //     std::cout << "Ct: " << Ct << std::endl;
+            //     std::cout << "Rt: " << Rt << std::endl;
+            //     std::cout << "St: " << St << std::endl;
+            //     std::cout << "Lt: " << Lt << std::endl;
+            //     std::cout << "μbt: " << μbt << std::endl;
+            //     std::cout << "Σbt: " << Σbt << std::endl;
+            // }
         }
+
+        // if (arma::norm(mean.position) > 20) {
+        //     std::cout << "arma::norm(mean.position) > 20: " << mean.position << std::endl;
+        //     std::cout << "covariance: " << covariance << std::endl;
+        // }
 
         mean.position = μbt;
         covariance = Σbt;

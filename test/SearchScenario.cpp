@@ -113,6 +113,7 @@ numptest::SearchScenario numptest::SearchScenario::fromFile(const std::string &f
 
     scenario.cfg_.searchTrialDuration = scenarioYaml["search_trial_duration"].as<double>();
     scenario.cfg_.searchTimeLimitSeconds = scenarioYaml["search_time_limit_seconds"].as<double>();
+    scenario.cfg_.replanInterval = scenarioYaml["replan_interval"].as<double>();
     scenario.cfg_.numSamples = scenarioYaml["num_samples"].as<int>();
     scenario.cfg_.rrbt.appendRejectCovThreshold = scenarioYaml["rrbt_append_reject_cov_threshold"].as<double>();
     scenario.cfg_.rrbt.appendRejectCostThreshold = scenarioYaml["rrbt_append_reject_cost_threshold"].as<double>();
@@ -185,6 +186,7 @@ void appendTrialToFile(std::string fname, const numptest::SearchScenario::Search
     fs << ", targetAngleRange: " << trialResult.targetAngleRange  << std::endl;
     fs << ", finishTime: " << trialResult.finishTime << std::endl;
     fs << ", replanInterval: " << trialResult.replanInterval  << std::endl;
+    fs << ", searchTimeLimit: " << trialResult.searchTimeLimit  << std::endl;
     fs << ", numReplans: " << trialResult.numReplans << std::endl;
     fs << ", chanceConstraint: " << trialResult.chanceConstraint << std::endl;
     fs << ", seed: " << trialResult.seed << std::endl;
@@ -313,7 +315,8 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
     trialResult.targetAngleRange = cfg_.targetAngleRange;
     trialResult.finalState = cfg_.initialState;
     trialResult.finishTime = cfg_.searchTrialDuration;
-    trialResult.replanInterval = cfg_.searchTimeLimitSeconds;
+    trialResult.replanInterval = cfg_.replanInterval;
+    trialResult.searchTimeLimit = cfg_.searchTimeLimitSeconds;
     trialResult.numReplans = 0;
     trialResult.chanceConstraint = cfg_.rrbt.chanceConstraint;
 
@@ -323,7 +326,8 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
     std::vector<Transform2D> simulationStates = {robot};
     std::vector<BipedRobotModel::EKF> simulationFilters = {robotFilter};
 
-    double replanInterval = cfg_.searchTimeLimitSeconds;
+    // double replanInterval = cfg_.searchTimeLimitSeconds;
+    double replanInterval = cfg_.replanInterval;
     double lastPlanningTime = 0;
 
     double walkTimeStep = 0.001;
@@ -343,9 +347,12 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
             walker = nominalPath.walk(walkTimeStep);
         }
 
+        // std::cout << "walker before step state: " << walker.currentState().position << std::endl;
         // Obtain desired state and control for the current time from the path:
         // walker.stepTo(currentTime);
         walker.stepBy(timeStep);
+
+        // std::cout << "walker after step state: " << walker.currentState().position << std::endl;
 
         if (walker.isFinished() || pathWasReplaced) {
             // Check whether a valid kick is possible:
@@ -385,18 +392,27 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
         Transform2D nominalControl = nump::robotmodel::walkBetween(robotFilter.mean.position, walker.currentSegment->xGoal.position);
 
         // Make observations to update the state estimate:
-        std::vector<BipedRobotModel::Measurement> measurements;
+//        std::vector<BipedRobotModel::Measurement> measurements;
+        std::vector<std::pair<BipedRobotModel::Measurement, BipedRobotModel::MeasurementCov>> measurements;
         for (auto& landmark : cfg_.measurementRegions) {
-            BipedRobotModel::Measurement expectedMeas = BipedRobotModel::observeLandmark({robot}, landmark);
-            // double r = expectedMeas.r();
+            BipedRobotModel::Measurement idealMeasurement = BipedRobotModel::observeLandmark({robot}, landmark);
+            // double r = idealMeasurement.r();
             // BipedRobotModel::MeasurementCov measCov = {
             //     // {0.01*r*r, 0.0},
             //     {0.01, 0.0},
             //     {0.0, 0.01}
             // };
             BipedRobotModel::MeasurementCov measCov = BipedRobotModel::measurementNoiseCovariance(timeStep, {robot}, landmark);
-            BipedRobotModel::Measurement actualMeas = utility::math::distributions::randn(expectedMeas, measCov);
-            measurements.push_back(actualMeas);
+            BipedRobotModel::Measurement actualMeas = utility::math::distributions::randn(idealMeasurement, measCov);
+            // if (arma::norm(idealMeasurement) > 10 || arma::norm(actualMeas) > 10) {
+            //     std::cout << "landmark: " << landmark.centre << std::endl;
+            //     std::cout << "robot: " << robot << std::endl;
+            //     std::cout << "idealMeasurement: " << idealMeasurement << std::endl;
+            //     std::cout << "actualMeas: " << actualMeas << std::endl;
+            //     std::cout << "measCov: " << measCov << std::endl;
+            // }
+
+            measurements.push_back({actualMeas, measCov});
         }
         // arma::vec2 bicycleControl = {arma::norm(nominalControl.xy()), nominalControl.angle()};
         robotFilter.update(timeStep, nominalControl, measurements, cfg_.measurementRegions);
@@ -464,6 +480,7 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
     cairo_set_line_width(cr, 0.001);
     int filterNum = 0;
     for (auto& filter : simulationFilters) {
+        // std::cout << "filter.mean.position: " << filter.mean.position.t() << std::endl;
         if (filterNum % 10 != 0) {
             continue;
         }
@@ -483,10 +500,39 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
     utility::drawing::drawCircle(cr, cfg_.ball);
     cairo_stroke(cr);
 
+    // Draw the target angle range:
+    // double lwNormal = 0.01;
+    // cairo_set_source_rgb(cr, 0.5, 1, 0.5);
+    // cairo_set_line_width(cr, lwNormal);
+    // drawRobot(cr, rrbt.scenario.goalState, r);
+    // arma::vec2 target = {std::cos(searchTree.scenario.targetAngle), std::sin(searchTree.scenario.targetAngle)};
+    arma::vec2 minTarget = {std::cos(cfg_.targetAngle-0.5*cfg_.targetAngleRange), std::sin(cfg_.targetAngle-0.5*cfg_.targetAngleRange)};
+    arma::vec2 maxTarget = {std::cos(cfg_.targetAngle+0.5*cfg_.targetAngleRange), std::sin(cfg_.targetAngle+0.5*cfg_.targetAngleRange)};
+    // utility::drawing::drawLine(cr, cfg_.ball.centre, cfg_.ball.centre+target);
+    utility::drawing::drawLine(cr, cfg_.ball.centre, cfg_.ball.centre+minTarget);
+    utility::drawing::drawLine(cr, cfg_.ball.centre, cfg_.ball.centre+maxTarget);
+    cairo_stroke(cr);
+
+    // Draw the initial robot's position and kickboxes:
+    RotatedRectangle initialFootprint = {cfg_.initialState, cfg_.footprintSize};
+    cairo_set_line_width(cr, 0.005);
+    cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+    utility::drawing::drawRobot(cr, initialFootprint.transform, 0.05, true);
+    utility::drawing::drawRotatedRectangle(cr, initialFootprint);
+    utility::drawing::drawKickBoxes(cr, initialFootprint.transform, cfg_.kbConfig, cfg_.ball.radius);
+    cairo_stroke(cr);
+
     // Draw the final robot's position and kickboxes:
     RotatedRectangle finalFootprint = {robot, cfg_.footprintSize};
     cairo_set_line_width(cr, 0.005);
     cairo_set_source_rgb(cr, 0.8, 0.5, 0.2);
+    if (trialResult.collisionFailure) {
+        cairo_set_source_rgb(cr, 0.8, 0, 0);
+    } else if (trialResult.kickSuccess) {
+        cairo_set_source_rgb(cr, 0, 0.8, 0);
+    } else if (trialResult.kickFailure) {
+        cairo_set_source_rgb(cr, 0, 0, 0.8);
+    }
     utility::drawing::drawRobot(cr, robot, 0.05, true);
     utility::drawing::drawRotatedRectangle(cr, finalFootprint);
     utility::drawing::drawKickBoxes(cr, robot, cfg_.kbConfig, cfg_.ball.radius);
@@ -534,12 +580,20 @@ void numptest::SearchScenario::simulation(cairo_t* cr) {
 
         // Add the goal state to the tree:
         BipedRobotModel::State kickPos = BipedRobotModel::getIdealKickingPosition(cfg_.ball, cfg_.kbConfig, cfg_.targetAngle);
+        // arma::vec2 targetVec = utility::math::angle::bearingToUnitVector(cfg_.targetAngle);
+        // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.30,kickPos.position.angle()}});
+        // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.25,kickPos.position.angle()}});
+        // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.20,kickPos.position.angle()}});
+        // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.15,kickPos.position.angle()}});
+        // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.10,kickPos.position.angle()}});
+        // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.05,kickPos.position.angle()}});
         rrbtTree.extendRRBT(cr, kickPos);
+
 
         nump::Path<BipedRobotModel::State> newPath = rrbtTree.getSolutionPath();
 
         // Draw the search tree and nominal path:
-        // drawRRBT(cr, rrbtTree);
+        drawRRBT(cr, rrbtTree);
         cairo_set_source_rgb(cr, 0.2, 0.5, 0.8);
         cairo_set_line_width(cr, 0.001);
         utility::drawing::drawPath(cr, newPath, 0.1, 0.02);
@@ -548,16 +602,18 @@ void numptest::SearchScenario::simulation(cairo_t* cr) {
         return newPath;
     });
     cairo_show_page(cr);
+
     appendTrialToFile("rrbtTrials.yaml", resultRRBt);
 }
 
 void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
+    // auto originalSeed = cfg_.seed;
+
     while (true) {
 
-    arma::arma_rng::set_seed(cfg_.seed);
-    std::cout << "SEED: " << cfg_.seed << std::endl;
-
     auto trialSeed = randomSeed();
+    // std::cout << "WARNING: SET SEED IS INACCURATE." << std::endl;
+    // arma::arma_rng::set_seed(originalSeed);
 
     std::stringstream ss;
     ss << "trial-diagrams/" << scenario_prefix << "_" << trialSeed << "_searchTests.pdf";
@@ -594,13 +650,14 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
         arma::vec2 xyPos = cfg_.ball.centre + unitvec * ballDist;
         Transform2D initialState = {xyPos,heading};
         double targetAngleRange = arma::datum::pi/2; // trialConfRand(4) * arma::datum::pi/2;
-        double replanInterval = 5; // 1 + trialConfRand(5) * 19;
-        double chanceConstraint = 0.6 + trialConfRand(6)*0.4;
+        // double replanInterval = cfg_.replanInterval; // 5; // 1 + trialConfRand(5) * 19;
+        // double chanceConstraint = 0.6 + trialConfRand(6)*0.4;
+        double chanceConstraint = trialConfRand(6);
 
         cfg_.seed = trialSeed;
         cfg_.initialState = initialState;
         cfg_.targetAngleRange = targetAngleRange;
-        cfg_.searchTimeLimitSeconds = replanInterval;
+        // cfg_.searchTimeLimitSeconds = replanInterval;
         cfg_.rrbt.chanceConstraint = chanceConstraint;
 
         std::cout << "{ " << std::endl;
@@ -610,7 +667,8 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
            << "," << cfg_.initialState(2)
            << "]" << std::endl;
         std::cout << ", targetAngleRange: " << cfg_.targetAngleRange  << std::endl;
-        std::cout << ", replanInterval: " << cfg_.searchTimeLimitSeconds  << std::endl;
+        std::cout << ", replanInterval: " << cfg_.replanInterval  << std::endl;
+        std::cout << ", searchTimeLimit: " << cfg_.searchTimeLimitSeconds  << std::endl;
         std::cout << ", chanceConstraint: " << cfg_.rrbt.chanceConstraint << std::endl;
         std::cout << ", seed: " << cfg_.seed << std::endl;
         std::cout << "}," << std::endl;
