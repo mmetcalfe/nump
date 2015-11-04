@@ -398,6 +398,7 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
         // Transform2D nominalControl = {nominalControl(0), 0, nominalControl(1)};
         // Transform2D nominalControl = walker.currentOmniControl();
         Transform2D nominalControl = nump::robotmodel::walkBetween(robotFilter.mean.position, walker.currentSegment->xGoal.position);
+        // nominalControl = Transform2D {0.0,0.0,0.0}; // TODO: Revert.
 
         // Make observations to update the state estimate:
 //        std::vector<BipedRobotModel::Measurement> measurements;
@@ -438,6 +439,7 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
         Transform2D controlSquared = nominalControl % nominalControl;
         BipedRobotModel::MotionCov motionCov = arma::diagmat(alpha*controlSquared);
         Transform2D actualControl = utility::math::distributions::randn(1, nominalControl, motionCov);
+        // Transform2D actualControl = {0.0,0.0,0.0}; // TODO: Revert.
 
         // Apply the actual control to the robot to obtain the new state:
         robot = robot.localToWorld(actualControl * timeStep);

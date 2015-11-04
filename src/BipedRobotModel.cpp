@@ -31,10 +31,15 @@ namespace nump {
         BipedRobotModel::MotionMatrix At;
         At.eye();
 
-        double radius = control.v() / control.omega();
         double mu = state.position.angle();
-        At(0, 2) = radius * (-std::cos(mu) + std::cos(mu + control.omega()*Δt));
-        At(1, 2) = radius * (-std::sin(mu) + std::sin(mu + control.omega()*Δt));
+        if (std::abs(control.omega()) > 1e-8) {
+            double radius = control.v() / control.omega();
+            At(0, 2) = radius * (-std::cos(mu) + std::cos(mu + control.omega()*Δt));
+            At(1, 2) = radius * (-std::sin(mu) + std::sin(mu + control.omega()*Δt));
+        } else { // Limits as omega -> 0, using l'Hopital's rule:
+            At(0, 2) = -control.v()*Δt*std::sin(mu + control.omega()*Δt);
+            At(1, 2) =  control.v()*Δt*std::cos(mu + control.omega()*Δt);
+        }
 
         return At;
     }
@@ -52,10 +57,18 @@ namespace nump {
         // Note: This is the same as Vt.
         BipedRobotModel::ControlMatrix Bt;
         Bt.zeros();
-        Bt(0, 0) = (-st + stw)/wt;
-        Bt(1, 0) = ( ct - ctw)/wt;
-        Bt(0, 1) =  vt*(st - stw)/(wt*wt) + vt*ctw*Δt/wt;
-        Bt(1, 1) = -vt*(ct - ctw)/(wt*wt) + vt*stw*Δt/wt;
+        if (control.omega() > 1e-8) {
+            Bt(0, 0) = (-st + stw)/wt;
+            Bt(1, 0) = ( ct - ctw)/wt;
+            Bt(0, 1) =  vt*(st - stw)/(wt*wt) + vt*ctw*Δt/wt;
+            Bt(1, 1) = -vt*(ct - ctw)/(wt*wt) + vt*stw*Δt/wt;
+        } else { // Limits as omega -> 0, using l'Hopital's rule:
+            Bt(0, 0) = Δt*ct;
+            Bt(1, 0) = Δt*st;
+            Bt(0, 1) = vt*stw*Δt*Δt/2 - vt*Δt*st;
+            Bt(1, 1) = vt*ctw*Δt*Δt/2 + vt*Δt*ct;
+        }
+
         Bt(2, 0) = 0;
         Bt(2, 1) = Δt;
 
@@ -250,20 +263,23 @@ namespace nump {
             Σbt = Σbt - Lt*Ct*Σbt;
 
             // if (arma::norm(μbt) > 20) {
-            //     std::cout << "μbtBefore" << μbtBefore.t() << std::endl;
-            //     std::cout << "ΣbtBefore" << Σbt << std::endl;
-            //     std::cout << "meas: " << meas.t() << std::endl;
-            //     std::cout << "expectedMeas: " << expectedMeas.t() << std::endl;
-            //     std::cout << "At: " << At << std::endl;
-            //     std::cout << "Bt: " << Bt << std::endl;
-            //     std::cout << "Qt: " << Qt << std::endl;
-            //     std::cout << "Ct: " << Ct << std::endl;
-            //     std::cout << "Rt: " << Rt << std::endl;
-            //     std::cout << "St: " << St << std::endl;
-            //     std::cout << "Lt: " << Lt << std::endl;
-            //     std::cout << "μbt: " << μbt << std::endl;
-            //     std::cout << "Σbt: " << Σbt << std::endl;
-            // }
+            if (!Σbt.is_finite() || !μbt.is_finite()) {
+                std::cout << "mean" << mean.position.t() << std::endl;
+                std::cout << "control" << control.t() << std::endl;
+                std::cout << "μbtBefore" << μbtBefore.t() << std::endl;
+                std::cout << "ΣbtBefore" << Σbt << std::endl;
+                std::cout << "meas: " << meas.t() << std::endl;
+                std::cout << "expectedMeas: " << expectedMeas.t() << std::endl;
+                std::cout << "At: " << At << std::endl;
+                std::cout << "Bt: " << Bt << std::endl;
+                std::cout << "Qt: " << Qt << std::endl;
+                std::cout << "Ct: " << Ct << std::endl;
+                std::cout << "Rt: " << Rt << std::endl;
+                std::cout << "St: " << St << std::endl;
+                std::cout << "Lt: " << Lt << std::endl;
+                std::cout << "μbt: " << μbt << std::endl;
+                std::cout << "Σbt: " << Σbt << std::endl;
+            }
         }
 
         // if (arma::norm(mean.position) > 20) {
