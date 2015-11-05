@@ -5,6 +5,7 @@
 #ifndef NUMP_SEARCHSCENARIO_H
 #define NUMP_SEARCHSCENARIO_H
 
+#include <mutex>
 #include <armadillo>
 #include <cairo/cairo.h>
 #include "math/geometry.h"
@@ -25,6 +26,8 @@ namespace numptest {
         typedef arma::mat33 StateCovT;
 
     public:
+        std::shared_ptr<std::mutex> resultsFileMutex = nullptr;
+
         struct SearchTrialResult {
             bool kickFailure = false;
             bool collisionFailure = false;

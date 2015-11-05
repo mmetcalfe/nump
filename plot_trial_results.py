@@ -262,21 +262,23 @@ def plotResultsTable(results_table):
         # plt.show()
         plt.savefig('results_fig_{}.pdf'.format(value_key), bbox_inches='tight')
 
-
-def saveAsCsv(results_table):
-    with open('results.csv', 'w+') as results_file:
-        col_names = ['kickSuccess',
-                     'kickFailure',
-                    #  'initialState',
-                    #  'finalState',
-                     'collisionFailure',
-                     'timeLimit',
-                     'targetAngleRange',
-                     'finishTime',
-                     'replanInterval',
-                     'numReplans',
-                     'chanceConstraint',
-                     'seed']
+def saveAsCsv(results_table, fname):
+    with open(fname, 'w+') as results_file:
+        col_names = [
+             'kickSuccess',
+             'kickFailure',
+             'collisionFailure',
+             'timeLimit',
+             'targetAngleRange',
+             'finishTime',
+             'replanInterval',
+             'searchTimeLimit',
+             'numReplans',
+             'chanceConstraint',
+             'ballObstacleRadiusFactor',
+             'ballObstacleOffsetFactor',
+             'seed'
+         ]
         # col_names = sorted(results_table[0].keys())
         header_row = '\t'.join(col_names)
 
@@ -292,15 +294,16 @@ def saveAsCsv(results_table):
 if __name__ == "__main__":
     # Parse arguments:
     parser = argparse.ArgumentParser(description='Plot trial results')
-    parser.add_argument('resultsFile', type=str, nargs='?', default='rrbtTrials.yaml', help='Results file name.')
-    parser.add_argument('rrtsResultsFile', type=str, nargs='?', default='rrtsTrials.yaml', help='Results file name.')
+    parser.add_argument('resultsFile', type=str, nargs='?', default='rrbtTrials-valid.yaml', help='Results file name.')
+    parser.add_argument('rrtsResultsFile', type=str, nargs='?', default='rrtsTrials-valid.yaml', help='Results file name.')
     args = parser.parse_args()
 
     # Load results from file:
     trialResults = loadResultsTable(args.resultsFile)
     rrtsTrialResults = loadResultsTable(args.rrtsResultsFile)
 
-    saveAsCsv(trialResults)
+    saveAsCsv(trialResults, 'results-rrbt.tsv')
+    saveAsCsv(rrtsTrialResults, 'results-rrts.tsv')
     sys.exit(0)
 
     # Group the chanceConstraint into bins:

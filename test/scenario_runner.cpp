@@ -3,6 +3,7 @@
 //
 
 #include <iostream>
+#include <thread>
 #include <boost/filesystem.hpp>
 
 
@@ -42,8 +43,19 @@ int main() {
             std::cout << "Processing '" << curr_scenario_name << "'" << std::endl;
 
             auto scenario = numptest::SearchScenario::fromFile(curr_scenario_path);
+            // scenario.execute(curr_scenario_name);
 
-            scenario.execute(curr_scenario_name);
+            // Start some threads:
+            scenario.resultsFileMutex = std::make_shared<std::mutex>();
+            auto threadFunc = [=]() mutable {
+                scenario.execute(curr_scenario_name);
+            };
+            std::thread t1(threadFunc);
+            std::thread t2(threadFunc);
+            std::thread t3(threadFunc);
+            t1.join();
+            t2.join();
+            t3.join();
         }
     }
 
