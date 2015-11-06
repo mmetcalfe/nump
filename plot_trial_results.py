@@ -276,6 +276,7 @@ def saveAsCsv(results_table, fname):
              'numReplans',
              'numKickAttempts',
              'numAlmostKicks',
+             'errorMultiplier',
              'chanceConstraint',
              'ballObstacleRadiusFactor',
              'ballObstacleOffsetFactor',

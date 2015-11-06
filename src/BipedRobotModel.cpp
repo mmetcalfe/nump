@@ -101,7 +101,7 @@ namespace nump {
     }
 
     /// The Q matrix in RRBT's propagate function.
-    BipedRobotModel::MotionCov BipedRobotModel::motionNoiseCovariance(double Δt, const StateT& state, const ControlT& control, const ControlMatrix& Bt) {
+    BipedRobotModel::MotionCov BipedRobotModel::motionNoiseCovariance(double Δt, const StateT& state, const ControlT& control, const ControlMatrix& Bt, int errorMultiplier) {
         // The motion noise in control space mapped into state space.
         // (See M_t and V_t on page 206 of Sebastian Thrun's Probabilistic Robotics book)
 
@@ -115,10 +115,15 @@ namespace nump {
         //     {0.1, 0.001},
         //     {0.001, 0.2}
         // };
-        arma::mat22 alpha = { // Trial 3
+        // arma::mat22 alpha = { // Trial 3
+        //     {1.0, 0.00},
+        //     {0.00, 1.0}
+        // };
+        arma::mat22 alpha = { // Trial 4
             {1.0, 0.00},
             {0.00, 1.0}
         };
+        alpha *= errorMultiplier*errorMultiplier; // Trial 4
         ControlT controlSquared = control % control;
         BipedRobotModel::ControlCov Mt = arma::diagmat(alpha*controlSquared);
 
@@ -184,7 +189,7 @@ namespace nump {
     }
 
     /// The R matrix in RRBT's propagate function.
-    BipedRobotModel::MeasurementCov BipedRobotModel::measurementNoiseCovariance(double Δt, const StateT& state, const Circle& landmark) {
+    BipedRobotModel::MeasurementCov BipedRobotModel::measurementNoiseCovariance(double Δt, const StateT& state, const Circle& landmark, int errorMultiplier) {
         auto expectedMeas = BipedRobotModel::observeLandmark(state, landmark);
         double r = expectedMeas.r();
         BipedRobotModel::MeasurementCov Rt;
@@ -196,17 +201,23 @@ namespace nump {
             // Rt(0,0) = 0.02 * (r*r); // Trial 2
             // Rt(1,1) = 0.001;
 
-            double distStdDev = 0.25*r;
-            double angleStdDev = arma::datum::pi/8;
-            Rt(0,0) = distStdDev*distStdDev; // Trial 3
+            // double distStdDev = 0.25*r;
+            // double angleStdDev = arma::datum::pi/8;
+            // Rt(0,0) = distStdDev*distStdDev; // Trial 3
+            // Rt(1,1) = angleStdDev*angleStdDev;
+
+            // Trial 4
+            double distStdDev = errorMultiplier*r;
+            double angleStdDev = (errorMultiplier*arma::datum::pi)/5;
+            Rt(0,0) = distStdDev*distStdDev;
             Rt(1,1) = angleStdDev*angleStdDev;
         }
         return Rt;
     }
-    BipedRobotModel::MeasurementCov BipedRobotModel::measurementNoiseCovariance(double Δt, const StateT& state, const std::vector<Circle>& measurementRegions) {
+    BipedRobotModel::MeasurementCov BipedRobotModel::measurementNoiseCovariance(double Δt, const StateT& state, const std::vector<Circle>& measurementRegions, int errorMultiplier) {
         auto landmark = firstContaining(measurementRegions, state);
         if (landmark != nullptr) {
-            return measurementNoiseCovariance(Δt, state, *landmark);
+            return measurementNoiseCovariance(Δt, state, *landmark, errorMultiplier);
         } else {
             BipedRobotModel::MeasurementCov Rt;
             Rt.eye();
@@ -226,7 +237,7 @@ namespace nump {
 
     void BipedRobotModel::EKF::update(double Δt, Transform2D bipedControl,
                                       std::vector<std::pair<Measurement, BipedRobotModel::MeasurementCov>> measurements,
-                                      std::vector<Circle> landmarks) {
+                                      std::vector<Circle> landmarks, int errorMultiplier) {
         arma::vec2 control = {arma::norm(bipedControl.xy()), bipedControl.angle()};
 
         Transform2D μbt = mean.position.localToWorld(Δt*bipedControl);
@@ -238,7 +249,7 @@ namespace nump {
         // Vt
         BipedRobotModel::ControlMatrix Bt = controlErrorJacobian(Δt, mean, control);
         // VtMtVt^T
-        BipedRobotModel::MotionCov Qt = motionNoiseCovariance(Δt, mean, control, Bt);
+        BipedRobotModel::MotionCov Qt = motionNoiseCovariance(Δt, mean, control, Bt, errorMultiplier);
 
         // Step 1 - Covariance prediction (equations 21, 33):
         // Kalman filter process step:

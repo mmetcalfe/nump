@@ -292,8 +292,8 @@ namespace nump {
             RobotModel::MotionMatrix At = RobotModel::motionErrorJacobian(timeStep, xTraj, controlTraj);
             RobotModel::ControlMatrix Bt = RobotModel::controlErrorJacobian(timeStep, xTraj, controlTraj);
             RobotModel::MeasurementMatrix Ct = RobotModel::measurementErrorJacobian(timeStep, xTraj, measurementRegions);
-            RobotModel::MotionCov Qt = RobotModel::motionNoiseCovariance(timeStep, xTraj, controlTraj, Bt);
-            RobotModel::MeasurementCov Rt = RobotModel::measurementNoiseCovariance(timeStep, xTraj, measurementRegions);
+            RobotModel::MotionCov Qt = RobotModel::motionNoiseCovariance(timeStep, xTraj, controlTraj, Bt, rrbtConfig.errorMultiplier);
+            RobotModel::MeasurementCov Rt = RobotModel::measurementNoiseCovariance(timeStep, xTraj, measurementRegions, rrbtConfig.errorMultiplier);
             RobotModel::RegulatorMatrix Kt = RobotModel::regulatorMatrix(timeStep, At, Bt);
 
             // Step 1 - Covariance prediction (equations 21, 33):

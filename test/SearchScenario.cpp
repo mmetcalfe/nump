@@ -189,6 +189,7 @@ void appendTrialToFile(
        << "," << trialResult.finalState(1)
        << "," << trialResult.finalState(2)
        << "]" << std::endl;
+    fs << ", errorMultiplier: " << trialResult.errorMultiplier  << std::endl;
     fs << ", collisionFailure: " << trialResult.collisionFailure  << std::endl;
     fs << ", timeLimit: " << trialResult.timeLimit  << std::endl;
     fs << ", targetAngleRange: " << trialResult.targetAngleRange  << std::endl;
@@ -322,6 +323,7 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
     trialResult.kickSuccess = false;
     trialResult.kickFailure = false;
     trialResult.collisionFailure = false;
+    trialResult.errorMultiplier = cfg_.rrbt.errorMultiplier;
     trialResult.timeLimit = cfg_.searchTrialDuration;
     trialResult.initialState = cfg_.initialState;
     trialResult.targetAngleRange = cfg_.targetAngleRange;
@@ -454,7 +456,7 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
         std::vector<std::pair<BipedRobotModel::Measurement, BipedRobotModel::MeasurementCov>> measurements;
         for (auto& landmark : cfg_.measurementRegions) {
             BipedRobotModel::Measurement idealMeasurement = BipedRobotModel::observeLandmark({robot}, landmark);
-            BipedRobotModel::MeasurementCov measCov = BipedRobotModel::measurementNoiseCovariance(timeStep, {robot}, landmark);
+            BipedRobotModel::MeasurementCov measCov = BipedRobotModel::measurementNoiseCovariance(timeStep, {robot}, landmark, cfg_.rrbt.errorMultiplier);
             BipedRobotModel::Measurement actualMeas = utility::math::distributions::randn(idealMeasurement, measCov);
             // if (arma::norm(idealMeasurement) > 10 || arma::norm(actualMeas) > 10) {
             //     std::cout << "landmark: " << landmark.centre << std::endl;
@@ -465,7 +467,7 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
             // }
             measurements.push_back({actualMeas, measCov});
         }
-        robotFilter.update(timeStep, nominalControl, measurements, cfg_.measurementRegions);
+        robotFilter.update(timeStep, nominalControl, measurements, cfg_.measurementRegions, cfg_.rrbt.errorMultiplier);
 
         // Use state estimate and stabiliser to enhance the desired control to correct current error:
         // Transform2D lqrControl =
@@ -478,11 +480,12 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
             //     {0.001, 0.1, 0.001},
             //     {0.001, 0.001, 0.2}
             // };
-            BipedRobotModel::MotionCov alpha = {
+            BipedRobotModel::MotionCov alpha = { // Trial 3
                 {1, 0, 0},
                 {0, 1, 0},
                 {0, 0, 1}
             };
+            alpha *= cfg_.rrbt.errorMultiplier*cfg_.rrbt.errorMultiplier; // Trial 4
             Transform2D controlSquared = nominalControl % nominalControl;
             BipedRobotModel::MotionCov motionCov = arma::diagmat(alpha*controlSquared) + arma::diagmat(Transform2D {1e-8, 1e-8, 1e-8});
             actualControl = utility::math::distributions::randn(1, nominalControl, motionCov);
@@ -723,7 +726,7 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
 //    cairo_scale(cr, centeredFrac, centeredFrac);
 //    cairo_translate(cr, borderSize, borderSize);
 
-        arma::vec trialConfRand = arma::vec(arma::randu(10));
+        arma::vec trialConfRand = arma::vec(arma::randu(11));
 
         double theta = utility::math::angle::normalizeAngle(trialConfRand(0)*arma::datum::pi*2);
         double ballDist = 0.2 + trialConfRand(1)*0.6;
@@ -737,14 +740,20 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
         double chanceConstraint = trialConfRand(6);
         double ballObstacleOffsetFactor = trialConfRand(7);
         double ballObstacleRadiusFactor = 2*trialConfRand(8);
+        int errorMultiplier = 1 + (int)(4.999*trialConfRand(9)); // explicit rounding to [1, 5]
+        bool useSquared = trialConfRand(10) < 0.5;
 
         cfg_.seed = trialSeed;
         // cfg_.ballObstacleOffsetFactor = ballObstacleOffsetFactor;
         cfg_.ballObstacleRadiusFactor = ballObstacleRadiusFactor;
         cfg_.initialState = initialState;
         cfg_.targetAngleRange = targetAngleRange;
+        cfg_.rrbt.errorMultiplier = errorMultiplier;
         // cfg_.searchTimeLimitSeconds = replanInterval;
         cfg_.rrbt.chanceConstraint = chanceConstraint;
+        if (useSquared) {
+            cfg_.rrbt.chanceConstraint = chanceConstraint*chanceConstraint;
+        }
 
         std::cout << "{ " << std::endl;
         std::cout << "initialState: "
@@ -752,6 +761,7 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
            << "," << cfg_.initialState(1)
            << "," << cfg_.initialState(2)
            << "]" << std::endl;
+        std::cout << ", errorMultiplier: " << cfg_.rrbt.errorMultiplier  << std::endl;
         std::cout << ", targetAngleRange: " << cfg_.targetAngleRange  << std::endl;
         std::cout << ", replanInterval: " << cfg_.replanInterval  << std::endl;
         std::cout << ", searchTimeLimit: " << cfg_.searchTimeLimitSeconds  << std::endl;

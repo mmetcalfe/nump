@@ -7,6 +7,7 @@ logisticRegressionPlot <- function(trialDataFile, xName, yName, xLabel, yLabel) 
     myexpit <- function(x,b0,b1){expit <- exp(b0+b1*x)/( 1+exp(b0+b1*x) )}
     #bw <- read.table("birthweight.txt",header=T)
     bw <- read.table(trialDataFile,header=T)
+    bw <- subset(bw, errorMultiplier==5)
     # bw <- bw[seq(1,100),]
     bw$kickSuccess <- bw$kickSuccess*(bw$numAlmostKicks==0)
     bw$timeout <- (1-bw$kickFailure) * (1-bw$collisionFailure) * (1-bw$kickSuccess)

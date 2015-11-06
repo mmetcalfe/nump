@@ -39,6 +39,7 @@ namespace numptest {
             double timeLimit = 1;
             double replanInterval = 3;
             double searchTimeLimit = 3;
+            int errorMultiplier = 1;
             double chanceConstraint = 0.75;
             double ballObstacleRadiusFactor = 0.75;
             double ballObstacleOffsetFactor = 0.75;
@@ -72,6 +73,8 @@ namespace numptest {
 
                 double chanceConstraint = 0.7;
                 double minKickProbability = 0.5; // The minimum acceptable probability of a successful kick in the resulting goal state.
+
+                int errorMultiplier = 1;
             } rrbt;
 
             double ballObstacleRadiusFactor = 0.13;
