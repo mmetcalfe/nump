@@ -274,6 +274,8 @@ def saveAsCsv(results_table, fname):
              'replanInterval',
              'searchTimeLimit',
              'numReplans',
+             'numKickAttempts',
+             'numAlmostKicks',
              'chanceConstraint',
              'ballObstacleRadiusFactor',
              'ballObstacleOffsetFactor',
@@ -284,8 +286,18 @@ def saveAsCsv(results_table, fname):
 
         results_file.write(header_row + '\n')
 
+        def getRow(result):
+            row = []
+            for col in col_names:
+                if col in result.keys():
+                    row += [result[col]]
+                else:
+                    row += [0]
+            return row
+
         for result in results_table:
-            row_raw = map(lambda n: result[n], col_names)
+            # row_raw = map(lambda n: result[n], col_names)
+            row_raw = getRow(result)
             row_raw = map(lambda n: '' if n is None else n, row_raw)
             row_str = '\t'.join(map(str, row_raw))
             results_file.write(row_str + '\n')
@@ -294,8 +306,8 @@ def saveAsCsv(results_table, fname):
 if __name__ == "__main__":
     # Parse arguments:
     parser = argparse.ArgumentParser(description='Plot trial results')
-    parser.add_argument('resultsFile', type=str, nargs='?', default='rrbtTrials-valid.yaml', help='Results file name.')
-    parser.add_argument('rrtsResultsFile', type=str, nargs='?', default='rrtsTrials-valid.yaml', help='Results file name.')
+    parser.add_argument('resultsFile', type=str, nargs='?', default='rrbtTrials.yaml', help='Results file name.')
+    parser.add_argument('rrtsResultsFile', type=str, nargs='?', default='rrtsTrials.yaml', help='Results file name.')
     args = parser.parse_args()
 
     # Load results from file:

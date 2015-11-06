@@ -18,7 +18,7 @@ rrbt_chance_constraint: 0.7 # Minimum acceptable probability of NOT failing due 
 rrbt_propagate_time_step: 0.1 # Timestep in seconds to use for uncertainty propagation along trajectories
 
 ball_obstacle_radius_factor: 1 # Ball clearence in the direction of kicking as fraction of ball radius [1, +Inf).
-ball_obstacle_offset_factor: 0.4 # Ball clearence in approach direction as fraction of kickbox length [0, 1].
+ball_obstacle_offset_factor: 0.0 # Ball clearence in approach direction as fraction of kickbox length [0, 1].
 # ball_obstacle_radius_factor: 1.2 # Obstacle radius as fraction of ball radius [1, +Inf).
 # ball_obstacle_offset_factor: 0.5 # Obstacle offset from ball edge as fraction of kickbox length [0, 1].
 

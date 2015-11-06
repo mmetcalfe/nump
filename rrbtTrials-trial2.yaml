@@ -1,4 +1,4 @@
-{ kickSuccess: 1
+[{ kickSuccess: 1
 , kickFailure: 0
 , initialState: [1.10715,0.740343,0.316912]
 , finalState: [1.16702,0.925952,-3.11706]
@@ -107241,4 +107241,4 @@
 , ballObstacleRadiusFactor: 0.538782
 , ballObstacleOffsetFactor: 0
 , seed: 34116345
-},
+}]

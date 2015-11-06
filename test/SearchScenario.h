@@ -43,6 +43,8 @@ namespace numptest {
             double ballObstacleRadiusFactor = 0.75;
             double ballObstacleOffsetFactor = 0.75;
             int numReplans = 0;
+            int numKickAttempts = 0;
+            int numAlmostKicks = 0;
             int seed = 0;
         };
 
@@ -53,6 +55,8 @@ namespace numptest {
 
         struct Config {
             StateType stateType;
+
+            bool isRRBT = false;
 
             // Search settings:
             int seed;

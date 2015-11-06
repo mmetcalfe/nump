@@ -111,9 +111,13 @@ namespace nump {
         //     {0.02, 0.001},
         //     {0.001, 0.005}
         // };
-        arma::mat22 alpha = {
-            {0.1, 0.001},
-            {0.001, 0.2}
+        // arma::mat22 alpha = { // Trial 2
+        //     {0.1, 0.001},
+        //     {0.001, 0.2}
+        // };
+        arma::mat22 alpha = { // Trial 3
+            {1.0, 0.00},
+            {0.00, 1.0}
         };
         ControlT controlSquared = control % control;
         BipedRobotModel::ControlCov Mt = arma::diagmat(alpha*controlSquared);
@@ -189,9 +193,13 @@ namespace nump {
             Rt(0,0) = 1e7;
             Rt(1,1) = 1e7;
         } else {
-            // Rt(0,0) = 0.01 * r*r;
-            Rt(0,0) = 0.02 * (r*r);
-            Rt(1,1) = 0.001;
+            // Rt(0,0) = 0.02 * (r*r); // Trial 2
+            // Rt(1,1) = 0.001;
+
+            double distStdDev = 0.25*r;
+            double angleStdDev = arma::datum::pi/8;
+            Rt(0,0) = distStdDev*distStdDev; // Trial 3
+            Rt(1,1) = angleStdDev*angleStdDev;
         }
         return Rt;
     }
