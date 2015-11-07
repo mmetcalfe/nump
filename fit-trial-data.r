@@ -2,15 +2,16 @@
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # BPD example in Section 11.5
 #
-logisticRegressionPlot <- function(trialDataFile, xName, yName, xLabel, yLabel) {
+logisticRegressionPlot <- function(trialDataPrefix, xName, yName, xLabel, yLabel) {
     library(locfit)
     myexpit <- function(x,b0,b1){expit <- exp(b0+b1*x)/( 1+exp(b0+b1*x) )}
     #bw <- read.table("birthweight.txt",header=T)
-    bw <- read.table(trialDataFile,header=T)
-    bw <- subset(bw, errorMultiplier==5)
+    bw <- read.table(paste(trialDataPrefix,".tsv", sep=""),header=T)#read.table(trialDataFile,header=T)
+    #bw <- subset(bw, errorMultiplier==5)
     # bw <- bw[seq(1,100),]
     bw$kickSuccess <- bw$kickSuccess*(bw$numAlmostKicks==0)
-    bw$timeout <- (1-bw$kickFailure) * (1-bw$collisionFailure) * (1-bw$kickSuccess)
+    #bw$timeout <- (1-bw$kickFailure) * (1-bw$collisionFailure) * (1-bw$kickSuccess)
+    bw$timeout <- (1-bw$collisionFailure) * (1-bw$kickSuccess)
     birthweight <- bw$birthweight <- data.matrix(bw[xName])
     BPD <- bw$BPD <- data.matrix(bw[yName])
     #birthweight <- bw$birthweight <- bw$chanceConstraint
@@ -95,8 +96,9 @@ logisticRegressionPlot <- function(trialDataFile, xName, yName, xLabel, yLabel) 
     #
     # Fig 11.16
     #
-    pdf(paste(trialDataFile,"-",yName,".pdf", sep=""),width=4.5,height=4.5)
+    pdf(paste(trialDataPrefix,"-",yName,".pdf", sep=""),width=4.5,height=4.5)
     par(mfrow=c(1,1))
+    par(mar=c(4,4,1,1))
     plot(birthweight,BPD,pch="|",xlab=xLabel,ylab=yLabel)
     #plot(birthweight[1:200],BPD[1:200],pch="|",xlab="Birthweight (grams)")
     lines(orderfit[,1],orderfit[,2],lty=1)
@@ -125,14 +127,14 @@ finishTimesPlot <- function(trialDataPrefix, xName, xLabel, xLim) {
 
   xPreds <- seq(xLim[1],xLim[2], 0.01)
   yPreds <- predict(model, newdata=list(xCol = xPreds), type="response")
-  
+
   pdf(paste(trialDataPrefix,"-",yName,".pdf", sep=""),width=4.5,height=4.5)
   par(mfrow=c(1,1))
   #plot(rawdata$xCol,rawdata$yCol,pch="|",xlab=xLabel,ylab=yLabel)
-  par(mar=c(1,1,1,1))
+  par(mar=c(4,4,1,1))
   plot(validdata$xCol,validdata$yCol,xlab=xLabel,ylab=yLabel, xlim=xLim, ylim=c(0, 60))
   lines(xPreds, yPreds, col='red')
-  
+
   #plot(birthweight[1:200],BPD[1:200],pch="|",xlab="Birthweight (grams)")
   #lines(orderfit[,1],orderfit[,2],lty=1)
   #lrmod1 <- glm(BPD~birthweight,family=binomial)
@@ -141,33 +143,45 @@ finishTimesPlot <- function(trialDataPrefix, xName, xLabel, xLim) {
   #lines(newx,preds,lty=2)
   #legend(x=0.3,y=0.75,legend=c("Cubic Spline","Local Likelihood","Linear Logistic"), bty="n",lty=1:3)
   dev.off()
-  
+
   model
 }
 
-summary(finishTimesPlot("results-rrbt-trial1", "chanceConstraint", "Chance Constraint (%)", c(0, 1)))
-summary(finishTimesPlot("results-rrts-trial1", "ballObstacleOffsetFactor", "Obstacle Offset Factor", c(0, 1)))
+# summary(finishTimesPlot("results-rrbt-trial1", "chanceConstraint", "Chance Constraint (%)", c(0, 1)))
+# summary(finishTimesPlot("results-rrts-trial1", "ballObstacleOffsetFactor", "Obstacle Offset Factor", c(0, 1)))
+#
+# summary(finishTimesPlot("results-rrbt-trial2", "chanceConstraint", "Chance Constraint (%)", c(0, 1)))
+# summary(finishTimesPlot("results-rrts-trial2", "ballObstacleRadiusFactor", "Obstacle Radius Factor", c(0, 1)))
+#
+# summary(finishTimesPlot("results-rrbt-trial3", "chanceConstraint", "Chance Constraint (%)", c(0, 1)))
+# summary(finishTimesPlot("results-rrts-trial3", "ballObstacleRadiusFactor", "Obstacle Radius Factor", c(0, 2)))
 
-summary(finishTimesPlot("results-rrbt-trial2", "chanceConstraint", "Chance Constraint (%)", c(0, 1)))
-summary(finishTimesPlot("results-rrts-trial2", "ballObstacleRadiusFactor", "Obstacle Radius Factor", c(0, 1)))
+summary(finishTimesPlot("results-rrbt", "errorMultiplier", "Variance Factor", c(0, 4)))
+summary(finishTimesPlot("results-rrts", "errorMultiplier", "Variance Factor", c(0, 4)))
 
-summary(finishTimesPlot("results-rrbt-trial3", "chanceConstraint", "Chance Constraint (%)", c(0, 1)))
-summary(finishTimesPlot("results-rrts-trial3", "ballObstacleRadiusFactor", "Obstacle Radius Factor", c(0, 2)))
+logisticRegressionPlot("results-rrbt", "errorMultiplier", "kickSuccess", "Variance Factor", "Kick Success Rate (%)")
+logisticRegressionPlot("results-rrbt", "errorMultiplier", "kickFailure", "Variance Factor", "Kick Failure Rate (%)")
+logisticRegressionPlot("results-rrbt", "errorMultiplier", "collisionFailure", "Variance Factor", "Collision Failure Rate (%)")
+logisticRegressionPlot("results-rrbt", "errorMultiplier", "timeout", "Variance Factor", "Timeout Failure Rate (%)")
 
+logisticRegressionPlot("results-rrts", "errorMultiplier", "kickSuccess", "Variance Factor", "Kick Success Rate (%)")
+logisticRegressionPlot("results-rrts", "errorMultiplier", "kickFailure", "Variance Factor", "Kick Failure Rate (%)")
+logisticRegressionPlot("results-rrts", "errorMultiplier", "collisionFailure", "Variance Factor", "Collision Failure Rate (%)")
+logisticRegressionPlot("results-rrts", "errorMultiplier", "timeout", "Variance Factor", "Timeout Failure Rate (%)")
 
-# logisticRegressionPlot("results-rrbt.tsv", "chanceConstraint", "kickSuccess", "Chance Constraint (%)", "Kick Success Rate (%)")
-# logisticRegressionPlot("results-rrbt.tsv", "chanceConstraint", "kickFailure", "Chance Constraint (%)", "Kick Failure Rate (%)")
-# logisticRegressionPlot("results-rrbt.tsv", "chanceConstraint", "collisionFailure", "Chance Constraint (%)", "Collision Failure Rate (%)")
-# logisticRegressionPlot("results-rrbt.tsv", "chanceConstraint", "timeout", "Chance Constraint (%)", "Timeout Failure Rate (%)")
+# logisticRegressionPlot("results-rrbt", "chanceConstraint", "kickSuccess", "Chance Constraint (%)", "Kick Success Rate (%)")
+# logisticRegressionPlot("results-rrbt", "chanceConstraint", "kickFailure", "Chance Constraint (%)", "Kick Failure Rate (%)")
+# logisticRegressionPlot("results-rrbt", "chanceConstraint", "collisionFailure", "Chance Constraint (%)", "Collision Failure Rate (%)")
+# logisticRegressionPlot("results-rrbt", "chanceConstraint", "timeout", "Chance Constraint (%)", "Timeout Failure Rate (%)")
 #
 # # # Trial 1:
-# # logisticRegressionPlot("results-rrts.tsv", "ballObstacleOffsetFactor", "kickSuccess", "Obstacle Offset Factor", "Kick Success Rate (%)")
-# # logisticRegressionPlot("results-rrts.tsv", "ballObstacleOffsetFactor", "kickFailure", "Obstacle Offset Factor", "Kick Failure Rate (%)")
-# # logisticRegressionPlot("results-rrts.tsv", "ballObstacleOffsetFactor", "collisionFailure", "Obstacle Offset Factor", "Collision Failure Rate (%)")
-# # logisticRegressionPlot("results-rrts.tsv", "ballObstacleOffsetFactor", "timeout", "Obstacle Offset Factor", "Timeout Failure Rate (%)")
+# # logisticRegressionPlot("results-rrts", "ballObstacleOffsetFactor", "kickSuccess", "Obstacle Offset Factor", "Kick Success Rate (%)")
+# # logisticRegressionPlot("results-rrts", "ballObstacleOffsetFactor", "kickFailure", "Obstacle Offset Factor", "Kick Failure Rate (%)")
+# # logisticRegressionPlot("results-rrts", "ballObstacleOffsetFactor", "collisionFailure", "Obstacle Offset Factor", "Collision Failure Rate (%)")
+# # logisticRegressionPlot("results-rrts", "ballObstacleOffsetFactor", "timeout", "Obstacle Offset Factor", "Timeout Failure Rate (%)")
 #
 # # Trial 2,3:
-# logisticRegressionPlot("results-rrts.tsv", "ballObstacleRadiusFactor", "kickSuccess", "Obstacle Radius Factor", "Kick Success Rate (%)")
-# logisticRegressionPlot("results-rrts.tsv", "ballObstacleRadiusFactor", "kickFailure", "Obstacle Radius Factor", "Kick Failure Rate (%)")
-# logisticRegressionPlot("results-rrts.tsv", "ballObstacleRadiusFactor", "collisionFailure", "Obstacle Radius Factor", "Collision Failure Rate (%)")
-# logisticRegressionPlot("results-rrts.tsv", "ballObstacleRadiusFactor", "timeout", "Obstacle Radius Factor", "Timeout Failure Rate (%)")
+# logisticRegressionPlot("results-rrts", "ballObstacleRadiusFactor", "kickSuccess", "Obstacle Radius Factor", "Kick Success Rate (%)")
+# logisticRegressionPlot("results-rrts", "ballObstacleRadiusFactor", "kickFailure", "Obstacle Radius Factor", "Kick Failure Rate (%)")
+# logisticRegressionPlot("results-rrts", "ballObstacleRadiusFactor", "collisionFailure", "Obstacle Radius Factor", "Collision Failure Rate (%)")
+# logisticRegressionPlot("results-rrts", "ballObstacleRadiusFactor", "timeout", "Obstacle Radius Factor", "Timeout Failure Rate (%)")

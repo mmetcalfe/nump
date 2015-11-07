@@ -757,7 +757,8 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
         double ballObstacleOffsetFactor = 0.2; // trialConfRand(7);
         double ballObstacleRadiusFactor = 1.0; // 2*trialConfRand(8);
         // int errorMultiplier = 1;// + (int)(4.999*trialConfRand(9)); // explicit rounding to [1, 5]
-        double errorMultiplier = 0.1 + 3.9*trialConfRand(9); // explicit rounding to [1, 5]
+        // double errorMultiplier = 0.1 + 3.9*trialConfRand(9); // explicit rounding to [1, 5]
+        double errorMultiplier = 0.1 + 1.4*trialConfRand(9); // explicit rounding to [1, 5]
         // bool useSquared = trialConfRand(10) < 0.5;
 
         cfg_.seed = trialSeed;
