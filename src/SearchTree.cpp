@@ -270,18 +270,83 @@ namespace nump {
         auto tree = SearchTree(scenario);
         tree.cairo = cr; // TODO: Fix this.
 
+        double feasibleSolutionTime = -1;
+        double lastSolutionImprovementTime = 0;
+        double bestSolutionCost = arma::datum::inf;
+        double lastIdealSolutionAttemptTime = 0;
+        int lastIdealSolutionAttemptIteration = 0;
+
         arma::wall_clock searchTimer;
         searchTimer.tic();
         for (int i = 0; i < tree.scenario.numSamples; i++) {
-            // Enforce the time limit:
+            // Enforce the maximum time limit:
             double elapsedSeconds = searchTimer.toc();
-            if (elapsedSeconds > tree.scenario.searchTimeLimitSeconds) {
-                std::cout << "SearchTree::fromRRTs: Time limit reached after "
+            if (elapsedSeconds > scenario.searchTimeLimitSeconds) {
+                std::cout << "SearchTree::fromRRT: Time limit reached after "
                           << elapsedSeconds
                           << " seconds and "
                           << i
                           << " iterations." << std::endl;
                 break;
+            }
+
+            // Every second, if the ideal kicking position has not been added, add it:
+            double timeSinceIdealPositionAttempt = elapsedSeconds - lastIdealSolutionAttemptTime;
+            int iterationsSinceIdealPositionAttempt = i - lastIdealSolutionAttemptIteration;
+            if (!tree.idealPositionAdded &&
+                timeSinceIdealPositionAttempt > 1 &&
+                iterationsSinceIdealPositionAttempt > 5) {
+                lastIdealSolutionAttemptTime = elapsedSeconds;
+                lastIdealSolutionAttemptIteration = i;
+                BipedRobotModel::State kickPos = BipedRobotModel::getIdealKickingPosition(tree.scenario.ball, tree.scenario.kbConfig, tree.scenario.targetAngle);
+                tree.idealPositionAdded = tree.extendRRTs(cr, kickPos);
+                if (tree.idealPositionAdded) {
+                    std::cout << "SearchTree::fromRRT: Ideal kicking position added ";
+                } else {
+                    std::cout << "SearchTree::fromRRT: Failed to add ideal kicking position ";
+                }
+                std::cout << "at time " << elapsedSeconds << " after " << i << " iterations." << std::endl;
+            }
+
+            // If a feasible path has been found:
+            auto bgn = tree.findBestGoalState();
+            if (bgn) {
+                if (feasibleSolutionTime < 0) {
+                    // Set the time that the first feasible solution was found.
+                    feasibleSolutionTime = elapsedSeconds;
+                    std::cout << "SearchTree::fromRRT: Feasible solution found at time " << elapsedSeconds << "." << std::endl;
+                }
+
+                double timeSinceFeasible = elapsedSeconds - feasibleSolutionTime;
+                if (timeSinceFeasible > scenario.rrtsSearchTimeLimitAfterFeasible) {
+                    std::cout << "SearchTree::fromRRT: Feasible time limit reached after "
+                              << elapsedSeconds
+                              << " seconds, "
+                              << timeSinceFeasible
+                              << " seconds after the first feasible solution was found, and "
+                              << i
+                              << " iterations." << std::endl;
+                    break;
+                }
+
+                // Check for improvement:
+                if (bgn->value.cost < bestSolutionCost) {
+                    std::cout << "SearchTree::fromRRT: Feasible solution improved at time " << elapsedSeconds << "." << std::endl;
+                    bestSolutionCost = bgn->value.cost;
+                    lastSolutionImprovementTime = elapsedSeconds;
+                } else {
+                    double timeSinceImprovement = elapsedSeconds - lastSolutionImprovementTime;
+                    if (timeSinceImprovement > scenario.rrtsMaxTimeWithoutImprovement) {
+                        std::cout << "SearchTree::fromRRT: Feasible time limit reached after "
+                                  << elapsedSeconds
+                                  << " seconds, "
+                                  << timeSinceImprovement
+                                  << " seconds since the last solution improvement was made, and "
+                                  << i
+                                  << " iterations." << std::endl;
+                        break;
+                    }
+                }
             }
 
             // StateT zRand = TrajT::sample(tree.scenario.mapSize);
@@ -376,7 +441,32 @@ namespace nump {
 
         optimiseNeighbours(zNew, zNearby);
 
+        // If the new node is a goal node, add it to the set of goal nodes:
+        if (RobotModel::canAlmostKickBallAtTarget(
+                {zNew->value.state.position, scenario.footprintSize},
+                scenario.ball,
+                scenario.kbConfig,
+                scenario.targetAngle,
+                scenario.targetAngleRange)) {
+            goalVertices.push_back(zNew);
+        }
+
         return true;
+    }
+
+    std::shared_ptr<SearchTree::TreeT::Node> SearchTree::findBestGoalState() const {
+        std::shared_ptr<SearchTree::TreeT::Node> bestNode = nullptr;
+        double bestCost = arma::datum::inf;
+
+        for (auto weakGoalVertex : goalVertices) {
+            auto goalNode = weakGoalVertex.lock();
+            if (goalNode->value.cost < bestCost) {
+                bestNode = goalNode;
+                bestCost = goalNode->value.cost;
+            }
+        }
+
+        return bestNode;
     }
 
 }

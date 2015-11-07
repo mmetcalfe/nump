@@ -40,6 +40,10 @@ namespace nump {
 
         TreeT tree;
         numptest::SearchScenario::Config scenario;
+
+        std::vector<std::weak_ptr<TreeT::Node>> goalVertices;
+//        std::weak_ptr<BeliefNode> bestGoalNode;
+        bool idealPositionAdded = false;
         double timeSpentPlanning = 0;
 
         // std::vector<nump::math::Circle> obstacles;
@@ -48,6 +52,7 @@ namespace nump {
         typedef std::shared_ptr<TreeT::Node> NodeT;
 
 
+        std::shared_ptr<SearchTree::TreeT::Node> findBestGoalState() const;
         nump::Path<BipedRobotModel::State> getSolutionPath() const;
 
     private:

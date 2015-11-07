@@ -120,6 +120,10 @@ numptest::SearchScenario numptest::SearchScenario::fromFile(const std::string &f
     scenario.cfg_.replanInterval = scenarioYaml["replan_interval"].as<double>();
     scenario.cfg_.numSamples = scenarioYaml["num_samples"].as<int>();
 
+    scenario.cfg_.rrtsSearchTimeLimitAfterFeasible = scenarioYaml["rrtsSearchTimeLimitAfterFeasible"].as<double>();
+    scenario.cfg_.rrtsMaxTimeWithoutImprovement = scenarioYaml["rrtsMaxTimeWithoutImprovement"].as<double>();
+    scenario.cfg_.rrtsTimeBetweenIdealSolutionAttempts = scenarioYaml["rrtsTimeBetweenIdealSolutionAttempts"].as<double>();
+
     scenario.cfg_.rrbt.appendRejectCovThreshold = scenarioYaml["rrbt_append_reject_cov_threshold"].as<double>();
     scenario.cfg_.rrbt.appendRejectCostThreshold = scenarioYaml["rrbt_append_reject_cost_threshold"].as<double>();
     scenario.cfg_.rrbt.chanceConstraint = scenarioYaml["rrbt_chance_constraint"].as<double>();
@@ -749,11 +753,12 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
         double targetAngleRange = arma::datum::pi/2; // trialConfRand(4) * arma::datum::pi/2;
         // double replanInterval = cfg_.replanInterval; // 5; // 1 + trialConfRand(5) * 19;
         // double chanceConstraint = 0.6 + trialConfRand(6)*0.4;
-        double chanceConstraint = trialConfRand(6);
-        double ballObstacleOffsetFactor = trialConfRand(7);
-        double ballObstacleRadiusFactor = 2*trialConfRand(8);
-        int errorMultiplier = 1;// + (int)(4.999*trialConfRand(9)); // explicit rounding to [1, 5]
-        bool useSquared = trialConfRand(10) < 0.5;
+        double chanceConstraint = 0.7; // trialConfRand(6);
+        double ballObstacleOffsetFactor = 0.2; // trialConfRand(7);
+        double ballObstacleRadiusFactor = 1.0; // 2*trialConfRand(8);
+        // int errorMultiplier = 1;// + (int)(4.999*trialConfRand(9)); // explicit rounding to [1, 5]
+        double errorMultiplier = 0.1 + 3.9*trialConfRand(9); // explicit rounding to [1, 5]
+        // bool useSquared = trialConfRand(10) < 0.5;
 
         cfg_.seed = trialSeed;
         // cfg_.ballObstacleOffsetFactor = ballObstacleOffsetFactor;
@@ -763,9 +768,9 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
         cfg_.rrbt.errorMultiplier = errorMultiplier;
         // cfg_.searchTimeLimitSeconds = replanInterval;
         cfg_.rrbt.chanceConstraint = chanceConstraint;
-        if (useSquared) {
-            cfg_.rrbt.chanceConstraint = chanceConstraint*chanceConstraint;
-        }
+        // if (useSquared) {
+        //     cfg_.rrbt.chanceConstraint = chanceConstraint*chanceConstraint;
+        // }
 
         std::cout << "{ " << std::endl;
         std::cout << "initialState: "

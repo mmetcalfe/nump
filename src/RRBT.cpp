@@ -162,7 +162,7 @@ namespace nump {
             int iterationsSinceIdealPositionAttempt = i - lastIdealSolutionAttemptIteration;
             if (!tree.idealPositionAdded &&
                 timeSinceIdealPositionAttempt > 1 &&
-                iterationsSinceIdealPositionAttempt > 3) {
+                iterationsSinceIdealPositionAttempt > 5) {
                 lastIdealSolutionAttemptTime = elapsedSeconds;
                 lastIdealSolutionAttemptIteration = i;
                 BipedRobotModel::State kickPos = BipedRobotModel::getIdealKickingPosition(tree.scenario.ball, tree.scenario.kbConfig, tree.scenario.targetAngle);
@@ -176,7 +176,9 @@ namespace nump {
             }
 
             // If a feasible path has been found:
-            if (auto bgn = tree.bestGoalNode.lock()) {
+            // if (auto bgn = tree.ode.lock()) {
+            auto bgn = tree.findBestGoalState();
+            if (bgn) {
                 if (feasibleSolutionTime < 0) {
                     // Set the time that the first feasible solution was found.
                     feasibleSolutionTime = elapsedSeconds;
@@ -665,19 +667,19 @@ namespace nump {
                 scenario.targetAngleRange)) {
             goalVertices.push_back(vRand);
 
-            // Update the best goal node:
-            double bestCost = arma::datum::inf;
-            if (auto bgn = bestGoalNode.lock()) {
-                bestCost = bgn->cost;
-            }
-            auto goalVertex = vRand;
-            for (auto goalNode : goalVertex->value.beliefNodes) {
-                if (goalNode->cost < bestCost) {
-                    bestGoalNode = goalNode;
-                    bestCost = goalNode->cost;
-                    std::cout << "RRBT::extendRRBT: bestGoalNode improved: " << bestCost << "." << std::endl;
-                }
-            }
+            // // Update the best goal node:
+            // double bestCost = arma::datum::inf;
+            // if (auto bgn = bestGoalNode.lock()) {
+            //     bestCost = bgn->cost;
+            // }
+            // auto goalVertex = vRand;
+            // for (auto goalNode : goalVertex->value.beliefNodes) {
+            //     if (goalNode->cost < bestCost) {
+            //         bestGoalNode = goalNode;
+            //         bestCost = goalNode->cost;
+            //         std::cout << "RRBT::extendRRBT: bestGoalNode improved: " << bestCost << "." << std::endl;
+            //     }
+            // }
         }
 
         return true;

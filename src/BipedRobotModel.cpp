@@ -101,7 +101,7 @@ namespace nump {
     }
 
     /// The Q matrix in RRBT's propagate function.
-    BipedRobotModel::MotionCov BipedRobotModel::motionNoiseCovariance(double Δt, const StateT& state, const ControlT& control, const ControlMatrix& Bt, int errorMultiplier) {
+    BipedRobotModel::MotionCov BipedRobotModel::motionNoiseCovariance(double Δt, const StateT& state, const ControlT& control, const ControlMatrix& Bt, double errorMultiplier) {
         // The motion noise in control space mapped into state space.
         // (See M_t and V_t on page 206 of Sebastian Thrun's Probabilistic Robotics book)
 
@@ -189,7 +189,7 @@ namespace nump {
     }
 
     /// The R matrix in RRBT's propagate function.
-    BipedRobotModel::MeasurementCov BipedRobotModel::measurementNoiseCovariance(double Δt, const StateT& state, const Circle& landmark, int errorMultiplier) {
+    BipedRobotModel::MeasurementCov BipedRobotModel::measurementNoiseCovariance(double Δt, const StateT& state, const Circle& landmark, double errorMultiplier) {
         auto expectedMeas = BipedRobotModel::observeLandmark(state, landmark);
         double r = expectedMeas.r();
         BipedRobotModel::MeasurementCov Rt;
@@ -214,7 +214,7 @@ namespace nump {
         }
         return Rt;
     }
-    BipedRobotModel::MeasurementCov BipedRobotModel::measurementNoiseCovariance(double Δt, const StateT& state, const std::vector<Circle>& measurementRegions, int errorMultiplier) {
+    BipedRobotModel::MeasurementCov BipedRobotModel::measurementNoiseCovariance(double Δt, const StateT& state, const std::vector<Circle>& measurementRegions, double errorMultiplier) {
         auto landmark = firstContaining(measurementRegions, state);
         if (landmark != nullptr) {
             return measurementNoiseCovariance(Δt, state, *landmark, errorMultiplier);
@@ -237,7 +237,7 @@ namespace nump {
 
     void BipedRobotModel::EKF::update(double Δt, Transform2D bipedControl,
                                       std::vector<std::pair<Measurement, BipedRobotModel::MeasurementCov>> measurements,
-                                      std::vector<Circle> landmarks, int errorMultiplier) {
+                                      std::vector<Circle> landmarks, double errorMultiplier) {
         arma::vec2 control = {arma::norm(bipedControl.xy()), bipedControl.angle()};
 
         Transform2D μbt = mean.position.localToWorld(Δt*bipedControl);

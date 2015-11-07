@@ -112,11 +112,11 @@ namespace nump {
         static MeasurementMatrix measurementErrorJacobian(double Δt, const State& state, const std::vector<nump::math::Circle>& measurementRegions);
 
         /// The Q matrix in RRBT's propagate function.
-        static MotionCov motionNoiseCovariance(double Δt, const State& state, const Control& control, const ControlMatrix& Bt, int errorMultiplier);
+        static MotionCov motionNoiseCovariance(double Δt, const State& state, const Control& control, const ControlMatrix& Bt, double errorMultiplier);
 
         /// The R matrix in RRBT's propagate function.
-        static MeasurementCov measurementNoiseCovariance(double Δt, const State& state, const Circle& landmark, int errorMultiplier);
-        static MeasurementCov measurementNoiseCovariance(double Δt, const State& state, const std::vector<nump::math::Circle>& measurementRegions, int errorMultiplier);
+        static MeasurementCov measurementNoiseCovariance(double Δt, const State& state, const Circle& landmark, double errorMultiplier);
+        static MeasurementCov measurementNoiseCovariance(double Δt, const State& state, const std::vector<nump::math::Circle>& measurementRegions, double errorMultiplier);
 
 
         static Measurement observeLandmark(const State& state, const Circle& landmark);
@@ -132,7 +132,7 @@ namespace nump {
 //            void update(double Δt, Transform2D control, std::vector<Measurement> measurements, std::vector<Circle> landmarks);
             void update(double Δt, Transform2D control,
                         std::vector<std::pair<Measurement, BipedRobotModel::MeasurementCov>> measurements,
-                        std::vector<Circle> landmarks, int errorMultiplier);
+                        std::vector<Circle> landmarks, double errorMultiplier);
         };
     };
 }
