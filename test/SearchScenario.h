@@ -37,6 +37,9 @@ namespace numptest {
             bool kickSuccess = false;
             double targetAngleRange = arma::datum::pi/3;
             double timeLimit = 1;
+            double searchTimeLimitAfterFeasible = 1;
+            double maxTimeWithoutImprovement = 1;
+            double timeBetweenIdealSolutionAttempts = 1;
             double replanInterval = 3;
             double searchTimeLimit = 3;
             int errorMultiplier = 1;
@@ -62,9 +65,14 @@ namespace numptest {
             // Search settings:
             int seed;
             int numSamples;
-            double searchTimeLimitSeconds;
+            double searchTimeLimitSeconds = 60;
             double searchTrialDuration;
             double replanInterval;
+
+            double searchTimeLimitAfterFeasible = 1000;
+            double maxTimeWithoutImprovement = 1000;
+            double timeBetweenIdealSolutionAttempts = 1;
+
 
             struct RRBT {
                 double appendRejectCovThreshold = 10;

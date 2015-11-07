@@ -51,6 +51,9 @@ namespace nump {
         std::vector<double> iterationTimes;
 
         std::vector<std::weak_ptr<GraphT::Node>> goalVertices;
+        std::weak_ptr<BeliefNode> bestGoalNode;
+        bool idealPositionAdded = false;
+        double timeSpentPlanning = 0;
 
         struct BeliefNode { // n \in v.N
             StateCovT stateCov; // Σ
@@ -133,6 +136,7 @@ namespace nump {
 
         static bool compareCovariancesLT(const RRBT::StateCovT& covA, const RRBT::StateCovT& covB);
 
+        std::shared_ptr<BeliefNode> findBestGoalState() const;
         std::shared_ptr<BeliefNode> findBestGoalStateWithSuccessThreshold() const;
 
         nump::Path<BipedRobotModel::State> getSolutionPath() const;

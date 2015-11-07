@@ -137,10 +137,16 @@ namespace nump {
         auto tree = RRBT(scenario);
         tree.cairo = cr; // TODO: Fix this.
 
+        double feasibleSolutionTime = -1;
+        double lastSolutionImprovementTime = 0;
+        double bestSolutionCost = arma::datum::inf;
+        double lastIdealSolutionAttemptTime = 0;
+        int lastIdealSolutionAttemptIteration = 0;
+
         arma::wall_clock searchTimer;
         searchTimer.tic();
         for (int i = 0; i < scenario.numSamples; i++) {
-            // Enforce the time limit:
+            // Enforce the maximum time limit:
             double elapsedSeconds = searchTimer.toc();
             if (elapsedSeconds > scenario.searchTimeLimitSeconds) {
                 std::cout << "RRBT::fromSearchScenario: Time limit reached after "
@@ -149,6 +155,64 @@ namespace nump {
                           << i
                           << " iterations." << std::endl;
                 break;
+            }
+
+            // Every second, if the ideal kicking position has not been added, add it:
+            double timeSinceIdealPositionAttempt = elapsedSeconds - lastIdealSolutionAttemptTime;
+            int iterationsSinceIdealPositionAttempt = i - lastIdealSolutionAttemptIteration;
+            if (!tree.idealPositionAdded &&
+                timeSinceIdealPositionAttempt > 1 &&
+                iterationsSinceIdealPositionAttempt > 3) {
+                lastIdealSolutionAttemptTime = elapsedSeconds;
+                lastIdealSolutionAttemptIteration = i;
+                BipedRobotModel::State kickPos = BipedRobotModel::getIdealKickingPosition(tree.scenario.ball, tree.scenario.kbConfig, tree.scenario.targetAngle);
+                tree.idealPositionAdded = tree.extendRRBT(cr, kickPos);
+                if (tree.idealPositionAdded) {
+                    std::cout << "RRBT::fromSearchScenario: Ideal kicking position added ";
+                } else {
+                    std::cout << "RRBT::fromSearchScenario: Failed to add ideal kicking position ";
+                }
+                std::cout << "at time " << elapsedSeconds << " after " << i << " iterations." << std::endl;
+            }
+
+            // If a feasible path has been found:
+            if (auto bgn = tree.bestGoalNode.lock()) {
+                if (feasibleSolutionTime < 0) {
+                    // Set the time that the first feasible solution was found.
+                    feasibleSolutionTime = elapsedSeconds;
+                    std::cout << "RRBT::fromSearchScenario: Feasible solution found at time " << elapsedSeconds << "." << std::endl;
+                }
+
+                double timeSinceFeasible = elapsedSeconds - feasibleSolutionTime;
+                if (timeSinceFeasible > scenario.searchTimeLimitAfterFeasible) {
+                    std::cout << "RRBT::fromSearchScenario: Feasible time limit reached after "
+                              << elapsedSeconds
+                              << " seconds, "
+                              << timeSinceFeasible
+                              << " seconds after the first feasible solution was found, and "
+                              << i
+                              << " iterations." << std::endl;
+                    break;
+                }
+
+                // Check for improvement:
+                if (bgn->cost < bestSolutionCost) {
+                    std::cout << "RRBT::fromSearchScenario: Feasible solution improved at time " << elapsedSeconds << "." << std::endl;
+                    bestSolutionCost = bgn->cost;
+                    lastSolutionImprovementTime = elapsedSeconds;
+                } else {
+                    double timeSinceImprovement = elapsedSeconds - lastSolutionImprovementTime;
+                    if (timeSinceImprovement > scenario.maxTimeWithoutImprovement) {
+                        std::cout << "RRBT::fromSearchScenario: Feasible time limit reached after "
+                                  << elapsedSeconds
+                                  << " seconds, "
+                                  << timeSinceImprovement
+                                  << " seconds since the last solution improvement was made, and "
+                                  << i
+                                  << " iterations." << std::endl;
+                        break;
+                    }
+                }
             }
 
             arma::wall_clock timer;
@@ -184,6 +248,8 @@ namespace nump {
             callback(tree, xRand, extended);
         }
 
+        double timeSpentPlanning = searchTimer.toc();
+        tree.timeSpentPlanning = timeSpentPlanning;
         return tree;
     }
 
@@ -504,16 +570,6 @@ namespace nump {
         nRand->containingNode = vRand; // Set containing vertex of the belief node.
         graph.nodes.push_back(vRand);
 
-        // If the new node is a goal node, add it to the set of goal nodes:
-        if (RobotModel::canAlmostKickBallAtTarget(
-                {vRand->value.state.position, scenario.footprintSize},
-                scenario.ball,
-                scenario.kbConfig,
-                scenario.targetAngle,
-                scenario.targetAngleRange)) {
-            goalVertices.push_back(vRand);
-        }
-
         TrajT eRandNearest = connect(vRand->value.state, vNearest->value.state);
 
         // Add eNearestRand and eRandNearest to the edge set.
@@ -600,9 +656,49 @@ namespace nump {
             // std::cout << __LINE__ << ": loop end Q size: " << beliefNodeQ.size()  << std::endl;
         }
 
+        // If the new node is a goal node, add it to the set of goal nodes:
+        if (RobotModel::canAlmostKickBallAtTarget(
+                {vRand->value.state.position, scenario.footprintSize},
+                scenario.ball,
+                scenario.kbConfig,
+                scenario.targetAngle,
+                scenario.targetAngleRange)) {
+            goalVertices.push_back(vRand);
+
+            // Update the best goal node:
+            double bestCost = arma::datum::inf;
+            if (auto bgn = bestGoalNode.lock()) {
+                bestCost = bgn->cost;
+            }
+            auto goalVertex = vRand;
+            for (auto goalNode : goalVertex->value.beliefNodes) {
+                if (goalNode->cost < bestCost) {
+                    bestGoalNode = goalNode;
+                    bestCost = goalNode->cost;
+                    std::cout << "RRBT::extendRRBT: bestGoalNode improved: " << bestCost << "." << std::endl;
+                }
+            }
+        }
+
         return true;
     }
 
+    std::shared_ptr<BeliefNode> RRBT::findBestGoalState() const {
+        std::shared_ptr<BeliefNode> bestNode = nullptr;
+        double bestCost = arma::datum::inf;
+
+        for (auto weakGoalVertex : goalVertices) {
+            auto goalVertex = weakGoalVertex.lock();
+            for (auto goalNode : goalVertex->value.beliefNodes) {
+                if (goalNode->cost < bestCost) {
+                    bestNode = goalNode;
+                    bestCost = goalNode->cost;
+                }
+            }
+        }
+
+        return bestNode;
+    }
 
     std::shared_ptr<BeliefNode> RRBT::findBestGoalStateWithSuccessThreshold() const {
         std::shared_ptr<BeliefNode> bestNode = nullptr;
@@ -693,6 +789,8 @@ namespace nump {
                 // }
             }
         }
+
+        nominalPath.timeSpentPlanning = timeSpentPlanning;
         return nominalPath;
     }
 

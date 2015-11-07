@@ -70,6 +70,7 @@ namespace nump {
     struct Path {
         typedef Trajectory<StateT> TrajT;
         std::list<TrajT> segments;
+        double timeSpentPlanning = 0;
 
         struct Walker {
             typename std::list<TrajT>::const_iterator currentSegment;

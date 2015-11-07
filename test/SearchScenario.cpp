@@ -114,6 +114,9 @@ numptest::SearchScenario numptest::SearchScenario::fromFile(const std::string &f
 
     scenario.cfg_.searchTrialDuration = scenarioYaml["search_trial_duration"].as<double>();
     scenario.cfg_.searchTimeLimitSeconds = scenarioYaml["search_time_limit_seconds"].as<double>();
+    scenario.cfg_.searchTimeLimitAfterFeasible = scenarioYaml["searchTimeLimitAfterFeasible"].as<double>();
+    scenario.cfg_.maxTimeWithoutImprovement = scenarioYaml["maxTimeWithoutImprovement"].as<double>();
+    scenario.cfg_.timeBetweenIdealSolutionAttempts = scenarioYaml["timeBetweenIdealSolutionAttempts"].as<double>();
     scenario.cfg_.replanInterval = scenarioYaml["replan_interval"].as<double>();
     scenario.cfg_.numSamples = scenarioYaml["num_samples"].as<int>();
 
@@ -194,6 +197,9 @@ void appendTrialToFile(
     fs << ", timeLimit: " << trialResult.timeLimit  << std::endl;
     fs << ", targetAngleRange: " << trialResult.targetAngleRange  << std::endl;
     fs << ", finishTime: " << trialResult.finishTime << std::endl;
+    fs << ", searchTimeLimitAfterFeasible: " << trialResult.searchTimeLimitAfterFeasible << std::endl;
+    fs << ", maxTimeWithoutImprovement: " << trialResult.maxTimeWithoutImprovement << std::endl;
+    fs << ", timeBetweenIdealSolutionAttempts: " << trialResult.timeBetweenIdealSolutionAttempts << std::endl;
     fs << ", replanInterval: " << trialResult.replanInterval  << std::endl;
     fs << ", searchTimeLimit: " << trialResult.searchTimeLimit  << std::endl;
     fs << ", numReplans: " << trialResult.numReplans << std::endl;
@@ -329,6 +335,9 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
     trialResult.targetAngleRange = cfg_.targetAngleRange;
     trialResult.finalState = cfg_.initialState;
     trialResult.finishTime = cfg_.searchTrialDuration;
+    trialResult.searchTimeLimitAfterFeasible = cfg_.searchTimeLimitAfterFeasible;
+    trialResult.maxTimeWithoutImprovement = cfg_.maxTimeWithoutImprovement;
+    trialResult.timeBetweenIdealSolutionAttempts = cfg_.timeBetweenIdealSolutionAttempts;
     trialResult.replanInterval = cfg_.replanInterval;
     trialResult.searchTimeLimit = cfg_.searchTimeLimitSeconds;
     trialResult.numReplans = 0;
@@ -362,7 +371,8 @@ numptest::SearchScenario::SearchTrialResult numptest::SearchScenario::simulate(c
     bool pathWasReplaced = false;
     for (currentTime = 0; currentTime < timeLimit; currentTime += timeStep) {
 
-        bool newReplanning = (currentTime - lastPlanningTime) < cfg_.searchTimeLimitSeconds;
+        // bool newReplanning = (currentTime - lastPlanningTime) < cfg_.searchTimeLimitSeconds; // TODO: Replace with actual plan time.
+        bool newReplanning = (currentTime - lastPlanningTime) < nominalPath.timeSpentPlanning; // TODO: Replace with actual plan time.
         if (isReplanning && !newReplanning) {
             isReplanning = false;
             std::cout << "REPLANNING COMPLETE: t = " << currentTime << ", " << walker.isFinished() << std::endl;
@@ -638,16 +648,18 @@ void numptest::SearchScenario::simulation(cairo_t* cr) {
         // Obtain a nominal path using a planning algorithm:
         auto rrbtTree = nump::RRBT::fromSearchScenario(newScenario, cr);
 
-        // Add the goal state to the tree:
-        BipedRobotModel::State kickPos = BipedRobotModel::getIdealKickingPosition(cfg_.ball, cfg_.kbConfig, cfg_.targetAngle);
-        // arma::vec2 targetVec = utility::math::angle::bearingToUnitVector(cfg_.targetAngle);
-        // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.30,kickPos.position.angle()}});
-        // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.25,kickPos.position.angle()}});
-        // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.20,kickPos.position.angle()}});
-        // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.15,kickPos.position.angle()}});
-        // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.10,kickPos.position.angle()}});
-        // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.05,kickPos.position.angle()}});
-        rrbtTree.extendRRBT(cr, kickPos);
+        if (!rrbtTree.idealPositionAdded) {
+            // Add the goal state to the tree:
+            BipedRobotModel::State kickPos = BipedRobotModel::getIdealKickingPosition(cfg_.ball, cfg_.kbConfig, cfg_.targetAngle);
+            // arma::vec2 targetVec = utility::math::angle::bearingToUnitVector(cfg_.targetAngle);
+            // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.30,kickPos.position.angle()}});
+            // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.25,kickPos.position.angle()}});
+            // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.20,kickPos.position.angle()}});
+            // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.15,kickPos.position.angle()}});
+            // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.10,kickPos.position.angle()}});
+            // rrbtTree.extendRRBT(cr, {Transform2D {kickPos.position.xy() - targetVec*0.05,kickPos.position.angle()}});
+            rrbtTree.extendRRBT(cr, kickPos);
+        }
 
         nump::Path<BipedRobotModel::State> newPath = rrbtTree.getSolutionPath();
 
@@ -740,12 +752,12 @@ void numptest::SearchScenario::execute(const std::string& scenario_prefix) {
         double chanceConstraint = trialConfRand(6);
         double ballObstacleOffsetFactor = trialConfRand(7);
         double ballObstacleRadiusFactor = 2*trialConfRand(8);
-        int errorMultiplier = 1 + (int)(4.999*trialConfRand(9)); // explicit rounding to [1, 5]
+        int errorMultiplier = 1;// + (int)(4.999*trialConfRand(9)); // explicit rounding to [1, 5]
         bool useSquared = trialConfRand(10) < 0.5;
 
         cfg_.seed = trialSeed;
         // cfg_.ballObstacleOffsetFactor = ballObstacleOffsetFactor;
-        cfg_.ballObstacleRadiusFactor = ballObstacleRadiusFactor;
+        // cfg_.ballObstacleRadiusFactor = ballObstacleRadiusFactor;
         cfg_.initialState = initialState;
         cfg_.targetAngleRange = targetAngleRange;
         cfg_.rrbt.errorMultiplier = errorMultiplier;

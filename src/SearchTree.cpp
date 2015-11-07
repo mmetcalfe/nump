@@ -45,6 +45,8 @@ namespace nump {
                 nominalPath.segments.push_front(pathNode->value.traj);
             }
         }
+
+        nominalPath.timeSpentPlanning = timeSpentPlanning;
         return nominalPath;
     }
 
@@ -298,6 +300,7 @@ namespace nump {
             callback(tree, zRand, extended);
         }
 
+        tree.timeSpentPlanning = searchTimer.toc();
         return tree;
     }
 

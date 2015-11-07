@@ -40,6 +40,7 @@ namespace nump {
 
         TreeT tree;
         numptest::SearchScenario::Config scenario;
+        double timeSpentPlanning = 0;
 
         // std::vector<nump::math::Circle> obstacles;
 

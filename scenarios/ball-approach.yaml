@@ -6,9 +6,18 @@ seed: RANDOM # RANDOM, or an integer.
 # seed: 56263189
 
 num_samples: 10000
-search_time_limit_seconds: 5
+search_time_limit_seconds: 60
 search_trial_duration: 60
 replan_interval: 10000
+
+# Make RRBT and RRT* versions of these parameters:
+searchTimeLimitAfterFeasible: 5
+maxTimeWithoutImprovement: 3
+timeBetweenIdealSolutionAttempts: 1
+
+rrtsSearchTimeLimitAfterFeasible: 5
+rrtsMaxTimeWithoutImprovement: 1
+rrtsTimeBetweenIdealSolutionAttempts: 1
 
 rrbt_append_reject_cov_threshold: 0.01
 rrbt_append_reject_cost_threshold: 0.001
