@@ -307,8 +307,8 @@ def saveAsCsv(results_table, fname):
 if __name__ == "__main__":
     # Parse arguments:
     parser = argparse.ArgumentParser(description='Plot trial results')
-    parser.add_argument('resultsFile', type=str, nargs='?', default='rrbtTrials.yaml', help='Results file name.')
-    parser.add_argument('rrtsResultsFile', type=str, nargs='?', default='rrtsTrials.yaml', help='Results file name.')
+    parser.add_argument('resultsFile', type=str, nargs='?', default='rrbtTrials-trial3.yaml', help='Results file name.')
+    parser.add_argument('rrtsResultsFile', type=str, nargs='?', default='rrtsTrials-trial3.yaml', help='Results file name.')
     args = parser.parse_args()
 
     # Load results from file:

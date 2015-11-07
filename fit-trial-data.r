@@ -123,14 +123,15 @@ finishTimesPlot <- function(trialDataPrefix, xName, xLabel, xLim) {
 
   model <- glm(formula=yCol~xCol, data=validdata, family=gaussian)
 
-  xPreds <- seq(0,1, 0.01)
+  xPreds <- seq(xLim[1],xLim[2], 0.01)
   yPreds <- predict(model, newdata=list(xCol = xPreds), type="response")
   
   pdf(paste(trialDataPrefix,"-",yName,".pdf", sep=""),width=4.5,height=4.5)
   par(mfrow=c(1,1))
   #plot(rawdata$xCol,rawdata$yCol,pch="|",xlab=xLabel,ylab=yLabel)
+  par(mar=c(1,1,1,1))
   plot(validdata$xCol,validdata$yCol,xlab=xLabel,ylab=yLabel, xlim=xLim, ylim=c(0, 60))
-  lines(xPreds, yPreds)
+  lines(xPreds, yPreds, col='red')
   
   #plot(birthweight[1:200],BPD[1:200],pch="|",xlab="Birthweight (grams)")
   #lines(orderfit[,1],orderfit[,2],lty=1)
@@ -144,7 +145,14 @@ finishTimesPlot <- function(trialDataPrefix, xName, xLabel, xLim) {
   model
 }
 
-summary(finishTimesPlot("results-rrbt", "chanceConstraint", "Chance Constraint (%)", c(0, 1)))
+summary(finishTimesPlot("results-rrbt-trial1", "chanceConstraint", "Chance Constraint (%)", c(0, 1)))
+summary(finishTimesPlot("results-rrts-trial1", "ballObstacleOffsetFactor", "Obstacle Offset Factor", c(0, 1)))
+
+summary(finishTimesPlot("results-rrbt-trial2", "chanceConstraint", "Chance Constraint (%)", c(0, 1)))
+summary(finishTimesPlot("results-rrts-trial2", "ballObstacleRadiusFactor", "Obstacle Radius Factor", c(0, 1)))
+
+summary(finishTimesPlot("results-rrbt-trial3", "chanceConstraint", "Chance Constraint (%)", c(0, 1)))
+summary(finishTimesPlot("results-rrts-trial3", "ballObstacleRadiusFactor", "Obstacle Radius Factor", c(0, 2)))
 
 
 # logisticRegressionPlot("results-rrbt.tsv", "chanceConstraint", "kickSuccess", "Chance Constraint (%)", "Kick Success Rate (%)")
